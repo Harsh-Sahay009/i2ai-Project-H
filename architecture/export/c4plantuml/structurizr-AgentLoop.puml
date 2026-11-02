@@ -1,0 +1,62 @@
+@startuml
+title <size:24>Dynamic View: Freight Invoice Itemizer - Itemization Classifier</size>\n<size:24>One note through the bounded itemization agent.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
+  Container_Boundary("FreightInvoiceItemizer.ItemizationClassifier_boundary", "Itemization Classifier", $tags="") {
+    Component(FreightInvoiceItemizer.ItemizationClassifier.PromptBuilder, "Prompt Builder", $techn="Jinja2", $descr="Builds the agent's system prompt and task message from the versioned template, taxonomy definitions, few-shot set (never containing test-set notes) and extractor hints; wraps note text as untrusted data.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, "Itemization Agent Controller", $techn="Python", $descr="Bounded ReAct-style loop: the pretrained LLM (via the router) chooses tool calls; deterministic tools do all arithmetic, lookup and verification; the loop ends only through submit_itemization or escalate_to_review, within step and call budgets.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ItemizationClassifier.StructuredResponseParser, "Structured Response Parser", $techn="pydantic", $descr="Validates the model output against the item schema; malformed output is a failure, not something to repair by guessing.", $tags="", $link="")
+  }
+
+  Container_Boundary("FreightInvoiceItemizer.AgentToolLibraryMCPServer_boundary", "Agent Tool Library & MCP Server", $tags="") {
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.extract_money_spans, "extract_money_spans", $techn="Tool", $descr="Returns every money token, quantity, rate, tax and already-paid phrase in a note with exact character offsets.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.compute_rate_times_quantity, "compute_rate_times_quantity", $techn="Tool", $descr="Multiplies two numeric spans from the note in Decimal and returns the product with both spans as derivation evidence.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.verify_evidence_span, "verify_evidence_span", $techn="Tool", $descr="Checks that a quoted text is verbatim in the raw note at the given offsets and contains the claimed amount or derivation.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.reconcile_row, "reconcile_row", $techn="Tool", $descr="Computes items total, already-paid net and delta against the row's disputed amount with the configured tolerance; never changes amounts.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.submit_itemization, "submit_itemization", $techn="Tool", $descr="Terminal tool. Accepts items only in the ChargeItem schema with verified evidence; anything else is rejected with a reason the agent can act on.", $tags="", $link="")
+  }
+
+  Container_Boundary("FreightInvoiceItemizer.GuardrailLayer_boundary", "Guardrail Layer", $tags="") {
+    Component(FreightInvoiceItemizer.GuardrailLayer.InputGuarduntrustednotetext, "Input Guard (untrusted note text)", $techn="Python, regex + classifier", $descr="Delimits note text as data, strips control sequences, detects instruction-like content (prompt injection) and quarantines it as a Review reason.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.GuardrailLayer.ToolCallGuard, "Tool-Call Guard", $techn="Python", $descr="Allowlist per agent, argument schema validation, step budget, call budget, duplicate-call detection, terminal-tool requirement.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.GuardrailLayer.OutputGuard, "Output Guard", $techn="Python", $descr="Schema validation, evidence verbatim check, no-edit check, category in taxonomy; a failing submission goes back to the agent once, then to Review.", $tags="", $link="")
+  }
+
+  Container(FreightInvoiceItemizer.ModelRouter, "Model Router", $techn="Python", $descr="Decides which model handles each note, enforces the confidentiality gate, applies fallback, caches responses by content hash and meters tokens and cost. The provider interface is the exit path.", $tags="", $link="")
+}
+
+Container(FreightInvoiceItemizer.ModelRouter, "Model Router", $techn="Python", $descr="Decides which model handles each note, enforces the confidentiality gate, applies fallback, caches responses by content hash and meters tokens and cost. The provider interface is the exit path.", $tags="", $link="")
+
+Rel(FreightInvoiceItemizer.ItemizationClassifier.PromptBuilder, FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, "1: System prompt, task, tool list", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, FreightInvoiceItemizer.GuardrailLayer.InputGuarduntrustednotetext, "2: Wrap note as untrusted data", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, FreightInvoiceItemizer.ModelRouter, "3: LLM turn", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ModelRouter, FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, "4: Tool call: extract_money_spans", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, FreightInvoiceItemizer.GuardrailLayer.ToolCallGuard, "5: Validate call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer.ToolCallGuard, FreightInvoiceItemizer.AgentToolLibraryMCPServer.extract_money_spans, "6: Run tool", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, FreightInvoiceItemizer.ModelRouter, "7: LLM turn with tool result", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ModelRouter, FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, "8: Tool call: compute_rate_times_quantity", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer.ToolCallGuard, FreightInvoiceItemizer.AgentToolLibraryMCPServer.compute_rate_times_quantity, "9: Run tool", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer.ToolCallGuard, FreightInvoiceItemizer.AgentToolLibraryMCPServer.verify_evidence_span, "10: verify_evidence_span", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer.ToolCallGuard, FreightInvoiceItemizer.AgentToolLibraryMCPServer.reconcile_row, "11: reconcile_row", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer.ToolCallGuard, FreightInvoiceItemizer.AgentToolLibraryMCPServer.submit_itemization, "12: submit_itemization", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer.submit_itemization, FreightInvoiceItemizer.GuardrailLayer.OutputGuard, "13: Check schema, evidence, no-edit", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer.OutputGuard, FreightInvoiceItemizer.ItemizationClassifier.StructuredResponseParser, "14: Accepted", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

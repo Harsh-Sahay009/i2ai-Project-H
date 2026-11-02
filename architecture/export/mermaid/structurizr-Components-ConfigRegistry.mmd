@@ -1,0 +1,31 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Component View: Freight Invoice Itemizer - Configuration Registry"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    3["<div style='font-weight: bold'>Itemizer Operator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Project team member who<br />uploads exports and launches<br />runs (UI or CLI), reviews<br />errors, owns configuration<br />and publishes versioned<br />changes.</div>"]
+    style 3 fill:#343ced,stroke:#242aa5,color:#ffffff
+
+    subgraph 9 ["Freight Invoice Itemizer"]
+      style 9 fill:#ffffff,stroke:#1b1c24,color:#1b1c24
+
+      subgraph 107 ["Configuration Registry"]
+        style 107 fill:#ffffff,stroke:#ef601b,color:#ef601b
+
+        108["<div style='font-weight: bold'>Parameter Schema</div><div style='font-size: 70%; margin-top: 0px'>[Component: JSON Schema]</div><div style='font-size: 80%; margin-top:10px'>Declares every parameter:<br />type, default, min/max, owner<br />role, placement, horizon.</div>"]
+        style 108 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        109["<div style='font-weight: bold'>Config Resolver</div><div style='font-size: 70%; margin-top: 0px'>[Component: pydantic-settings]</div><div style='font-size: 80%; margin-top:10px'>Merges layers, validates<br />limits, freezes and hashes<br />the effective config.</div>"]
+        style 109 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        110["<div style='font-weight: bold'>Config Change Log</div><div style='font-size: 70%; margin-top: 0px'>[Component: Git history + CHANGELOG]</div><div style='font-size: 80%; margin-top:10px'>Append-only record: who<br />changed what, why, evidence<br />link, previous value.</div>"]
+        style 110 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+      end
+
+    end
+
+    3-. "<div>Proposes parameter changes<br />via pull request</div><div style='font-size: 70%'></div>" .->110
+    110-. "<div>Validated against</div><div style='font-size: 70%'></div>" .->108
+    109-. "<div>Validates limits</div><div style='font-size: 70%'></div>" .->108
+    109-. "<div>Reads current layer values</div><div style='font-size: 70%'></div>" .->110
+
+  end

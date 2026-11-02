@@ -1,0 +1,71 @@
+@startuml
+title <size:24>Component View: Freight Invoice Itemizer - Agent Tool Library & MCP Server</size>\n<size:24>Level 3 — custom deterministic tools for the itemization agent and MCP analyst tools.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
+  Container_Boundary("FreightInvoiceItemizer.AgentToolLibraryMCPServer_boundary", "Agent Tool Library & MCP Server", $tags="") {
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.extract_money_spans, "extract_money_spans", $techn="Tool", $descr="Returns every money token, quantity, rate, tax and already-paid phrase in a note with exact character offsets.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.lookup_abbreviation, "lookup_abbreviation", $techn="Tool", $descr="Expands a carrier abbreviation or misspelling (e.g. 'DET', 'LMPR') to a canonical term using the versioned lexicon; returns 'unknown' instead of guessing.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.get_charge_categories, "get_charge_categories", $techn="Tool", $descr="Returns the approved taxonomy (codes, definitions, includes / excludes, examples) for the active version.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.compute_rate_times_quantity, "compute_rate_times_quantity", $techn="Tool", $descr="Multiplies two numeric spans from the note in Decimal and returns the product with both spans as derivation evidence.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.verify_evidence_span, "verify_evidence_span", $techn="Tool", $descr="Checks that a quoted text is verbatim in the raw note at the given offsets and contains the claimed amount or derivation.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.reconcile_row, "reconcile_row", $techn="Tool", $descr="Computes items total, already-paid net and delta against the row's disputed amount with the configured tolerance; never changes amounts.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.submit_itemization, "submit_itemization", $techn="Tool", $descr="Terminal tool. Accepts items only in the ChargeItem schema with verified evidence; anything else is rejected with a reason the agent can act on.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.escalate_to_review, "escalate_to_review", $techn="Tool", $descr="Terminal tool. Sends the row to human Review with a reason code from the error taxonomy and a one-sentence explanation.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.AnalysttoolsMCPreadonly, "Analyst tools (MCP, read-only)", $techn="Tool set", $descr="get_run_summary, explain_row, list_error_cases, get_kpi_snapshot, draft_taxonomy_change_request: read-only access to runs and KPIs for Claude Code and the client's agent; never returns TEST rows or masking maps.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.AgentToolLibraryMCPServer.ToolRegistryDocstringLinter, "Tool Registry & Docstring Linter", $techn="Python", $descr="Registers tools with JSON schemas generated from type hints; lints docstrings for purpose, when-to-use, when-not-to-use, args, returns, errors and an example.", $tags="", $link="")
+  }
+
+  Container(FreightInvoiceItemizer.ConfigurationRegistry, "Configuration Registry", $techn="YAML in Git, JSON Schema, pydantic", $descr="The configurable layer. Typed parameters with limits, owner, change log and validity horizon; layered resolution core -> environment -> carrier override; every resolved config is hashed into the run manifest.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.VersionArtifactRegistry, "Version & Artifact Registry", $techn="Filesystem CAS + DuckDB, Git tags", $descr="Content-addressed store and lineage index for every versioned artifact: input snapshots, taxonomy, evaluation sets, prompts, lexicon, calibration maps, model identities, run manifests, outputs, KPI snapshots.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.GroundTruthStore, "Ground Truth Store", $techn="Parquet + DuckDB, access-controlled folder", $descr="Approved charge taxonomy (D1), sealed locked test set (D2), DEV set, FRESH set and labelling records. Test labels are readable only by the KPI Calculator.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.TelemetryEpisodeStore, "Telemetry & Episode Store", $techn="DuckDB", $descr="Action telemetry (what happened), decision telemetry (why) and outcome telemetry (what followed), linked by case_id and tagged with the run's version.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.ItemizationClassifier, "Itemization Classifier", $techn="Python, pydantic", $descr="Turns one note into charge items with category, amount and exact evidence span using a bounded tool-calling LLM agent; checks evidence, reconciles to the disputed amount, scores confidence and assigns the row outcome. Never invents or edits an amount.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.GuardrailLayer, "Guardrail Layer", $techn="Python", $descr="Policy checks around the agent: input guard, tool-call guard, output guard, action guard and privacy guard. Always 'full' in dev and prod; the 'none' and single-guard-off profiles exist only in the experiment environment on synthetic data, for the with/without evaluation.", $tags="", $link="")
+}
+
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.ConfigurationRegistry, "Reads thresholds, tolerances, prompt and lexicon versions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.GroundTruthStore, "Reads the approved taxonomy version", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.TelemetryEpisodeStore, "Writes decision telemetry per item and row", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.VersionArtifactRegistry, "Writes predictions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.GuardrailLayer, "Passes every agent turn, tool call and submission through guards", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.ConfigurationRegistry, "Reads guardrails.profile and budgets", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.TelemetryEpisodeStore, "Writes guard decisions (block, quarantine, resubmit)", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.AgentToolLibraryMCPServer.extract_money_spans, "Allowed call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.AgentToolLibraryMCPServer.lookup_abbreviation, "Allowed call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.AgentToolLibraryMCPServer.get_charge_categories, "Allowed call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.AgentToolLibraryMCPServer.compute_rate_times_quantity, "Allowed call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.AgentToolLibraryMCPServer.verify_evidence_span, "Allowed call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.AgentToolLibraryMCPServer.reconcile_row, "Allowed call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.AgentToolLibraryMCPServer.submit_itemization, "Terminal call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.AgentToolLibraryMCPServer.escalate_to_review, "Terminal call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer.extract_money_spans, FreightInvoiceItemizer.ItemizationClassifier, "Delegates", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer.lookup_abbreviation, FreightInvoiceItemizer.ConfigurationRegistry, "Reads lexicon version", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer.get_charge_categories, FreightInvoiceItemizer.GroundTruthStore, "Reads taxonomy version", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer.verify_evidence_span, FreightInvoiceItemizer.ItemizationClassifier, "Delegates", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer.reconcile_row, FreightInvoiceItemizer.ItemizationClassifier, "Delegates", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer.submit_itemization, FreightInvoiceItemizer.GuardrailLayer, "Submitted items", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.ItemizationClassifier, "Accepted submission", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer.escalate_to_review, FreightInvoiceItemizer.ItemizationClassifier, "Review with reason code", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer.AnalysttoolsMCPreadonly, FreightInvoiceItemizer.VersionArtifactRegistry, "Reads runs, KPI snapshots", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer.AnalysttoolsMCPreadonly, FreightInvoiceItemizer.TelemetryEpisodeStore, "Reads decision telemetry", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer.AnalysttoolsMCPreadonly, FreightInvoiceItemizer.GuardrailLayer, "Screens MCP responses", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer.ToolRegistryDocstringLinter, FreightInvoiceItemizer.AgentToolLibraryMCPServer.AnalysttoolsMCPreadonly, "Registers and lints", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

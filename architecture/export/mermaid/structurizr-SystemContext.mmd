@@ -1,0 +1,30 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["System Context View: Freight Invoice Itemizer"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>PPG Accountant</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Uploads the weekly export,<br />explores itemized results,<br />approves or edits rows in the<br />Review UI, downloads the<br />itemized workbook, and alone<br />decides what is paid.</div>"]
+    style 1 fill:#343ced,stroke:#242aa5,color:#ffffff
+    2["<div style='font-weight: bold'>PPG Client Owner</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Freight Analytics lead at<br />PPG. Approves the charge<br />category list (D1), resolves<br />label disagreements for the<br />locked test set (D2), reviews<br />the prototype (D3) and KPIs<br />in the UI, and authorizes any<br />external AI use.</div>"]
+    style 2 fill:#343ced,stroke:#242aa5,color:#ffffff
+    3["<div style='font-weight: bold'>Itemizer Operator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Project team member who<br />uploads exports and launches<br />runs (UI or CLI), reviews<br />errors, owns configuration<br />and publishes versioned<br />changes.</div>"]
+    style 3 fill:#343ced,stroke:#242aa5,color:#ffffff
+    4["<div style='font-weight: bold'>Labeler / Adjudicator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Team member or PPG accountant<br />who labels notes blind and<br />adjudicates review cases into<br />the four buckets in the UI.</div>"]
+    style 4 fill:#343ced,stroke:#242aa5,color:#ffffff
+    6["<div style='font-weight: bold'>External LLM API Provider</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Hosted large language model<br />inference. Used only with the<br />client owner's written<br />approval and only on masked<br />note text.</div>"]
+    style 6 fill:#8b8c9c,stroke:#8b8c9c,color:#ffffff
+    7["<div style='font-weight: bold'>Standard Charge Code Lists</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>ANSI X12 code lists<br />(licensed) or<br />carrier-published accessorial<br />lists such as XPO's. Level 3<br />stretch only.</div>"]
+    style 7 fill:#ffe3d6,stroke:#8b8c9c,color:#ffffff
+    9["<div style='font-weight: bold'>Freight Invoice Itemizer</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Itemizes each dispute row<br />into charge items (category,<br />amount, exact source words),<br />reconciles them to the<br />disputed amount and labels<br />every row Verified,<br />Discrepancy or Review.</div>"]
+    style 9 fill:#272834,stroke:#1b1c24,color:#ffffff
+
+    3-. "<div>Uploads exports, runs<br />itemization, reviews errors,<br />evaluates and promotes</div><div style='font-size: 70%'>[HTTPS / CLI]</div>" .->9
+    1-. "<div>Uploads exports, reviews<br />rows, downloads the itemized<br />workbook</div><div style='font-size: 70%'>[HTTPS]</div>" .->9
+    2-. "<div>Approves taxonomy, resolves<br />label disagreements, reads<br />KPIs</div><div style='font-size: 70%'>[HTTPS]</div>" .->9
+    4-. "<div>Labels notes blind;<br />adjudicates review cases</div><div style='font-size: 70%'>[HTTPS]</div>" .->9
+    9-. "<div>Sends masked note text for<br />itemization (only if<br />approved)</div><div style='font-size: 70%'>[HTTPS/JSON]</div>" .->6
+    9-. "<div>Maps categories to standard<br />codes (Level 3)</div><div style='font-size: 70%'>[File import]</div>" .->7
+    9-. "<div>Offline fallback review<br />workbook</div><div style='font-size: 70%'>[Excel]</div>" .->1
+
+  end

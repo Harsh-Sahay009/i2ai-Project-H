@@ -1,0 +1,65 @@
+@startuml
+title <size:24>Component View: Freight Invoice Itemizer - Human Review System</size>\n<size:24>Level 3 — capacity-bounded review, adjudication into four buckets, case closure.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+Person(PPGAccountant, "PPG Accountant", $descr="Uploads the weekly export, explores itemized results, approves or edits rows in the Review UI, downloads the itemized workbook, and alone decides what is paid.", $tags="", $link="")
+
+System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
+  Container_Boundary("FreightInvoiceItemizer.HumanReviewSystem_boundary", "Human Review System", $tags="") {
+    Component(FreightInvoiceItemizer.HumanReviewSystem.ReviewQueueBuilder, "Review Queue Builder", $techn="Python", $descr="Selects Review and Discrepancy rows plus a random audit sample of Verified rows; orders by disputed dollars; caps at weekly capacity and reports the overflow as backlog.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.HumanReviewSystem.ReviewWorkbookExporter, "Review Workbook Exporter", $techn="openpyxl", $descr="Offline fallback: writes a review workbook with locked prediction columns and decision columns. Audit-sample rows hide the model outcome to limit automation bias.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.HumanReviewSystem.ReviewDecisionIntake, "Review Decision Intake", $techn="pydantic, pandera", $descr="Single validation path for decisions from the Web UI and from the fallback workbook: checks the prediction version the reviewer saw, requires reason codes on edits, rejects changes to predictions.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.HumanReviewSystem.AdjudicationRecorder, "Adjudication Recorder", $techn="Python", $descr="Sorts each override into AI wrong, human wrong, context changed or genuine exception, with a reason code from the error taxonomy.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.HumanReviewSystem.BlindLabellingProtocol, "Blind Labelling Protocol", $techn="Python", $descr="Two labellers per note without seeing tool output; computes agreement; routes disagreements to the client owner for resolution; seals the locked test set.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.HumanReviewSystem.CaseCloser, "Case Closer", $techn="Python", $descr="Closes a case only with reason code, replay pack, outcome link and version tag; open cases are listed, never fed to tuning.", $tags="", $link="")
+  }
+
+  Container(FreightInvoiceItemizer.WebUI, "Web UI", $techn="Python, Streamlit, OIDC login", $descr="Browser interface for uploading exports, launching and monitoring runs, exploring results with evidence highlighted in the note, reviewing errors, reviewing and adjudicating rows, blind labelling and reading KPIs. Holds no business logic: it calls the Run Console, Human Review System and stores.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.ConfigurationRegistry, "Configuration Registry", $techn="YAML in Git, JSON Schema, pydantic", $descr="The configurable layer. Typed parameters with limits, owner, change log and validity horizon; layered resolution core -> environment -> carrier override; every resolved config is hashed into the run manifest.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.VersionArtifactRegistry, "Version & Artifact Registry", $techn="Filesystem CAS + DuckDB, Git tags", $descr="Content-addressed store and lineage index for every versioned artifact: input snapshots, taxonomy, evaluation sets, prompts, lexicon, calibration maps, model identities, run manifests, outputs, KPI snapshots.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.GroundTruthStore, "Ground Truth Store", $techn="Parquet + DuckDB, access-controlled folder", $descr="Approved charge taxonomy (D1), sealed locked test set (D2), DEV set, FRESH set and labelling records. Test labels are readable only by the KPI Calculator.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.TelemetryEpisodeStore, "Telemetry & Episode Store", $techn="DuckDB", $descr="Action telemetry (what happened), decision telemetry (why) and outcome telemetry (what followed), linked by case_id and tagged with the run's version.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.RunConsole, "Run Console", $techn="Python 3.12, Typer CLI", $descr="Command-line entry point and the only pipeline orchestrator: 'itemizer run <export.xlsx>'. Resolves configuration, opens a run manifest, runs the stages, and exposes evaluate / review / promote sub-commands. The Web UI launches runs through it.", $tags="", $link="")
+}
+
+Rel(PPGAccountant, FreightInvoiceItemizer.WebUI, "Uploads export, explores results, reviews rows, downloads workbook", $techn="HTTPS", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.RunConsole, "Launches 'itemizer run' as a background job; polls status", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.VersionArtifactRegistry, "Stores uploads; reads runs, predictions, outputs and KPI snapshots", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.TelemetryEpisodeStore, "Reads decision telemetry to explain outcomes; writes UI audit events", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.ConfigurationRegistry, "Reads role map, upload limits and review settings", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.ConfigurationRegistry, "Resolves and freezes the effective config", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.VersionArtifactRegistry, "Opens and closes the run manifest", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.HumanReviewSystem.ReviewQueueBuilder, "Reads queue", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.HumanReviewSystem.ReviewDecisionIntake, "Submits decisions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.HumanReviewSystem.AdjudicationRecorder, "Submits bucket and reason code", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.HumanReviewSystem.BlindLabellingProtocol, "Submits blind labels and resolutions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.HumanReviewSystem.ReviewQueueBuilder, "review export", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem.ReviewQueueBuilder, FreightInvoiceItemizer.VersionArtifactRegistry, "Reads predictions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem.ReviewQueueBuilder, FreightInvoiceItemizer.ConfigurationRegistry, "Reads capacity and audit rate", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem.ReviewQueueBuilder, FreightInvoiceItemizer.HumanReviewSystem.ReviewWorkbookExporter, "Queue", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem.ReviewQueueBuilder, FreightInvoiceItemizer.TelemetryEpisodeStore, "Backlog size", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem.ReviewWorkbookExporter, PPGAccountant, "Offline fallback review workbook", $techn="Excel", $tags="", $link="")
+Rel(PPGAccountant, FreightInvoiceItemizer.HumanReviewSystem.ReviewDecisionIntake, "Offline fallback: filled workbook", $techn="Excel", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem.BlindLabellingProtocol, FreightInvoiceItemizer.GroundTruthStore, "Seals evaluation set version", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem.ReviewDecisionIntake, FreightInvoiceItemizer.HumanReviewSystem.AdjudicationRecorder, "Overrides", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem.AdjudicationRecorder, FreightInvoiceItemizer.HumanReviewSystem.CaseCloser, "Adjudicated cases", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem.CaseCloser, FreightInvoiceItemizer.TelemetryEpisodeStore, "Closed cases with outcome links", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem.CaseCloser, FreightInvoiceItemizer.VersionArtifactRegistry, "Replay packs", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

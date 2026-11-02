@@ -1,0 +1,69 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Component View: Freight Invoice Itemizer - Model Router"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    6["<div style='font-weight: bold'>External LLM API Provider</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Hosted large language model<br />inference. Used only with the<br />client owner's written<br />approval and only on masked<br />note text.</div>"]
+    style 6 fill:#8b8c9c,stroke:#8b8c9c,color:#ffffff
+
+    subgraph 9 ["Freight Invoice Itemizer"]
+      style 9 fill:#ffffff,stroke:#1b1c24,color:#1b1c24
+
+      subgraph 33 ["Model Router"]
+        style 33 fill:#ffffff,stroke:#ef601b,color:#ef601b
+
+        34["<div style='font-weight: bold'>Routing Policy Engine</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Applies the configured route:<br />rules-only, local model, or<br />external API, with<br />per-carrier and per-size<br />overrides.</div>"]
+        style 34 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        35["<div style='font-weight: bold'>Confidentiality Gate</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Blocks any external call<br />unless 'external_ai_approved'<br />is true in the active config<br />and the payload is masked.<br />Fails closed.</div>"]
+        style 35 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        36["<div style='font-weight: bold'>Provider Interface</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python Protocol]</div><div style='font-size: 80%; margin-top:10px'>Stable contract:<br />complete(prompt, schema,<br />params) -> structured<br />response + usage. Every<br />adapter must pass the same<br />contract tests.</div>"]
+        style 36 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        37["<div style='font-weight: bold'>External API Adapter</div><div style='font-size: 70%; margin-top: 0px'>[Component: HTTPS SDK]</div><div style='font-size: 80%; margin-top:10px'>Adapter for the hosted LLM<br />API: structured output,<br />retries, timeouts, rate<br />limits.</div>"]
+        style 37 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        38["<div style='font-weight: bold'>Local Model Adapter</div><div style='font-size: 70%; margin-top: 0px'>[Component: HTTP]</div><div style='font-size: 80%; margin-top:10px'>Adapter for the self-hosted<br />model runtime.</div>"]
+        style 38 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        39["<div style='font-weight: bold'>Response Cache</div><div style='font-size: 70%; margin-top: 0px'>[Component: SQLite]</div><div style='font-size: 80%; margin-top:10px'>Keyed by hash(prompt, model<br />id, decoding params). Makes<br />reruns reproducible and<br />cheap; never used across<br />model versions.</div>"]
+        style 39 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        40["<div style='font-weight: bold'>Fallback Controller</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>On provider error, timeout or<br />schema failure, retries then<br />falls back down the<br />configured order; rows that<br />exhaust fallbacks go to<br />Review, never to a guessed<br />answer.</div>"]
+        style 40 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        41["<div style='font-weight: bold'>Cost Meter</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Records tokens in/out,<br />latency and price-table<br />version per call.</div>"]
+        style 41 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+      end
+
+      107["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
+      style 107 fill:#d8f1f6,stroke:#ef601b,color:#272834
+      113[("<div style='font-weight: bold'>Telemetry & Episode Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: DuckDB]</div><div style='font-size: 80%; margin-top:10px'>Action telemetry (what<br />happened), decision telemetry<br />(why) and outcome telemetry<br />(what followed), linked by<br />case_id and tagged with the<br />run's version.</div>")]
+      style 113 fill:#e2e3fb,stroke:#343ced,color:#272834
+      42["<div style='font-weight: bold'>Local Model Runtime</div><div style='font-size: 70%; margin-top: 0px'>[Container: Ollama]</div><div style='font-size: 80%; margin-top:10px'>Self-hosted open-weights<br />model used when external AI<br />is not approved, and as the<br />tested fallback.</div>"]
+      style 42 fill:#e2e3fb,stroke:#8b8c9c,color:#272834
+      43["<div style='font-weight: bold'>Itemization Classifier</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pydantic]</div><div style='font-size: 80%; margin-top:10px'>Turns one note into charge<br />items with category, amount<br />and exact evidence span using<br />a bounded tool-calling LLM<br />agent; checks evidence,<br />reconciles to the disputed<br />amount, scores confidence and<br />assigns the row outcome.<br />Never invents or edits an<br />amount.</div>"]
+      style 43 fill:#e2e3fb,stroke:#343ced,color:#272834
+      94["<div style='font-weight: bold'>Guardrail Layer</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Policy checks around the<br />agent: input guard, tool-call<br />guard, output guard, action<br />guard and privacy guard.<br />Always 'full' in dev and<br />prod; the 'none' and<br />single-guard-off profiles<br />exist only in the experiment<br />environment on synthetic<br />data, for the with/without<br />evaluation.</div>"]
+      style 94 fill:#e2e3fb,stroke:#ef601b,color:#272834
+    end
+
+    43-. "<div>Reads thresholds, tolerances,<br />prompt and lexicon versions</div><div style='font-size: 70%'></div>" .->107
+    43-. "<div>Writes decision telemetry per<br />item and row</div><div style='font-size: 70%'></div>" .->113
+    43-. "<div>Passes every agent turn, tool<br />call and submission through<br />guards</div><div style='font-size: 70%'></div>" .->94
+    94-. "<div>Reads guardrails.profile and<br />budgets</div><div style='font-size: 70%'></div>" .->107
+    94-. "<div>Writes guard decisions<br />(block, quarantine, resubmit)</div><div style='font-size: 70%'></div>" .->113
+    94-. "<div>Accepted submission</div><div style='font-size: 70%'></div>" .->43
+    94-. "<div>Pre-checks model-bound<br />payloads</div><div style='font-size: 70%'></div>" .->35
+    43-. "<div>Itemization request</div><div style='font-size: 70%'></div>" .->34
+    34-. "<div>Reads route, model ids,<br />budget</div><div style='font-size: 70%'></div>" .->107
+    34-. "<div>Looks up cached response</div><div style='font-size: 70%'></div>" .->39
+    34-. "<div>Candidate external call</div><div style='font-size: 70%'></div>" .->35
+    35-. "<div>Approved, masked call</div><div style='font-size: 70%'></div>" .->36
+    34-. "<div>Local call</div><div style='font-size: 70%'></div>" .->36
+    36-. "<div>Dispatches</div><div style='font-size: 70%'></div>" .->37
+    36-. "<div>Dispatches</div><div style='font-size: 70%'></div>" .->38
+    37-. "<div>HTTPS/JSON</div><div style='font-size: 70%'></div>" .->6
+    38-. "<div>HTTP/JSON</div><div style='font-size: 70%'></div>" .->42
+    36-. "<div>Errors, timeouts, schema<br />failures</div><div style='font-size: 70%'></div>" .->40
+    40-. "<div>Next provider in order</div><div style='font-size: 70%'></div>" .->36
+    36-. "<div>Usage</div><div style='font-size: 70%'></div>" .->41
+    41-. "<div>Action telemetry</div><div style='font-size: 70%'></div>" .->113
+    36-. "<div>Stores response</div><div style='font-size: 70%'></div>" .->39
+
+  end

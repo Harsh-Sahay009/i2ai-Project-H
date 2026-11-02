@@ -1,0 +1,75 @@
+@startuml
+title <size:24>Component View: Freight Invoice Itemizer - Run Console</size>\n<size:24>Level 3 — one command, one frozen manifest.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+Person(ItemizerOperator, "Itemizer Operator", $descr="Project team member who uploads exports and launches runs (UI or CLI), reviews errors, owns configuration and publishes versioned changes.", $tags="", $link="")
+
+System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
+  Container_Boundary("FreightInvoiceItemizer.RunConsole_boundary", "Run Console", $tags="") {
+    Component(FreightInvoiceItemizer.RunConsole.CLICommands, "CLI Commands", $techn="Typer", $descr="run, evaluate, review export/import, promote, recertify, replay, report.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.RunConsole.PipelineOrchestrator, "Pipeline Orchestrator", $techn="Python", $descr="Executes the stage graph ingest -> route -> itemize -> format -> score, with resumable checkpoints keyed by run_id.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.RunConsole.RunManifestBuilder, "Run Manifest Builder", $techn="Python, pydantic", $descr="Freezes every input to a run (snapshot hash, config version, taxonomy, prompt, lexicon, model id, code SHA, seed) before any stage executes.", $tags="", $link="")
+  }
+
+  Container(FreightInvoiceItemizer.WebUI, "Web UI", $techn="Python, Streamlit, OIDC login", $descr="Browser interface for uploading exports, launching and monitoring runs, exploring results with evidence highlighted in the note, reviewing errors, reviewing and adjudicating rows, blind labelling and reading KPIs. Holds no business logic: it calls the Run Console, Human Review System and stores.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.ConfigurationRegistry, "Configuration Registry", $techn="YAML in Git, JSON Schema, pydantic", $descr="The configurable layer. Typed parameters with limits, owner, change log and validity horizon; layered resolution core -> environment -> carrier override; every resolved config is hashed into the run manifest.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.VersionArtifactRegistry, "Version & Artifact Registry", $techn="Filesystem CAS + DuckDB, Git tags", $descr="Content-addressed store and lineage index for every versioned artifact: input snapshots, taxonomy, evaluation sets, prompts, lexicon, calibration maps, model identities, run manifests, outputs, KPI snapshots.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.DataTransformationCheck, "Data Transformation & Check", $techn="Python, pandas, openpyxl", $descr="Reads the TMS Excel export, validates it against the input contract, normalizes fields, fingerprints and de-duplicates notes, masks names, and writes an immutable input snapshot.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.ItemizationClassifier, "Itemization Classifier", $techn="Python, pydantic", $descr="Turns one note into charge items with category, amount and exact evidence span using a bounded tool-calling LLM agent; checks evidence, reconciles to the disputed amount, scores confidence and assigns the row outcome. Never invents or edits an amount.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.OutputFormatter, "Output Formatter", $techn="Python, openpyxl", $descr="Writes the Excel deliverable: items sheet (one line per charge with evidence), row summary sheet (outcome, totals, discrepancy) and a run info sheet carrying the manifest.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.HumanReviewSystem, "Human Review System", $techn="Python, openpyxl", $descr="Review service behind the Web UI: builds the review queue within reviewer capacity, validates and records approvals, edits and adjudications, runs blind labelling for the test set, and closes cases. An Excel review workbook remains as an offline fallback.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.KPICalculator, "KPI Calculator", $techn="Python, pandas, scikit-learn, SciPy", $descr="Computes every success and error metric from immutable, versioned inputs only, per population (TEST, DEV, FRESH, PROD), with sample sizes, weights and confidence intervals, and evaluates the Level 1/2/3 gates.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.TrainingCalibrationPipeline, "Training & Calibration Pipeline", $techn="Python, scikit-learn", $descr="Turns closed cases into candidate changes (prompt, few-shot set, lexicon, thresholds, calibration map), replays them on DEV, and submits them to the promotion gate. Has no read access to locked test labels.", $tags="", $link="")
+}
+
+Rel(ItemizerOperator, FreightInvoiceItemizer.WebUI, "Uploads export, launches runs, reviews errors, reads KPIs", $techn="HTTPS", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.DataTransformationCheck, "Pre-checks uploaded export against the input contract", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.VersionArtifactRegistry, "Stores uploads; reads runs, predictions, outputs and KPI snapshots", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.HumanReviewSystem, "Reads queue; submits decisions, labels and adjudications", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.ConfigurationRegistry, "Reads role map, upload limits and review settings", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck, FreightInvoiceItemizer.VersionArtifactRegistry, "Writes raw + normalized input snapshots", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck, FreightInvoiceItemizer.ItemizationClassifier, "Hands over deduplicated, masked notes", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.ConfigurationRegistry, "Reads thresholds, tolerances, prompt and lexicon versions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.VersionArtifactRegistry, "Writes predictions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.OutputFormatter, "Hands over items and row outcomes", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.OutputFormatter, FreightInvoiceItemizer.VersionArtifactRegistry, "Registers the output workbook hash", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem, FreightInvoiceItemizer.VersionArtifactRegistry, "Reads predictions and run manifests", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem, FreightInvoiceItemizer.ConfigurationRegistry, "Reads audit sample rate and weekly capacity", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator, FreightInvoiceItemizer.VersionArtifactRegistry, "Reads manifests and predictions; writes KPI snapshots", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator, FreightInvoiceItemizer.ConfigurationRegistry, "Reads metric set, weights, targets, price table versions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator, FreightInvoiceItemizer.TrainingCalibrationPipeline, "Returns aggregate TEST results to the promotion gate", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.KPICalculator, "Requests DEV scoring and one aggregate TEST evaluation per candidate", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.ConfigurationRegistry, "Publishes approved parameter changes", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.VersionArtifactRegistry, "Registers candidate and published versions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.RunConsole.CLICommands, "Spawns 'itemizer run' job", $techn="", $tags="", $link="")
+Rel(ItemizerOperator, FreightInvoiceItemizer.RunConsole.CLICommands, "Types commands", $techn="CLI", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole.CLICommands, FreightInvoiceItemizer.RunConsole.PipelineOrchestrator, "Invokes", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole.PipelineOrchestrator, FreightInvoiceItemizer.RunConsole.RunManifestBuilder, "Freezes inputs before stage 1", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole.RunManifestBuilder, FreightInvoiceItemizer.ConfigurationRegistry, "Resolves effective config hash", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole.RunManifestBuilder, FreightInvoiceItemizer.VersionArtifactRegistry, "Writes run manifest", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole.PipelineOrchestrator, FreightInvoiceItemizer.DataTransformationCheck, "Stage 1: ingest", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole.PipelineOrchestrator, FreightInvoiceItemizer.ItemizationClassifier, "Stage 2: itemize", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole.PipelineOrchestrator, FreightInvoiceItemizer.OutputFormatter, "Stage 3: format", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole.PipelineOrchestrator, FreightInvoiceItemizer.KPICalculator, "Stage 4: score", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole.CLICommands, FreightInvoiceItemizer.HumanReviewSystem, "review export / import", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole.CLICommands, FreightInvoiceItemizer.TrainingCalibrationPipeline, "calibrate / replay / promote / recertify", $techn="", $tags="", $link="")
+Rel(ItemizerOperator, FreightInvoiceItemizer.TrainingCalibrationPipeline, "Approves publication", $techn="CLI", $tags="", $link="")
+Rel(ItemizerOperator, FreightInvoiceItemizer.ConfigurationRegistry, "Proposes parameter changes via pull request", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

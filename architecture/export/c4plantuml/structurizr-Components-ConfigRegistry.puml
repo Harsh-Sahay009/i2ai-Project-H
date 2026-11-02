@@ -1,0 +1,36 @@
+@startuml
+title <size:24>Component View: Freight Invoice Itemizer - Configuration Registry</size>\n<size:24>Level 3 — the configurable layer with limits, owners and a log.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Component>
+
+Person(ItemizerOperator, "Itemizer Operator", $descr="Project team member who uploads exports and launches runs (UI or CLI), reviews errors, owns configuration and publishes versioned changes.", $tags="", $link="")
+
+System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
+  Container_Boundary("FreightInvoiceItemizer.ConfigurationRegistry_boundary", "Configuration Registry", $tags="") {
+    Component(FreightInvoiceItemizer.ConfigurationRegistry.ParameterSchema, "Parameter Schema", $techn="JSON Schema", $descr="Declares every parameter: type, default, min/max, owner role, placement, horizon.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ConfigurationRegistry.ConfigResolver, "Config Resolver", $techn="pydantic-settings", $descr="Merges layers, validates limits, freezes and hashes the effective config.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ConfigurationRegistry.ConfigChangeLog, "Config Change Log", $techn="Git history + CHANGELOG", $descr="Append-only record: who changed what, why, evidence link, previous value.", $tags="", $link="")
+  }
+
+}
+
+Rel(ItemizerOperator, FreightInvoiceItemizer.ConfigurationRegistry.ConfigChangeLog, "Proposes parameter changes via pull request", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ConfigurationRegistry.ConfigChangeLog, FreightInvoiceItemizer.ConfigurationRegistry.ParameterSchema, "Validated against", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ConfigurationRegistry.ConfigResolver, FreightInvoiceItemizer.ConfigurationRegistry.ParameterSchema, "Validates limits", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ConfigurationRegistry.ConfigResolver, FreightInvoiceItemizer.ConfigurationRegistry.ConfigChangeLog, "Reads current layer values", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml
