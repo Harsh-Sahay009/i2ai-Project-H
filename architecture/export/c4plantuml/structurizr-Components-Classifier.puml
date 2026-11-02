@@ -1,0 +1,86 @@
+@startuml
+title <size:24>Component View: Freight Invoice Itemizer - Itemization Classifier</size>\n<size:24>Level 3 — note to evidence-backed items to row outcome.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
+  Container_Boundary("FreightInvoiceItemizer.ItemizationClassifier_boundary", "Itemization Classifier", $tags="") {
+    Component(FreightInvoiceItemizer.ItemizationClassifier.AmountPatternExtractor, "Amount & Pattern Extractor", $techn="regex, lexicon", $descr="Deterministic pre-pass: finds money tokens, rate x quantity patterns, taxes and 'already paid' phrases using the domain lexicon.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ItemizationClassifier.PromptBuilder, "Prompt Builder", $techn="Jinja2", $descr="Builds the agent's system prompt and task message from the versioned template, taxonomy definitions, few-shot set (never containing test-set notes) and extractor hints; wraps note text as untrusted data.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, "Itemization Agent Controller", $techn="Python", $descr="Bounded ReAct-style loop: the pretrained LLM (via the router) chooses tool calls; deterministic tools do all arithmetic, lookup and verification; the loop ends only through submit_itemization or escalate_to_review, within step and call budgets.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ItemizationClassifier.StructuredResponseParser, "Structured Response Parser", $techn="pydantic", $descr="Validates the model output against the item schema; malformed output is a failure, not something to repair by guessing.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ItemizationClassifier.EvidenceVerifier, "Evidence Verifier", $techn="Python", $descr="Checks that each item's evidence is a verbatim substring of the raw note and that the amount appears in that evidence or is derived by an explicit rate x quantity span.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ItemizationClassifier.CategoryMapper, "Category Mapper", $techn="Python", $descr="Maps the proposed category to the active taxonomy version; unknown labels become 'unmapped' and count toward the not-enough-categories error.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ItemizationClassifier.AmountReconciler, "Amount Reconciler", $techn="Python, Decimal", $descr="Compares the item sum (net of amounts already paid) with the disputed amount within the configured tolerance. Never edits an amount to make a row add up.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ItemizationClassifier.ConfidenceScorer, "Confidence Scorer", $techn="scikit-learn isotonic", $descr="Combines model signals, extractor agreement, evidence checks and reconciliation into a calibrated item and row confidence using the published calibration map.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ItemizationClassifier.OutcomeAssigner, "Outcome Assigner", $techn="Python", $descr="Assigns Verified, Discrepancy, Review or 'no charge stated' using thresholds from the configurable layer, then fans note results out to every row sharing the note.", $tags="", $link="")
+  }
+
+  Container(FreightInvoiceItemizer.ConfigurationRegistry, "Configuration Registry", $techn="YAML in Git, JSON Schema, pydantic", $descr="The configurable layer. Typed parameters with limits, owner, change log and validity horizon; layered resolution core -> environment -> carrier override; every resolved config is hashed into the run manifest.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.VersionArtifactRegistry, "Version & Artifact Registry", $techn="Filesystem CAS + DuckDB, Git tags", $descr="Content-addressed store and lineage index for every versioned artifact: input snapshots, taxonomy, evaluation sets, prompts, lexicon, calibration maps, model identities, run manifests, outputs, KPI snapshots.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.GroundTruthStore, "Ground Truth Store", $techn="Parquet + DuckDB, access-controlled folder", $descr="Approved charge taxonomy (D1), sealed locked test set (D2), DEV set, FRESH set and labelling records. Test labels are readable only by the KPI Calculator.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.TelemetryEpisodeStore, "Telemetry & Episode Store", $techn="DuckDB", $descr="Action telemetry (what happened), decision telemetry (why) and outcome telemetry (what followed), linked by case_id and tagged with the run's version.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.RunConsole, "Run Console", $techn="Python 3.12, Typer CLI", $descr="Command-line entry point and the only pipeline orchestrator: 'itemizer run <export.xlsx>'. Resolves configuration, opens a run manifest, runs the stages, and exposes evaluate / review / promote sub-commands. The Web UI launches runs through it.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.ModelRouter, "Model Router", $techn="Python", $descr="Decides which model handles each note, enforces the confidentiality gate, applies fallback, caches responses by content hash and meters tokens and cost. The provider interface is the exit path.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.OutputFormatter, "Output Formatter", $techn="Python, openpyxl", $descr="Writes the Excel deliverable: items sheet (one line per charge with evidence), row summary sheet (outcome, totals, discrepancy) and a run info sheet carrying the manifest.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.AgentToolLibraryMCPServer, "Agent Tool Library & MCP Server", $techn="Python, MCP Python SDK", $descr="Custom deterministic tools with LLM-oriented docstrings. Pipeline tools are called in-process by the Itemization Agent; analyst tools are served read-only over MCP to Claude Code (team) and to the client's future agent, guided by the skill folder.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.GuardrailLayer, "Guardrail Layer", $techn="Python", $descr="Policy checks around the agent: input guard, tool-call guard, output guard, action guard and privacy guard. Always 'full' in dev and prod; the 'none' and single-guard-off profiles exist only in the experiment environment on synthetic data, for the with/without evaluation.", $tags="", $link="")
+}
+
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.ConfigurationRegistry, "Resolves and freezes the effective config", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.VersionArtifactRegistry, "Opens and closes the run manifest", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.OutputFormatter, "Starts writing the deliverable", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ModelRouter, FreightInvoiceItemizer.ConfigurationRegistry, "Reads routing policy, approval flag, model ids, budgets", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ModelRouter, FreightInvoiceItemizer.TelemetryEpisodeStore, "Writes action telemetry: route, latency, tokens, cost", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.OutputFormatter, FreightInvoiceItemizer.VersionArtifactRegistry, "Registers the output workbook hash", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.ItemizationClassifier.AmountPatternExtractor, "Snapshot id", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.AmountPatternExtractor, FreightInvoiceItemizer.ConfigurationRegistry, "Reads lexicon version", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.AmountPatternExtractor, FreightInvoiceItemizer.ItemizationClassifier.PromptBuilder, "Amount and pattern hints", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.PromptBuilder, FreightInvoiceItemizer.ConfigurationRegistry, "Reads prompt template + few-shot set version", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.PromptBuilder, FreightInvoiceItemizer.GroundTruthStore, "Reads taxonomy definitions and examples", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ModelRouter, FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, "Model turn (tool call or final)", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.StructuredResponseParser, FreightInvoiceItemizer.ItemizationClassifier.EvidenceVerifier, "Parsed items", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.EvidenceVerifier, FreightInvoiceItemizer.ItemizationClassifier.CategoryMapper, "Items with verified evidence", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.CategoryMapper, FreightInvoiceItemizer.ItemizationClassifier.AmountReconciler, "Mapped items", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.AmountReconciler, FreightInvoiceItemizer.ItemizationClassifier.ConfidenceScorer, "Items + reconciliation result", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.ConfidenceScorer, FreightInvoiceItemizer.ConfigurationRegistry, "Reads calibration map version", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.ConfidenceScorer, FreightInvoiceItemizer.ItemizationClassifier.OutcomeAssigner, "Scored items", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.OutcomeAssigner, FreightInvoiceItemizer.ConfigurationRegistry, "Reads thresholds and tolerances", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.OutcomeAssigner, FreightInvoiceItemizer.TelemetryEpisodeStore, "Decision telemetry", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.OutcomeAssigner, FreightInvoiceItemizer.VersionArtifactRegistry, "Predictions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.OutcomeAssigner, FreightInvoiceItemizer.OutputFormatter, "Items + row outcomes", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.ConfigurationRegistry, "Reads guardrails.profile and budgets", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.TelemetryEpisodeStore, "Writes guard decisions (block, quarantine, resubmit)", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.GroundTruthStore, "Reads taxonomy", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.ConfigurationRegistry, "Reads lexicon and tolerances", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.VersionArtifactRegistry, "Reads runs and KPI snapshots for analyst tools", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.TelemetryEpisodeStore, "Reads decision telemetry for explain_row", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.PromptBuilder, FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, "System prompt, task, tool list", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, FreightInvoiceItemizer.ModelRouter, "LLM turn with tool definitions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, FreightInvoiceItemizer.GuardrailLayer, "Wraps and screens note text", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.AgentToolLibraryMCPServer, "Allowed call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.ItemizationClassifier.AmountPatternExtractor, "Delegates", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.ItemizationClassifier.EvidenceVerifier, "Delegates", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.ItemizationClassifier.AmountReconciler, "Delegates", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.GuardrailLayer, "Submitted items", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.ItemizationClassifier.StructuredResponseParser, "Accepted submission", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, "Rejection reason (one retry)", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.ItemizationClassifier.OutcomeAssigner, "Review with reason code", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.ModelRouter, "Pre-checks model-bound payloads", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

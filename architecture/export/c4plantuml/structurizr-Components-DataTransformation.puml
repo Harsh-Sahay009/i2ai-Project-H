@@ -1,0 +1,59 @@
+@startuml
+title <size:24>Component View: Freight Invoice Itemizer - Data Transformation & Check</size>\n<size:24>Level 3 — ingest, validate, deduplicate, mask, snapshot.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
+  Container_Boundary("FreightInvoiceItemizer.DataTransformationCheck_boundary", "Data Transformation & Check", $tags="") {
+    Component(FreightInvoiceItemizer.DataTransformationCheck.ExportReader, "Export Reader", $techn="openpyxl", $descr="Reads the weekly .xlsx export without altering raw cell values.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.DataTransformationCheck.InputContractValidator, "Input Contract Validator", $techn="pandera", $descr="Checks required columns, types, currency, disputed amount > 0, duplicate invoice keys; emits a data-quality report and blocks on fatal errors.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.DataTransformationCheck.FieldNormalizer, "Field Normalizer", $techn="Python", $descr="Normalizes whitespace, encodings and numeric formats into derived columns; raw note text is kept byte-for-byte for evidence checks.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.DataTransformationCheck.NoteFingerprinter, "Note Fingerprinter", $techn="SHA-256", $descr="Hashes normalized note text so repeated notes are itemized once and fanned back out to every row; also excludes locked-test-set notes from tuning data.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.DataTransformationCheck.ConfidentialityMasker, "Confidentiality Masker", $techn="regex + NER (spaCy)", $descr="Replaces person names, phone numbers and emails with stable placeholders before any text leaves the team boundary; keeps a reversible map on team storage only.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.DataTransformationCheck.SnapshotWriter, "Snapshot Writer", $techn="pyarrow", $descr="Writes raw and normalized tables as content-addressed Parquet snapshots and registers them in the version registry.", $tags="", $link="")
+  }
+
+  Container(FreightInvoiceItemizer.WebUI, "Web UI", $techn="Python, Streamlit, OIDC login", $descr="Browser interface for uploading exports, launching and monitoring runs, exploring results with evidence highlighted in the note, reviewing errors, reviewing and adjudicating rows, blind labelling and reading KPIs. Holds no business logic: it calls the Run Console, Human Review System and stores.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.VersionArtifactRegistry, "Version & Artifact Registry", $techn="Filesystem CAS + DuckDB, Git tags", $descr="Content-addressed store and lineage index for every versioned artifact: input snapshots, taxonomy, evaluation sets, prompts, lexicon, calibration maps, model identities, run manifests, outputs, KPI snapshots.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.GroundTruthStore, "Ground Truth Store", $techn="Parquet + DuckDB, access-controlled folder", $descr="Approved charge taxonomy (D1), sealed locked test set (D2), DEV set, FRESH set and labelling records. Test labels are readable only by the KPI Calculator.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.TelemetryEpisodeStore, "Telemetry & Episode Store", $techn="DuckDB", $descr="Action telemetry (what happened), decision telemetry (why) and outcome telemetry (what followed), linked by case_id and tagged with the run's version.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.RunConsole, "Run Console", $techn="Python 3.12, Typer CLI", $descr="Command-line entry point and the only pipeline orchestrator: 'itemizer run <export.xlsx>'. Resolves configuration, opens a run manifest, runs the stages, and exposes evaluate / review / promote sub-commands. The Web UI launches runs through it.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.ItemizationClassifier, "Itemization Classifier", $techn="Python, pydantic", $descr="Turns one note into charge items with category, amount and exact evidence span using a bounded tool-calling LLM agent; checks evidence, reconciles to the disputed amount, scores confidence and assigns the row outcome. Never invents or edits an amount.", $tags="", $link="")
+}
+
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.RunConsole, "Launches 'itemizer run' as a background job; polls status", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.VersionArtifactRegistry, "Stores uploads; reads runs, predictions, outputs and KPI snapshots", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.TelemetryEpisodeStore, "Reads decision telemetry to explain outcomes; writes UI audit events", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.VersionArtifactRegistry, "Opens and closes the run manifest", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.ItemizationClassifier, "Starts itemization for the snapshot", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.GroundTruthStore, "Reads the approved taxonomy version", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.TelemetryEpisodeStore, "Writes decision telemetry per item and row", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.VersionArtifactRegistry, "Writes predictions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.DataTransformationCheck.InputContractValidator, "Pre-checks input contract", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.DataTransformationCheck.ExportReader, "Passes export path", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck.ExportReader, FreightInvoiceItemizer.DataTransformationCheck.InputContractValidator, "Raw table", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck.InputContractValidator, FreightInvoiceItemizer.DataTransformationCheck.FieldNormalizer, "Valid rows", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck.InputContractValidator, FreightInvoiceItemizer.TelemetryEpisodeStore, "Data-quality findings", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck.FieldNormalizer, FreightInvoiceItemizer.DataTransformationCheck.NoteFingerprinter, "Normalized rows", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck.NoteFingerprinter, FreightInvoiceItemizer.GroundTruthStore, "Reads test-set fingerprints", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck.NoteFingerprinter, FreightInvoiceItemizer.DataTransformationCheck.ConfidentialityMasker, "Distinct notes", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck.ConfidentialityMasker, FreightInvoiceItemizer.DataTransformationCheck.SnapshotWriter, "Masked notes + rows", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck.SnapshotWriter, FreightInvoiceItemizer.VersionArtifactRegistry, "Content-addressed snapshot", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck.SnapshotWriter, FreightInvoiceItemizer.ItemizationClassifier, "Snapshot id", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

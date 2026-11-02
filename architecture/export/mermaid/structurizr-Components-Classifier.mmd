@@ -1,0 +1,94 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Component View: Freight Invoice Itemizer - Itemization Classifier"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    subgraph 9 ["Freight Invoice Itemizer"]
+      style 9 fill:#ffffff,stroke:#1b1c24,color:#1b1c24
+
+      subgraph 43 ["Itemization Classifier"]
+        style 43 fill:#ffffff,stroke:#343ced,color:#343ced
+
+        44["<div style='font-weight: bold'>Amount & Pattern Extractor</div><div style='font-size: 70%; margin-top: 0px'>[Component: regex, lexicon]</div><div style='font-size: 80%; margin-top:10px'>Deterministic pre-pass: finds<br />money tokens, rate x quantity<br />patterns, taxes and 'already<br />paid' phrases using the<br />domain lexicon.</div>"]
+        style 44 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        45["<div style='font-weight: bold'>Prompt Builder</div><div style='font-size: 70%; margin-top: 0px'>[Component: Jinja2]</div><div style='font-size: 80%; margin-top:10px'>Builds the agent's system<br />prompt and task message from<br />the versioned template,<br />taxonomy definitions,<br />few-shot set (never<br />containing test-set notes)<br />and extractor hints; wraps<br />note text as untrusted data.</div>"]
+        style 45 fill:#d8f1f6,stroke:#ef601b,color:#272834
+        46["<div style='font-weight: bold'>Itemization Agent Controller</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Bounded ReAct-style loop: the<br />pretrained LLM (via the<br />router) chooses tool calls;<br />deterministic tools do all<br />arithmetic, lookup and<br />verification; the loop ends<br />only through<br />submit_itemization or<br />escalate_to_review, within<br />step and call budgets.</div>"]
+        style 46 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        47["<div style='font-weight: bold'>Structured Response Parser</div><div style='font-size: 70%; margin-top: 0px'>[Component: pydantic]</div><div style='font-size: 80%; margin-top:10px'>Validates the model output<br />against the item schema;<br />malformed output is a<br />failure, not something to<br />repair by guessing.</div>"]
+        style 47 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        48["<div style='font-weight: bold'>Evidence Verifier</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Checks that each item's<br />evidence is a verbatim<br />substring of the raw note and<br />that the amount appears in<br />that evidence or is derived<br />by an explicit rate x<br />quantity span.</div>"]
+        style 48 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        49["<div style='font-weight: bold'>Category Mapper</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Maps the proposed category to<br />the active taxonomy version;<br />unknown labels become<br />'unmapped' and count toward<br />the not-enough-categories<br />error.</div>"]
+        style 49 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        50["<div style='font-weight: bold'>Amount Reconciler</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python, Decimal]</div><div style='font-size: 80%; margin-top:10px'>Compares the item sum (net of<br />amounts already paid) with<br />the disputed amount within<br />the configured tolerance.<br />Never edits an amount to make<br />a row add up.</div>"]
+        style 50 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        51["<div style='font-weight: bold'>Confidence Scorer</div><div style='font-size: 70%; margin-top: 0px'>[Component: scikit-learn isotonic]</div><div style='font-size: 80%; margin-top:10px'>Combines model signals,<br />extractor agreement, evidence<br />checks and reconciliation<br />into a calibrated item and<br />row confidence using the<br />published calibration map.</div>"]
+        style 51 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        52["<div style='font-weight: bold'>Outcome Assigner</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Assigns Verified,<br />Discrepancy, Review or 'no<br />charge stated' using<br />thresholds from the<br />configurable layer, then fans<br />note results out to every row<br />sharing the note.</div>"]
+        style 52 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+      end
+
+      107["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
+      style 107 fill:#d8f1f6,stroke:#ef601b,color:#272834
+      111[("<div style='font-weight: bold'>Version & Artifact Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: Filesystem CAS + DuckDB, Git tags]</div><div style='font-size: 80%; margin-top:10px'>Content-addressed store and<br />lineage index for every<br />versioned artifact: input<br />snapshots, taxonomy,<br />evaluation sets, prompts,<br />lexicon, calibration maps,<br />model identities, run<br />manifests, outputs, KPI<br />snapshots.</div>")]
+      style 111 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      112[("<div style='font-weight: bold'>Ground Truth Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: Parquet + DuckDB, access-controlled folder]</div><div style='font-size: 80%; margin-top:10px'>Approved charge taxonomy<br />(D1), sealed locked test set<br />(D2), DEV set, FRESH set and<br />labelling records. Test<br />labels are readable only by<br />the KPI Calculator.</div>")]
+      style 112 fill:#e2e3fb,stroke:#343ced,color:#272834
+      113[("<div style='font-weight: bold'>Telemetry & Episode Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: DuckDB]</div><div style='font-size: 80%; margin-top:10px'>Action telemetry (what<br />happened), decision telemetry<br />(why) and outcome telemetry<br />(what followed), linked by<br />case_id and tagged with the<br />run's version.</div>")]
+      style 113 fill:#e2e3fb,stroke:#343ced,color:#272834
+      22["<div style='font-weight: bold'>Run Console</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python 3.12, Typer CLI]</div><div style='font-size: 80%; margin-top:10px'>Command-line entry point and<br />the only pipeline<br />orchestrator: 'itemizer run<br /><export.xlsx>'. Resolves<br />configuration, opens a run<br />manifest, runs the stages,<br />and exposes evaluate / review<br />/ promote sub-commands. The<br />Web UI launches runs through<br />it.</div>"]
+      style 22 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      33["<div style='font-weight: bold'>Model Router</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Decides which model handles<br />each note, enforces the<br />confidentiality gate, applies<br />fallback, caches responses by<br />content hash and meters<br />tokens and cost. The provider<br />interface is the exit path.</div>"]
+      style 33 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      53["<div style='font-weight: bold'>Output Formatter</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Writes the Excel deliverable:<br />items sheet (one line per<br />charge with evidence), row<br />summary sheet (outcome,<br />totals, discrepancy) and a<br />run info sheet carrying the<br />manifest.</div>"]
+      style 53 fill:#e2e3fb,stroke:#343ced,color:#272834
+      83["<div style='font-weight: bold'>Agent Tool Library & MCP Server</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, MCP Python SDK]</div><div style='font-size: 80%; margin-top:10px'>Custom deterministic tools<br />with LLM-oriented docstrings.<br />Pipeline tools are called<br />in-process by the Itemization<br />Agent; analyst tools are<br />served read-only over MCP to<br />Claude Code (team) and to the<br />client's future agent, guided<br />by the skill folder.</div>"]
+      style 83 fill:#e2e3fb,stroke:#343ced,color:#272834
+      94["<div style='font-weight: bold'>Guardrail Layer</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Policy checks around the<br />agent: input guard, tool-call<br />guard, output guard, action<br />guard and privacy guard.<br />Always 'full' in dev and<br />prod; the 'none' and<br />single-guard-off profiles<br />exist only in the experiment<br />environment on synthetic<br />data, for the with/without<br />evaluation.</div>"]
+      style 94 fill:#e2e3fb,stroke:#ef601b,color:#272834
+    end
+
+    22-. "<div>Resolves and freezes the<br />effective config</div><div style='font-size: 70%'></div>" .->107
+    22-. "<div>Opens and closes the run<br />manifest</div><div style='font-size: 70%'></div>" .->111
+    22-. "<div>Starts writing the<br />deliverable</div><div style='font-size: 70%'></div>" .->53
+    33-. "<div>Reads routing policy,<br />approval flag, model ids,<br />budgets</div><div style='font-size: 70%'></div>" .->107
+    33-. "<div>Writes action telemetry:<br />route, latency, tokens, cost</div><div style='font-size: 70%'></div>" .->113
+    53-. "<div>Registers the output workbook<br />hash</div><div style='font-size: 70%'></div>" .->111
+    22-. "<div>Snapshot id</div><div style='font-size: 70%'></div>" .->44
+    44-. "<div>Reads lexicon version</div><div style='font-size: 70%'></div>" .->107
+    44-. "<div>Amount and pattern hints</div><div style='font-size: 70%'></div>" .->45
+    45-. "<div>Reads prompt template +<br />few-shot set version</div><div style='font-size: 70%'></div>" .->107
+    45-. "<div>Reads taxonomy definitions<br />and examples</div><div style='font-size: 70%'></div>" .->112
+    33-. "<div>Model turn (tool call or<br />final)</div><div style='font-size: 70%'></div>" .->46
+    47-. "<div>Parsed items</div><div style='font-size: 70%'></div>" .->48
+    48-. "<div>Items with verified evidence</div><div style='font-size: 70%'></div>" .->49
+    49-. "<div>Mapped items</div><div style='font-size: 70%'></div>" .->50
+    50-. "<div>Items + reconciliation result</div><div style='font-size: 70%'></div>" .->51
+    51-. "<div>Reads calibration map version</div><div style='font-size: 70%'></div>" .->107
+    51-. "<div>Scored items</div><div style='font-size: 70%'></div>" .->52
+    52-. "<div>Reads thresholds and<br />tolerances</div><div style='font-size: 70%'></div>" .->107
+    52-. "<div>Decision telemetry</div><div style='font-size: 70%'></div>" .->113
+    52-. "<div>Predictions</div><div style='font-size: 70%'></div>" .->111
+    52-. "<div>Items + row outcomes</div><div style='font-size: 70%'></div>" .->53
+    94-. "<div>Reads guardrails.profile and<br />budgets</div><div style='font-size: 70%'></div>" .->107
+    94-. "<div>Writes guard decisions<br />(block, quarantine, resubmit)</div><div style='font-size: 70%'></div>" .->113
+    83-. "<div>Reads taxonomy</div><div style='font-size: 70%'></div>" .->112
+    83-. "<div>Reads lexicon and tolerances</div><div style='font-size: 70%'></div>" .->107
+    83-. "<div>Reads runs and KPI snapshots<br />for analyst tools</div><div style='font-size: 70%'></div>" .->111
+    83-. "<div>Reads decision telemetry for<br />explain_row</div><div style='font-size: 70%'></div>" .->113
+    45-. "<div>System prompt, task, tool<br />list</div><div style='font-size: 70%'></div>" .->46
+    46-. "<div>LLM turn with tool<br />definitions</div><div style='font-size: 70%'></div>" .->33
+    46-. "<div>Wraps and screens note text</div><div style='font-size: 70%'></div>" .->94
+    94-. "<div>Allowed call</div><div style='font-size: 70%'></div>" .->83
+    83-. "<div>Delegates</div><div style='font-size: 70%'></div>" .->44
+    83-. "<div>Delegates</div><div style='font-size: 70%'></div>" .->48
+    83-. "<div>Delegates</div><div style='font-size: 70%'></div>" .->50
+    83-. "<div>Submitted items</div><div style='font-size: 70%'></div>" .->94
+    94-. "<div>Accepted submission</div><div style='font-size: 70%'></div>" .->47
+    94-. "<div>Rejection reason (one retry)</div><div style='font-size: 70%'></div>" .->46
+    83-. "<div>Review with reason code</div><div style='font-size: 70%'></div>" .->52
+    94-. "<div>Pre-checks model-bound<br />payloads</div><div style='font-size: 70%'></div>" .->33
+
+  end

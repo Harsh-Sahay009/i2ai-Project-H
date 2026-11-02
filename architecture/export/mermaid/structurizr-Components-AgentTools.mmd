@@ -1,0 +1,77 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Component View: Freight Invoice Itemizer - Agent Tool Library & MCP Server"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    subgraph 9 ["Freight Invoice Itemizer"]
+      style 9 fill:#ffffff,stroke:#1b1c24,color:#1b1c24
+
+      subgraph 83 ["Agent Tool Library & MCP Server"]
+        style 83 fill:#ffffff,stroke:#343ced,color:#343ced
+
+        84["<div style='font-weight: bold'>extract_money_spans</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Returns every money token,<br />quantity, rate, tax and<br />already-paid phrase in a note<br />with exact character offsets.</div>"]
+        style 84 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        85["<div style='font-weight: bold'>lookup_abbreviation</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Expands a carrier<br />abbreviation or misspelling<br />(e.g. 'DET', 'LMPR') to a<br />canonical term using the<br />versioned lexicon; returns<br />'unknown' instead of<br />guessing.</div>"]
+        style 85 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        86["<div style='font-weight: bold'>get_charge_categories</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Returns the approved taxonomy<br />(codes, definitions, includes<br />/ excludes, examples) for the<br />active version.</div>"]
+        style 86 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        87["<div style='font-weight: bold'>compute_rate_times_quantity</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Multiplies two numeric spans<br />from the note in Decimal and<br />returns the product with both<br />spans as derivation evidence.</div>"]
+        style 87 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        88["<div style='font-weight: bold'>verify_evidence_span</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Checks that a quoted text is<br />verbatim in the raw note at<br />the given offsets and<br />contains the claimed amount<br />or derivation.</div>"]
+        style 88 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        89["<div style='font-weight: bold'>reconcile_row</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Computes items total,<br />already-paid net and delta<br />against the row's disputed<br />amount with the configured<br />tolerance; never changes<br />amounts.</div>"]
+        style 89 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        90["<div style='font-weight: bold'>submit_itemization</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Terminal tool. Accepts items<br />only in the ChargeItem schema<br />with verified evidence;<br />anything else is rejected<br />with a reason the agent can<br />act on.</div>"]
+        style 90 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        91["<div style='font-weight: bold'>escalate_to_review</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Terminal tool. Sends the row<br />to human Review with a reason<br />code from the error taxonomy<br />and a one-sentence<br />explanation.</div>"]
+        style 91 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        92["<div style='font-weight: bold'>Analyst tools (MCP, read-only)</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool set]</div><div style='font-size: 80%; margin-top:10px'>get_run_summary, explain_row,<br />list_error_cases,<br />get_kpi_snapshot,<br />draft_taxonomy_change_request:<br />read-only access to runs and<br />KPIs for Claude Code and the<br />client's agent; never returns<br />TEST rows or masking maps.</div>"]
+        style 92 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        93["<div style='font-weight: bold'>Tool Registry & Docstring Linter</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Registers tools with JSON<br />schemas generated from type<br />hints; lints docstrings for<br />purpose, when-to-use,<br />when-not-to-use, args,<br />returns, errors and an<br />example.</div>"]
+        style 93 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+      end
+
+      107["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
+      style 107 fill:#d8f1f6,stroke:#ef601b,color:#272834
+      111[("<div style='font-weight: bold'>Version & Artifact Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: Filesystem CAS + DuckDB, Git tags]</div><div style='font-size: 80%; margin-top:10px'>Content-addressed store and<br />lineage index for every<br />versioned artifact: input<br />snapshots, taxonomy,<br />evaluation sets, prompts,<br />lexicon, calibration maps,<br />model identities, run<br />manifests, outputs, KPI<br />snapshots.</div>")]
+      style 111 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      112[("<div style='font-weight: bold'>Ground Truth Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: Parquet + DuckDB, access-controlled folder]</div><div style='font-size: 80%; margin-top:10px'>Approved charge taxonomy<br />(D1), sealed locked test set<br />(D2), DEV set, FRESH set and<br />labelling records. Test<br />labels are readable only by<br />the KPI Calculator.</div>")]
+      style 112 fill:#e2e3fb,stroke:#343ced,color:#272834
+      113[("<div style='font-weight: bold'>Telemetry & Episode Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: DuckDB]</div><div style='font-size: 80%; margin-top:10px'>Action telemetry (what<br />happened), decision telemetry<br />(why) and outcome telemetry<br />(what followed), linked by<br />case_id and tagged with the<br />run's version.</div>")]
+      style 113 fill:#e2e3fb,stroke:#343ced,color:#272834
+      43["<div style='font-weight: bold'>Itemization Classifier</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pydantic]</div><div style='font-size: 80%; margin-top:10px'>Turns one note into charge<br />items with category, amount<br />and exact evidence span using<br />a bounded tool-calling LLM<br />agent; checks evidence,<br />reconciles to the disputed<br />amount, scores confidence and<br />assigns the row outcome.<br />Never invents or edits an<br />amount.</div>"]
+      style 43 fill:#e2e3fb,stroke:#343ced,color:#272834
+      94["<div style='font-weight: bold'>Guardrail Layer</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Policy checks around the<br />agent: input guard, tool-call<br />guard, output guard, action<br />guard and privacy guard.<br />Always 'full' in dev and<br />prod; the 'none' and<br />single-guard-off profiles<br />exist only in the experiment<br />environment on synthetic<br />data, for the with/without<br />evaluation.</div>"]
+      style 94 fill:#e2e3fb,stroke:#ef601b,color:#272834
+    end
+
+    43-. "<div>Reads thresholds, tolerances,<br />prompt and lexicon versions</div><div style='font-size: 70%'></div>" .->107
+    43-. "<div>Reads the approved taxonomy<br />version</div><div style='font-size: 70%'></div>" .->112
+    43-. "<div>Writes decision telemetry per<br />item and row</div><div style='font-size: 70%'></div>" .->113
+    43-. "<div>Writes predictions</div><div style='font-size: 70%'></div>" .->111
+    43-. "<div>Passes every agent turn, tool<br />call and submission through<br />guards</div><div style='font-size: 70%'></div>" .->94
+    94-. "<div>Reads guardrails.profile and<br />budgets</div><div style='font-size: 70%'></div>" .->107
+    94-. "<div>Writes guard decisions<br />(block, quarantine, resubmit)</div><div style='font-size: 70%'></div>" .->113
+    94-. "<div>Allowed call</div><div style='font-size: 70%'></div>" .->84
+    94-. "<div>Allowed call</div><div style='font-size: 70%'></div>" .->85
+    94-. "<div>Allowed call</div><div style='font-size: 70%'></div>" .->86
+    94-. "<div>Allowed call</div><div style='font-size: 70%'></div>" .->87
+    94-. "<div>Allowed call</div><div style='font-size: 70%'></div>" .->88
+    94-. "<div>Allowed call</div><div style='font-size: 70%'></div>" .->89
+    94-. "<div>Terminal call</div><div style='font-size: 70%'></div>" .->90
+    94-. "<div>Terminal call</div><div style='font-size: 70%'></div>" .->91
+    84-. "<div>Delegates</div><div style='font-size: 70%'></div>" .->43
+    85-. "<div>Reads lexicon version</div><div style='font-size: 70%'></div>" .->107
+    86-. "<div>Reads taxonomy version</div><div style='font-size: 70%'></div>" .->112
+    88-. "<div>Delegates</div><div style='font-size: 70%'></div>" .->43
+    89-. "<div>Delegates</div><div style='font-size: 70%'></div>" .->43
+    90-. "<div>Submitted items</div><div style='font-size: 70%'></div>" .->94
+    94-. "<div>Accepted submission</div><div style='font-size: 70%'></div>" .->43
+    91-. "<div>Review with reason code</div><div style='font-size: 70%'></div>" .->43
+    92-. "<div>Reads runs, KPI snapshots</div><div style='font-size: 70%'></div>" .->111
+    92-. "<div>Reads decision telemetry</div><div style='font-size: 70%'></div>" .->113
+    92-. "<div>Screens MCP responses</div><div style='font-size: 70%'></div>" .->94
+    93-. "<div>Registers and lints</div><div style='font-size: 70%'></div>" .->92
+
+  end

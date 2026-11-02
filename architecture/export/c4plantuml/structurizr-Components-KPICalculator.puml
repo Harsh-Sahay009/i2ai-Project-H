@@ -1,0 +1,84 @@
+@startuml
+title <size:24>Component View: Freight Invoice Itemizer - KPI Calculator</size>\n<size:24>Level 3 — metrics from versioned inputs only, with weights, intervals and gates.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
+  Container_Boundary("FreightInvoiceItemizer.KPICalculator_boundary", "KPI Calculator", $tags="") {
+    Component(FreightInvoiceItemizer.KPICalculator.EvaluationSetResolver, "Evaluation Set Resolver", $techn="Python", $descr="Joins a run's predictions to the gold labels of a sealed evaluation set version; refuses unsealed sets and mismatched taxonomy versions.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.KPICalculator.ItemMatcher, "Item Matcher", $techn="SciPy linear_sum_assignment", $descr="Matches predicted to gold items per row by optimal assignment on category and amount tolerance; the matching rule is part of the metric definition version.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.KPICalculator.ErrorTaxonomyClassifier, "Error Taxonomy Classifier", $techn="Python", $descr="Labels each mismatch: bad classification, wrong count (over / under), not enough categories, wrong amount, low confidence, irreproducible.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.KPICalculator.MetricEngine, "Metric Engine", $techn="pandas, scikit-learn", $descr="Computes accuracy, coverage ($ and rows), AUC, cost of inference, evidence verifiability, approval rate, reproducibility and calibration from the metric definition registry.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.KPICalculator.StratumWeighter, "Stratum Weighter", $techn="Python", $descr="Weights test-set results back to the real mix of rows (single-charge, multi-charge, large dispute; row frequency per note) using production snapshot counts.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.KPICalculator.UncertaintyEstimator, "Uncertainty Estimator", $techn="SciPy", $descr="Wilson intervals for proportions, stratified bootstrap for weighted accuracy and AUC; always reports n.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.KPICalculator.LevelGateEvaluator, "Level Gate Evaluator", $techn="Python", $descr="Compares coverage and accuracy, with intervals, against the configured Level 1/2/3 targets and reports pass, fail or inconclusive.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.KPICalculator.LoopHealthMeter, "Loop Health Meter", $techn="Python", $descr="Triage latency, share adjudicated, time to update, review backlog, expired changes.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.KPICalculator.GuardrailAblationEvaluator, "Guardrail Ablation Evaluator", $techn="Python", $descr="Runs paired experiments with guardrails on vs off (and one guard off at a time) on synthetic clean and adversarial sets; reports invented-amount, edited-amount, unverifiable-evidence, injection-success, PII-egress and prohibited-action rates next to accuracy, coverage and cost.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.KPICalculator.AgentBehaviourMetrics, "Agent Behaviour Metrics", $techn="Python", $descr="Tool calls per note, invalid tool calls, step-budget hits, terminal-tool compliance, resubmissions, escalation reasons.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.KPICalculator.KPISnapshotWriter, "KPI Snapshot Writer", $techn="DuckDB", $descr="Writes an immutable KPI snapshot keyed by run, evaluation set, metric definitions, weights and price table versions.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.KPICalculator.MetricDefinitionRegistry, "Metric Definition Registry", $techn="YAML in Git", $descr="Versioned definitions: formula, unit, population, label source, weighting, interval method, target.", $tags="", $link="")
+  }
+
+  Container(FreightInvoiceItemizer.ConfigurationRegistry, "Configuration Registry", $techn="YAML in Git, JSON Schema, pydantic", $descr="The configurable layer. Typed parameters with limits, owner, change log and validity horizon; layered resolution core -> environment -> carrier override; every resolved config is hashed into the run manifest.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.VersionArtifactRegistry, "Version & Artifact Registry", $techn="Filesystem CAS + DuckDB, Git tags", $descr="Content-addressed store and lineage index for every versioned artifact: input snapshots, taxonomy, evaluation sets, prompts, lexicon, calibration maps, model identities, run manifests, outputs, KPI snapshots.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.GroundTruthStore, "Ground Truth Store", $techn="Parquet + DuckDB, access-controlled folder", $descr="Approved charge taxonomy (D1), sealed locked test set (D2), DEV set, FRESH set and labelling records. Test labels are readable only by the KPI Calculator.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.TelemetryEpisodeStore, "Telemetry & Episode Store", $techn="DuckDB", $descr="Action telemetry (what happened), decision telemetry (why) and outcome telemetry (what followed), linked by case_id and tagged with the run's version.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.RunConsole, "Run Console", $techn="Python 3.12, Typer CLI", $descr="Command-line entry point and the only pipeline orchestrator: 'itemizer run <export.xlsx>'. Resolves configuration, opens a run manifest, runs the stages, and exposes evaluate / review / promote sub-commands. The Web UI launches runs through it.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.KPIDashboard, "KPI Dashboard", $techn="Python, Jinja2, Vega-Lite", $descr="Static, self-contained HTML report generated from KPI snapshots (level gates, error breakdown, cost, calibration curve, loop health, run comparison). Shares panel definitions with the Web UI KPI View; used for D5 and offline reading.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.TrainingCalibrationPipeline, "Training & Calibration Pipeline", $techn="Python, scikit-learn", $descr="Turns closed cases into candidate changes (prompt, few-shot set, lexicon, thresholds, calibration map), replays them on DEV, and submits them to the promotion gate. Has no read access to locked test labels.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.GuardrailLayer, "Guardrail Layer", $techn="Python", $descr="Policy checks around the agent: input guard, tool-call guard, output guard, action guard and privacy guard. Always 'full' in dev and prod; the 'none' and single-guard-off profiles exist only in the experiment environment on synthetic data, for the with/without evaluation.", $tags="", $link="")
+}
+
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.ConfigurationRegistry, "Resolves and freezes the effective config", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.VersionArtifactRegistry, "Opens and closes the run manifest", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.TrainingCalibrationPipeline, "Starts calibration, replay and promotion", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.TelemetryEpisodeStore, "Reads closed cases (DEV/PROD only)", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.GroundTruthStore, "Reads DEV labels (never TEST)", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.ConfigurationRegistry, "Publishes approved parameter changes", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.VersionArtifactRegistry, "Registers candidate and published versions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.ConfigurationRegistry, "Reads guardrails.profile and budgets", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.TelemetryEpisodeStore, "Writes guard decisions (block, quarantine, resubmit)", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.GuardrailAblationEvaluator, FreightInvoiceItemizer.GuardrailLayer, "Runs each profile in experiment env", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.GuardrailAblationEvaluator, FreightInvoiceItemizer.KPICalculator.EvaluationSetResolver, "SYNTH / ADV gold", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.GuardrailAblationEvaluator, FreightInvoiceItemizer.KPICalculator.KPISnapshotWriter, "Ablation results", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.AgentBehaviourMetrics, FreightInvoiceItemizer.TelemetryEpisodeStore, "Reads tool-call telemetry", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.AgentBehaviourMetrics, FreightInvoiceItemizer.KPICalculator.KPISnapshotWriter, "Agent metrics", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.KPICalculator.MetricEngine, "Score run", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.KPICalculator.EvaluationSetResolver, "Evaluate candidate", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.MetricEngine, FreightInvoiceItemizer.KPICalculator.MetricDefinitionRegistry, "Loads metric definitions version", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.MetricEngine, FreightInvoiceItemizer.KPICalculator.EvaluationSetResolver, "Requests labelled pairs", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.EvaluationSetResolver, FreightInvoiceItemizer.GroundTruthStore, "Reads sealed labels", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.EvaluationSetResolver, FreightInvoiceItemizer.VersionArtifactRegistry, "Reads predictions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.EvaluationSetResolver, FreightInvoiceItemizer.KPICalculator.ItemMatcher, "Prediction / gold pairs", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.ItemMatcher, FreightInvoiceItemizer.KPICalculator.ErrorTaxonomyClassifier, "Matches and mismatches", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.ErrorTaxonomyClassifier, FreightInvoiceItemizer.KPICalculator.MetricEngine, "Error-typed items and rows", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.MetricEngine, FreightInvoiceItemizer.TelemetryEpisodeStore, "Reads cost and review telemetry", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.MetricEngine, FreightInvoiceItemizer.KPICalculator.StratumWeighter, "Per-stratum results", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.StratumWeighter, FreightInvoiceItemizer.VersionArtifactRegistry, "Reads production stratum counts", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.StratumWeighter, FreightInvoiceItemizer.KPICalculator.UncertaintyEstimator, "Weighted estimates", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.UncertaintyEstimator, FreightInvoiceItemizer.KPICalculator.LevelGateEvaluator, "Estimates with intervals", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.LevelGateEvaluator, FreightInvoiceItemizer.ConfigurationRegistry, "Reads level targets", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.LoopHealthMeter, FreightInvoiceItemizer.TelemetryEpisodeStore, "Reads case timestamps", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.LevelGateEvaluator, FreightInvoiceItemizer.KPICalculator.KPISnapshotWriter, "Gate verdicts", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.LoopHealthMeter, FreightInvoiceItemizer.KPICalculator.KPISnapshotWriter, "Loop metrics", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.KPISnapshotWriter, FreightInvoiceItemizer.VersionArtifactRegistry, "Immutable KPI snapshot", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.KPISnapshotWriter, FreightInvoiceItemizer.KPIDashboard, "Snapshot for rendering", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator.LevelGateEvaluator, FreightInvoiceItemizer.TrainingCalibrationPipeline, "Aggregate TEST verdict", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.KPICalculator.MetricEngine, "Requests FRESH re-evaluation", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

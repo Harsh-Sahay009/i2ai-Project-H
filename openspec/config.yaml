@@ -1,0 +1,42 @@
+schema: spec-driven
+context: |
+  Project: Freight Invoice Itemizer (CMU i2ai x PPG Industries, Fall 2026).
+  Reads the weekly Oracle TMS AutoPay dispute Excel export and turns each dispute row's free-text
+  note into charge items (category, amount, exact evidence words), reconciles them to the disputed
+  amount and labels each row Verified, Discrepancy or Review ("no charge stated" counts as Verified).
+
+  Architecture source of truth: architecture/workspace.dsl (C4, Structurizr DSL) and architecture/docs.
+  Container and component names in specs MUST match the workspace.
+  Strategy guidance: AI Strategy Atlas (M4 owned/controlled/accessed, M5 three placements, design rules,
+  telemetry layers, closed loop, adjudication capacity, validity horizons; M6 authority ladder).
+
+  Stack: Python 3.12, uv, Typer, Streamlit (Web UI, ADR 0007), pandas, pandera, pydantic v2, openpyxl, DuckDB, Parquet (pyarrow),
+  scikit-learn, SciPy, Jinja2, Ollama (local model), optional external LLM API behind a provider interface.
+
+  Non-negotiable invariants (scope section 3):
+  - Every item shows the exact words it came from.
+  - The tool never invents or edits an amount to make a row add up.
+  - A row that does not add up is flagged.
+  Constraints: PPG data stays on team-controlled storage; external AI only with written client approval
+  and masked text; locked test set (D2) never tunes the tool; <30 min for 1,500 rows; one command.
+  Out of scope: TMS/accounting integration, the payment decision.
+  Web UI (ADR 0007, supersedes ADR 0002): upload, results, error review, review, adjudication, blind labelling, KPIs;
+  no business logic in the UI; needs the client's written agreement as a scope change.
+
+  Agentic design (ADR 0008-0010): the classifier is a bounded tool-calling agent on a pretrained LLM; custom
+  deterministic tools (architecture/docs/08) do all arithmetic and verification; a guardrail layer wraps it;
+  public artifacts use synthetic data only (docs/09); guardrails can be ablated only in the experiment env.
+  Course requirements map: architecture/docs/10-course-requirements.md.
+
+  Success metrics: errors (a) bad classification, (b) wrong counts, (c/d) not enough categories,
+  (e) reproducibility, (f) low confidence, (g) wrong amounts; success (a) accuracy, (b) cost of inference,
+  (c) verification text, (d) AUC, (e) approval rate. Definitions: architecture/docs/04-kpi-calculator.md.
+rules:
+  specs:
+    - Use SHALL/MUST; every requirement has at least one #### Scenario with WHEN/THEN.
+    - Name the configurable-layer parameter keys (architecture/docs/03-configurable-layer.md) a requirement depends on.
+  design:
+    - State the atlas placement (common core / configurable layer / local exception) and position (owned / controlled / accessed).
+    - List what the component versions and what it records in telemetry.
+  tasks:
+    - Do not mark tasks complete during design; implementation happens in a later apply phase.

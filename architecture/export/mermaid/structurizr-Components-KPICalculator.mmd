@@ -1,0 +1,94 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Component View: Freight Invoice Itemizer - KPI Calculator"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    subgraph 9 ["Freight Invoice Itemizer"]
+      style 9 fill:#ffffff,stroke:#1b1c24,color:#1b1c24
+
+      subgraph 61 ["KPI Calculator"]
+        style 61 fill:#ffffff,stroke:#343ced,color:#343ced
+
+        62["<div style='font-weight: bold'>Evaluation Set Resolver</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Joins a run's predictions to<br />the gold labels of a sealed<br />evaluation set version;<br />refuses unsealed sets and<br />mismatched taxonomy versions.</div>"]
+        style 62 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        63["<div style='font-weight: bold'>Item Matcher</div><div style='font-size: 70%; margin-top: 0px'>[Component: SciPy linear_sum_assignment]</div><div style='font-size: 80%; margin-top:10px'>Matches predicted to gold<br />items per row by optimal<br />assignment on category and<br />amount tolerance; the<br />matching rule is part of the<br />metric definition version.</div>"]
+        style 63 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        64["<div style='font-weight: bold'>Error Taxonomy Classifier</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Labels each mismatch: bad<br />classification, wrong count<br />(over / under), not enough<br />categories, wrong amount, low<br />confidence, irreproducible.</div>"]
+        style 64 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        65["<div style='font-weight: bold'>Metric Engine</div><div style='font-size: 70%; margin-top: 0px'>[Component: pandas, scikit-learn]</div><div style='font-size: 80%; margin-top:10px'>Computes accuracy, coverage<br />($ and rows), AUC, cost of<br />inference, evidence<br />verifiability, approval rate,<br />reproducibility and<br />calibration from the metric<br />definition registry.</div>"]
+        style 65 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        66["<div style='font-weight: bold'>Stratum Weighter</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Weights test-set results back<br />to the real mix of rows<br />(single-charge, multi-charge,<br />large dispute; row frequency<br />per note) using production<br />snapshot counts.</div>"]
+        style 66 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        67["<div style='font-weight: bold'>Uncertainty Estimator</div><div style='font-size: 70%; margin-top: 0px'>[Component: SciPy]</div><div style='font-size: 80%; margin-top:10px'>Wilson intervals for<br />proportions, stratified<br />bootstrap for weighted<br />accuracy and AUC; always<br />reports n.</div>"]
+        style 67 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        68["<div style='font-weight: bold'>Level Gate Evaluator</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Compares coverage and<br />accuracy, with intervals,<br />against the configured Level<br />1/2/3 targets and reports<br />pass, fail or inconclusive.</div>"]
+        style 68 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        69["<div style='font-weight: bold'>Loop Health Meter</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Triage latency, share<br />adjudicated, time to update,<br />review backlog, expired<br />changes.</div>"]
+        style 69 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        70["<div style='font-weight: bold'>Guardrail Ablation Evaluator</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Runs paired experiments with<br />guardrails on vs off (and one<br />guard off at a time) on<br />synthetic clean and<br />adversarial sets; reports<br />invented-amount,<br />edited-amount,<br />unverifiable-evidence,<br />injection-success, PII-egress<br />and prohibited-action rates<br />next to accuracy, coverage<br />and cost.</div>"]
+        style 70 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        71["<div style='font-weight: bold'>Agent Behaviour Metrics</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Tool calls per note, invalid<br />tool calls, step-budget hits,<br />terminal-tool compliance,<br />resubmissions, escalation<br />reasons.</div>"]
+        style 71 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        72["<div style='font-weight: bold'>KPI Snapshot Writer</div><div style='font-size: 70%; margin-top: 0px'>[Component: DuckDB]</div><div style='font-size: 80%; margin-top:10px'>Writes an immutable KPI<br />snapshot keyed by run,<br />evaluation set, metric<br />definitions, weights and<br />price table versions.</div>"]
+        style 72 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        73["<div style='font-weight: bold'>Metric Definition Registry</div><div style='font-size: 70%; margin-top: 0px'>[Component: YAML in Git]</div><div style='font-size: 80%; margin-top:10px'>Versioned definitions:<br />formula, unit, population,<br />label source, weighting,<br />interval method, target.</div>"]
+        style 73 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+      end
+
+      107["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
+      style 107 fill:#d8f1f6,stroke:#ef601b,color:#272834
+      111[("<div style='font-weight: bold'>Version & Artifact Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: Filesystem CAS + DuckDB, Git tags]</div><div style='font-size: 80%; margin-top:10px'>Content-addressed store and<br />lineage index for every<br />versioned artifact: input<br />snapshots, taxonomy,<br />evaluation sets, prompts,<br />lexicon, calibration maps,<br />model identities, run<br />manifests, outputs, KPI<br />snapshots.</div>")]
+      style 111 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      112[("<div style='font-weight: bold'>Ground Truth Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: Parquet + DuckDB, access-controlled folder]</div><div style='font-size: 80%; margin-top:10px'>Approved charge taxonomy<br />(D1), sealed locked test set<br />(D2), DEV set, FRESH set and<br />labelling records. Test<br />labels are readable only by<br />the KPI Calculator.</div>")]
+      style 112 fill:#e2e3fb,stroke:#343ced,color:#272834
+      113[("<div style='font-weight: bold'>Telemetry & Episode Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: DuckDB]</div><div style='font-size: 80%; margin-top:10px'>Action telemetry (what<br />happened), decision telemetry<br />(why) and outcome telemetry<br />(what followed), linked by<br />case_id and tagged with the<br />run's version.</div>")]
+      style 113 fill:#e2e3fb,stroke:#343ced,color:#272834
+      22["<div style='font-weight: bold'>Run Console</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python 3.12, Typer CLI]</div><div style='font-size: 80%; margin-top:10px'>Command-line entry point and<br />the only pipeline<br />orchestrator: 'itemizer run<br /><export.xlsx>'. Resolves<br />configuration, opens a run<br />manifest, runs the stages,<br />and exposes evaluate / review<br />/ promote sub-commands. The<br />Web UI launches runs through<br />it.</div>"]
+      style 22 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      74["<div style='font-weight: bold'>KPI Dashboard</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, Jinja2, Vega-Lite]</div><div style='font-size: 80%; margin-top:10px'>Static, self-contained HTML<br />report generated from KPI<br />snapshots (level gates, error<br />breakdown, cost, calibration<br />curve, loop health, run<br />comparison). Shares panel<br />definitions with the Web UI<br />KPI View; used for D5 and<br />offline reading.</div>"]
+      style 74 fill:#e2e3fb,stroke:#343ced,color:#272834
+      75["<div style='font-weight: bold'>Training & Calibration Pipeline</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, scikit-learn]</div><div style='font-size: 80%; margin-top:10px'>Turns closed cases into<br />candidate changes (prompt,<br />few-shot set, lexicon,<br />thresholds, calibration map),<br />replays them on DEV, and<br />submits them to the promotion<br />gate. Has no read access to<br />locked test labels.</div>"]
+      style 75 fill:#d8f1f6,stroke:#343ced,color:#272834
+      94["<div style='font-weight: bold'>Guardrail Layer</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Policy checks around the<br />agent: input guard, tool-call<br />guard, output guard, action<br />guard and privacy guard.<br />Always 'full' in dev and<br />prod; the 'none' and<br />single-guard-off profiles<br />exist only in the experiment<br />environment on synthetic<br />data, for the with/without<br />evaluation.</div>"]
+      style 94 fill:#e2e3fb,stroke:#ef601b,color:#272834
+    end
+
+    22-. "<div>Resolves and freezes the<br />effective config</div><div style='font-size: 70%'></div>" .->107
+    22-. "<div>Opens and closes the run<br />manifest</div><div style='font-size: 70%'></div>" .->111
+    22-. "<div>Starts calibration, replay<br />and promotion</div><div style='font-size: 70%'></div>" .->75
+    75-. "<div>Reads closed cases (DEV/PROD<br />only)</div><div style='font-size: 70%'></div>" .->113
+    75-. "<div>Reads DEV labels (never TEST)</div><div style='font-size: 70%'></div>" .->112
+    75-. "<div>Publishes approved parameter<br />changes</div><div style='font-size: 70%'></div>" .->107
+    75-. "<div>Registers candidate and<br />published versions</div><div style='font-size: 70%'></div>" .->111
+    94-. "<div>Reads guardrails.profile and<br />budgets</div><div style='font-size: 70%'></div>" .->107
+    94-. "<div>Writes guard decisions<br />(block, quarantine, resubmit)</div><div style='font-size: 70%'></div>" .->113
+    70-. "<div>Runs each profile in<br />experiment env</div><div style='font-size: 70%'></div>" .->94
+    70-. "<div>SYNTH / ADV gold</div><div style='font-size: 70%'></div>" .->62
+    70-. "<div>Ablation results</div><div style='font-size: 70%'></div>" .->72
+    71-. "<div>Reads tool-call telemetry</div><div style='font-size: 70%'></div>" .->113
+    71-. "<div>Agent metrics</div><div style='font-size: 70%'></div>" .->72
+    22-. "<div>Score run</div><div style='font-size: 70%'></div>" .->65
+    75-. "<div>Evaluate candidate</div><div style='font-size: 70%'></div>" .->62
+    65-. "<div>Loads metric definitions<br />version</div><div style='font-size: 70%'></div>" .->73
+    65-. "<div>Requests labelled pairs</div><div style='font-size: 70%'></div>" .->62
+    62-. "<div>Reads sealed labels</div><div style='font-size: 70%'></div>" .->112
+    62-. "<div>Reads predictions</div><div style='font-size: 70%'></div>" .->111
+    62-. "<div>Prediction / gold pairs</div><div style='font-size: 70%'></div>" .->63
+    63-. "<div>Matches and mismatches</div><div style='font-size: 70%'></div>" .->64
+    64-. "<div>Error-typed items and rows</div><div style='font-size: 70%'></div>" .->65
+    65-. "<div>Reads cost and review<br />telemetry</div><div style='font-size: 70%'></div>" .->113
+    65-. "<div>Per-stratum results</div><div style='font-size: 70%'></div>" .->66
+    66-. "<div>Reads production stratum<br />counts</div><div style='font-size: 70%'></div>" .->111
+    66-. "<div>Weighted estimates</div><div style='font-size: 70%'></div>" .->67
+    67-. "<div>Estimates with intervals</div><div style='font-size: 70%'></div>" .->68
+    68-. "<div>Reads level targets</div><div style='font-size: 70%'></div>" .->107
+    69-. "<div>Reads case timestamps</div><div style='font-size: 70%'></div>" .->113
+    68-. "<div>Gate verdicts</div><div style='font-size: 70%'></div>" .->72
+    69-. "<div>Loop metrics</div><div style='font-size: 70%'></div>" .->72
+    72-. "<div>Immutable KPI snapshot</div><div style='font-size: 70%'></div>" .->111
+    72-. "<div>Snapshot for rendering</div><div style='font-size: 70%'></div>" .->74
+    68-. "<div>Aggregate TEST verdict</div><div style='font-size: 70%'></div>" .->75
+    75-. "<div>Requests FRESH re-evaluation</div><div style='font-size: 70%'></div>" .->65
+
+  end

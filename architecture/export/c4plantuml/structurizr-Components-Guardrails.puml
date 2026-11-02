@@ -1,0 +1,58 @@
+@startuml
+title <size:24>Component View: Freight Invoice Itemizer - Guardrail Layer</size>\n<size:24>Level 3 — input, tool-call, output, action and privacy guards.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
+  Container_Boundary("FreightInvoiceItemizer.GuardrailLayer_boundary", "Guardrail Layer", $tags="") {
+    Component(FreightInvoiceItemizer.GuardrailLayer.GuardrailProfileResolver, "Guardrail Profile Resolver", $techn="Python", $descr="Resolves guardrails.profile; refuses anything but 'full' outside the experiment environment.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.GuardrailLayer.InputGuarduntrustednotetext, "Input Guard (untrusted note text)", $techn="Python, regex + classifier", $descr="Delimits note text as data, strips control sequences, detects instruction-like content (prompt injection) and quarantines it as a Review reason.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.GuardrailLayer.ToolCallGuard, "Tool-Call Guard", $techn="Python", $descr="Allowlist per agent, argument schema validation, step budget, call budget, duplicate-call detection, terminal-tool requirement.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.GuardrailLayer.OutputGuard, "Output Guard", $techn="Python", $descr="Schema validation, evidence verbatim check, no-edit check, category in taxonomy; a failing submission goes back to the agent once, then to Review.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.GuardrailLayer.ActionGuard, "Action Guard", $techn="Python", $descr="Blocks prohibited actions and language: payment decisions, approvals, writing to source data, contacting carriers.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.GuardrailLayer.PrivacyGuard, "Privacy Guard", $techn="Python", $descr="Blocks PII in any model-bound or MCP-bound payload; works with the router's confidentiality gate.", $tags="", $link="")
+  }
+
+  Container(FreightInvoiceItemizer.ConfigurationRegistry, "Configuration Registry", $techn="YAML in Git, JSON Schema, pydantic", $descr="The configurable layer. Typed parameters with limits, owner, change log and validity horizon; layered resolution core -> environment -> carrier override; every resolved config is hashed into the run manifest.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.ModelRouter, "Model Router", $techn="Python", $descr="Decides which model handles each note, enforces the confidentiality gate, applies fallback, caches responses by content hash and meters tokens and cost. The provider interface is the exit path.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.ItemizationClassifier, "Itemization Classifier", $techn="Python, pydantic", $descr="Turns one note into charge items with category, amount and exact evidence span using a bounded tool-calling LLM agent; checks evidence, reconciles to the disputed amount, scores confidence and assigns the row outcome. Never invents or edits an amount.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.KPICalculator, "KPI Calculator", $techn="Python, pandas, scikit-learn, SciPy", $descr="Computes every success and error metric from immutable, versioned inputs only, per population (TEST, DEV, FRESH, PROD), with sample sizes, weights and confidence intervals, and evaluates the Level 1/2/3 gates.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.AgentToolLibraryMCPServer, "Agent Tool Library & MCP Server", $techn="Python, MCP Python SDK", $descr="Custom deterministic tools with LLM-oriented docstrings. Pipeline tools are called in-process by the Itemization Agent; analyst tools are served read-only over MCP to Claude Code (team) and to the client's future agent, guided by the skill folder.", $tags="", $link="")
+}
+
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.ModelRouter, "Requests structured itemization per note", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.ConfigurationRegistry, "Reads thresholds, tolerances, prompt and lexicon versions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ModelRouter, FreightInvoiceItemizer.ConfigurationRegistry, "Reads routing policy, approval flag, model ids, budgets", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator, FreightInvoiceItemizer.ConfigurationRegistry, "Reads metric set, weights, targets, price table versions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ModelRouter, FreightInvoiceItemizer.ItemizationClassifier, "Model turn (tool call or final)", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.AgentToolLibraryMCPServer, "Calls pipeline tools chosen by the agent", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.ConfigurationRegistry, "Reads lexicon and tolerances", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.GuardrailLayer.InputGuarduntrustednotetext, "Wraps and screens note text", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.GuardrailLayer.ToolCallGuard, "Proposed tool call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer.ToolCallGuard, FreightInvoiceItemizer.AgentToolLibraryMCPServer, "Allowed call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer.ToolCallGuard, FreightInvoiceItemizer.GuardrailLayer.ActionGuard, "Checks for prohibited actions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.ItemizationClassifier, "Delegates", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.GuardrailLayer.OutputGuard, "Submitted items", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer.OutputGuard, FreightInvoiceItemizer.ItemizationClassifier, "Accepted submission", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer.PrivacyGuard, FreightInvoiceItemizer.ModelRouter, "Pre-checks model-bound payloads", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.GuardrailLayer.PrivacyGuard, "Model-bound payload", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GuardrailLayer.GuardrailProfileResolver, FreightInvoiceItemizer.ConfigurationRegistry, "Reads guardrails.profile", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.AgentToolLibraryMCPServer, FreightInvoiceItemizer.GuardrailLayer.PrivacyGuard, "Screens MCP responses", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator, FreightInvoiceItemizer.GuardrailLayer.GuardrailProfileResolver, "Runs each profile in experiment env", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

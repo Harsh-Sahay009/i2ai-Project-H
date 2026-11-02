@@ -1,0 +1,95 @@
+@startuml
+title <size:24>Component View: Freight Invoice Itemizer - Web UI</size>\n<size:24>Level 3 — upload, run, results, error review, review, adjudication, blind labelling, KPIs; no business logic in the UI.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+Person(PPGAccountant, "PPG Accountant", $descr="Uploads the weekly export, explores itemized results, approves or edits rows in the Review UI, downloads the itemized workbook, and alone decides what is paid.", $tags="", $link="")
+Person(PPGClientOwner, "PPG Client Owner", $descr="Freight Analytics lead at PPG. Approves the charge category list (D1), resolves label disagreements for the locked test set (D2), reviews the prototype (D3) and KPIs in the UI, and authorizes any external AI use.", $tags="", $link="")
+Person(ItemizerOperator, "Itemizer Operator", $descr="Project team member who uploads exports and launches runs (UI or CLI), reviews errors, owns configuration and publishes versioned changes.", $tags="", $link="")
+Person(LabelerAdjudicator, "Labeler / Adjudicator", $descr="Team member or PPG accountant who labels notes blind and adjudicates review cases into the four buckets in the UI.", $tags="", $link="")
+
+System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
+  Container_Boundary("FreightInvoiceItemizer.WebUI_boundary", "Web UI", $tags="") {
+    Component(FreightInvoiceItemizer.WebUI.AuthRoleGuard, "Auth & Role Guard", $techn="Streamlit st.login, pydantic", $descr="OIDC login; maps identity to role (operator, accountant, labeler, client owner) from config; enforces page and data permissions; blind labellers never receive predictions.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.WebUI.UploadPrecheckPage, "Upload & Pre-check Page", $techn="Streamlit file_uploader", $descr="Accepts an .xlsx export within the size limit, runs the input contract check as a preview, and registers the raw file in the CAS before any run starts.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.WebUI.RunLauncherMonitor, "Run Launcher & Monitor", $techn="subprocess, Python", $descr="Starts 'itemizer run' as a background job for a registered snapshot, shows stage progress, budget stops and failures from telemetry; one run at a time per environment.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.WebUI.ResultsExplorer, "Results Explorer", $techn="Streamlit, pandas", $descr="Rows by outcome, carrier and disputed dollars; items with their evidence highlighted inside the raw note; reasons for every Review and Discrepancy; download of the itemized workbook.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.WebUI.ErrorReviewWorkbench, "Error Review Workbench", $techn="Streamlit", $descr="Row-level error analysis by error type (a–g) on DEV and PROD; TEST shows aggregates only until the final freeze releases error examples for D5.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.WebUI.ReviewQueuePage, "Review Queue Page", $techn="Streamlit data_editor", $descr="Capacity-bounded queue; approve / edit / reject with corrected items and a reason code; audit-sample rows hide the tool's outcome and confidence.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.WebUI.AdjudicationPage, "Adjudication Page", $techn="Streamlit", $descr="Sorts overrides into AI wrong, human wrong, context changed or genuine exception with a reason code; adjudicator must differ from the original reviewer.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.WebUI.BlindLabellingPage, "Blind Labelling Page", $techn="Streamlit", $descr="Labels notes into gold items without any tool output; shows the second labeller nothing of the first; disagreement resolution view for the client owner.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.WebUI.AgentTraceViewer, "Agent Trace Viewer", $techn="Streamlit", $descr="For a selected row, shows the agent's step-by-step trace: each LLM turn, tool call with arguments and result, guard decisions (blocked, quarantined, resubmitted) and the terminal tool. Makes the agentic design visible in the demo.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.WebUI.KPIView, "KPI View", $techn="Streamlit, Vega-Lite", $descr="Renders KPI snapshots with the same panel definitions as the static dashboard; never computes metrics; offers the HTML report for download.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.WebUI.UIAuditLogger, "UI Audit Logger", $techn="Python", $descr="Records who uploaded, launched, decided, labelled or downloaded what, by role and pseudonymous id.", $tags="", $link="")
+  }
+
+  Container(FreightInvoiceItemizer.ConfigurationRegistry, "Configuration Registry", $techn="YAML in Git, JSON Schema, pydantic", $descr="The configurable layer. Typed parameters with limits, owner, change log and validity horizon; layered resolution core -> environment -> carrier override; every resolved config is hashed into the run manifest.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.VersionArtifactRegistry, "Version & Artifact Registry", $techn="Filesystem CAS + DuckDB, Git tags", $descr="Content-addressed store and lineage index for every versioned artifact: input snapshots, taxonomy, evaluation sets, prompts, lexicon, calibration maps, model identities, run manifests, outputs, KPI snapshots.", $tags="", $link="")
+  ContainerDb(FreightInvoiceItemizer.TelemetryEpisodeStore, "Telemetry & Episode Store", $techn="DuckDB", $descr="Action telemetry (what happened), decision telemetry (why) and outcome telemetry (what followed), linked by case_id and tagged with the run's version.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.RunConsole, "Run Console", $techn="Python 3.12, Typer CLI", $descr="Command-line entry point and the only pipeline orchestrator: 'itemizer run <export.xlsx>'. Resolves configuration, opens a run manifest, runs the stages, and exposes evaluate / review / promote sub-commands. The Web UI launches runs through it.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.DataTransformationCheck, "Data Transformation & Check", $techn="Python, pandas, openpyxl", $descr="Reads the TMS Excel export, validates it against the input contract, normalizes fields, fingerprints and de-duplicates notes, masks names, and writes an immutable input snapshot.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.HumanReviewSystem, "Human Review System", $techn="Python, openpyxl", $descr="Review service behind the Web UI: builds the review queue within reviewer capacity, validates and records approvals, edits and adjudications, runs blind labelling for the test set, and closes cases. An Excel review workbook remains as an offline fallback.", $tags="", $link="")
+}
+
+Rel(ItemizerOperator, FreightInvoiceItemizer.RunConsole, "Runs 'itemizer run', 'evaluate', 'promote'", $techn="CLI", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.ConfigurationRegistry, "Resolves and freezes the effective config", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.VersionArtifactRegistry, "Opens and closes the run manifest", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.DataTransformationCheck, "Starts ingest of the export", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole, FreightInvoiceItemizer.HumanReviewSystem, "Exports / imports review workbooks", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck, FreightInvoiceItemizer.VersionArtifactRegistry, "Writes raw + normalized input snapshots", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.DataTransformationCheck, FreightInvoiceItemizer.TelemetryEpisodeStore, "Writes data-quality action telemetry", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem, PPGAccountant, "Offline fallback review workbook", $techn="Excel", $tags="", $link="")
+Rel(PPGAccountant, FreightInvoiceItemizer.HumanReviewSystem, "Offline fallback: returned review workbook", $techn="Excel", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem, FreightInvoiceItemizer.VersionArtifactRegistry, "Reads predictions and run manifests", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem, FreightInvoiceItemizer.TelemetryEpisodeStore, "Writes outcome telemetry and closed cases", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.HumanReviewSystem, FreightInvoiceItemizer.ConfigurationRegistry, "Reads audit sample rate and weekly capacity", $techn="", $tags="", $link="")
+Rel(PPGAccountant, FreightInvoiceItemizer.WebUI.AuthRoleGuard, "Signs in", $techn="HTTPS", $tags="", $link="")
+Rel(ItemizerOperator, FreightInvoiceItemizer.WebUI.AuthRoleGuard, "Signs in", $techn="HTTPS", $tags="", $link="")
+Rel(LabelerAdjudicator, FreightInvoiceItemizer.WebUI.AuthRoleGuard, "Signs in", $techn="HTTPS", $tags="", $link="")
+Rel(PPGClientOwner, FreightInvoiceItemizer.WebUI.AuthRoleGuard, "Signs in", $techn="HTTPS", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.AuthRoleGuard, FreightInvoiceItemizer.ConfigurationRegistry, "Reads role map", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.AuthRoleGuard, FreightInvoiceItemizer.WebUI.UploadPrecheckPage, "Authorizes operator / accountant", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.AuthRoleGuard, FreightInvoiceItemizer.WebUI.RunLauncherMonitor, "Authorizes operator / accountant", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.AuthRoleGuard, FreightInvoiceItemizer.WebUI.ResultsExplorer, "Authorizes all roles except blind labelling sessions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.AuthRoleGuard, FreightInvoiceItemizer.WebUI.ErrorReviewWorkbench, "Authorizes operator", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.AuthRoleGuard, FreightInvoiceItemizer.WebUI.ReviewQueuePage, "Authorizes accountant / operator", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.AuthRoleGuard, FreightInvoiceItemizer.WebUI.AdjudicationPage, "Authorizes adjudicator", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.AuthRoleGuard, FreightInvoiceItemizer.WebUI.BlindLabellingPage, "Authorizes labeler / client owner", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.AuthRoleGuard, FreightInvoiceItemizer.WebUI.KPIView, "Authorizes all roles", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.UploadPrecheckPage, FreightInvoiceItemizer.DataTransformationCheck, "Pre-checks input contract", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.UploadPrecheckPage, FreightInvoiceItemizer.VersionArtifactRegistry, "Registers raw export", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.UploadPrecheckPage, FreightInvoiceItemizer.WebUI.RunLauncherMonitor, "Registered upload id", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.RunLauncherMonitor, FreightInvoiceItemizer.RunConsole, "Spawns 'itemizer run' job", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.RunLauncherMonitor, FreightInvoiceItemizer.TelemetryEpisodeStore, "Reads stage progress", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.ResultsExplorer, FreightInvoiceItemizer.VersionArtifactRegistry, "Reads predictions and output workbook", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.ResultsExplorer, FreightInvoiceItemizer.TelemetryEpisodeStore, "Reads decision telemetry", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.ErrorReviewWorkbench, FreightInvoiceItemizer.VersionArtifactRegistry, "Reads DEV/PROD error-typed rows and TEST aggregates from KPI snapshots", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.ReviewQueuePage, FreightInvoiceItemizer.HumanReviewSystem, "Reads queue", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.AdjudicationPage, FreightInvoiceItemizer.HumanReviewSystem, "Submits bucket and reason code", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.BlindLabellingPage, FreightInvoiceItemizer.HumanReviewSystem, "Submits blind labels and resolutions", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.KPIView, FreightInvoiceItemizer.VersionArtifactRegistry, "Reads KPI snapshots", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.AuthRoleGuard, FreightInvoiceItemizer.WebUI.AgentTraceViewer, "Authorizes operator / accountant", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.ResultsExplorer, FreightInvoiceItemizer.WebUI.AgentTraceViewer, "Opens trace for a row", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.AgentTraceViewer, FreightInvoiceItemizer.TelemetryEpisodeStore, "Reads tool-call and guard telemetry", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.UploadPrecheckPage, FreightInvoiceItemizer.WebUI.UIAuditLogger, "Upload events", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.ReviewQueuePage, FreightInvoiceItemizer.WebUI.UIAuditLogger, "Decision events", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.ResultsExplorer, FreightInvoiceItemizer.WebUI.UIAuditLogger, "Download events", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.WebUI.UIAuditLogger, FreightInvoiceItemizer.TelemetryEpisodeStore, "UI audit events", $techn="", $tags="", $link="")
+Rel(ItemizerOperator, FreightInvoiceItemizer.ConfigurationRegistry, "Proposes parameter changes via pull request", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

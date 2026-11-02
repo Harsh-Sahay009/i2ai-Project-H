@@ -1,0 +1,106 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Component View: Freight Invoice Itemizer - Web UI"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>PPG Accountant</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Uploads the weekly export,<br />explores itemized results,<br />approves or edits rows in the<br />Review UI, downloads the<br />itemized workbook, and alone<br />decides what is paid.</div>"]
+    style 1 fill:#343ced,stroke:#242aa5,color:#ffffff
+    2["<div style='font-weight: bold'>PPG Client Owner</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Freight Analytics lead at<br />PPG. Approves the charge<br />category list (D1), resolves<br />label disagreements for the<br />locked test set (D2), reviews<br />the prototype (D3) and KPIs<br />in the UI, and authorizes any<br />external AI use.</div>"]
+    style 2 fill:#343ced,stroke:#242aa5,color:#ffffff
+    3["<div style='font-weight: bold'>Itemizer Operator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Project team member who<br />uploads exports and launches<br />runs (UI or CLI), reviews<br />errors, owns configuration<br />and publishes versioned<br />changes.</div>"]
+    style 3 fill:#343ced,stroke:#242aa5,color:#ffffff
+    4["<div style='font-weight: bold'>Labeler / Adjudicator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Team member or PPG accountant<br />who labels notes blind and<br />adjudicates review cases into<br />the four buckets in the UI.</div>"]
+    style 4 fill:#343ced,stroke:#242aa5,color:#ffffff
+
+    subgraph 9 ["Freight Invoice Itemizer"]
+      style 9 fill:#ffffff,stroke:#1b1c24,color:#1b1c24
+
+      subgraph 10 ["Web UI"]
+        style 10 fill:#ffffff,stroke:#343ced,color:#343ced
+
+        11["<div style='font-weight: bold'>Auth & Role Guard</div><div style='font-size: 70%; margin-top: 0px'>[Component: Streamlit st.login, pydantic]</div><div style='font-size: 80%; margin-top:10px'>OIDC login; maps identity to<br />role (operator, accountant,<br />labeler, client owner) from<br />config; enforces page and<br />data permissions; blind<br />labellers never receive<br />predictions.</div>"]
+        style 11 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        12["<div style='font-weight: bold'>Upload & Pre-check Page</div><div style='font-size: 70%; margin-top: 0px'>[Component: Streamlit file_uploader]</div><div style='font-size: 80%; margin-top:10px'>Accepts an .xlsx export<br />within the size limit, runs<br />the input contract check as a<br />preview, and registers the<br />raw file in the CAS before<br />any run starts.</div>"]
+        style 12 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        13["<div style='font-weight: bold'>Run Launcher & Monitor</div><div style='font-size: 70%; margin-top: 0px'>[Component: subprocess, Python]</div><div style='font-size: 80%; margin-top:10px'>Starts 'itemizer run' as a<br />background job for a<br />registered snapshot, shows<br />stage progress, budget stops<br />and failures from telemetry;<br />one run at a time per<br />environment.</div>"]
+        style 13 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        14["<div style='font-weight: bold'>Results Explorer</div><div style='font-size: 70%; margin-top: 0px'>[Component: Streamlit, pandas]</div><div style='font-size: 80%; margin-top:10px'>Rows by outcome, carrier and<br />disputed dollars; items with<br />their evidence highlighted<br />inside the raw note; reasons<br />for every Review and<br />Discrepancy; download of the<br />itemized workbook.</div>"]
+        style 14 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        15["<div style='font-weight: bold'>Error Review Workbench</div><div style='font-size: 70%; margin-top: 0px'>[Component: Streamlit]</div><div style='font-size: 80%; margin-top:10px'>Row-level error analysis by<br />error type (a–g) on DEV and<br />PROD; TEST shows aggregates<br />only until the final freeze<br />releases error examples for<br />D5.</div>"]
+        style 15 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        16["<div style='font-weight: bold'>Review Queue Page</div><div style='font-size: 70%; margin-top: 0px'>[Component: Streamlit data_editor]</div><div style='font-size: 80%; margin-top:10px'>Capacity-bounded queue;<br />approve / edit / reject with<br />corrected items and a reason<br />code; audit-sample rows hide<br />the tool's outcome and<br />confidence.</div>"]
+        style 16 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        17["<div style='font-weight: bold'>Adjudication Page</div><div style='font-size: 70%; margin-top: 0px'>[Component: Streamlit]</div><div style='font-size: 80%; margin-top:10px'>Sorts overrides into AI<br />wrong, human wrong, context<br />changed or genuine exception<br />with a reason code;<br />adjudicator must differ from<br />the original reviewer.</div>"]
+        style 17 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        18["<div style='font-weight: bold'>Blind Labelling Page</div><div style='font-size: 70%; margin-top: 0px'>[Component: Streamlit]</div><div style='font-size: 80%; margin-top:10px'>Labels notes into gold items<br />without any tool output;<br />shows the second labeller<br />nothing of the first;<br />disagreement resolution view<br />for the client owner.</div>"]
+        style 18 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        19["<div style='font-weight: bold'>Agent Trace Viewer</div><div style='font-size: 70%; margin-top: 0px'>[Component: Streamlit]</div><div style='font-size: 80%; margin-top:10px'>For a selected row, shows the<br />agent's step-by-step trace:<br />each LLM turn, tool call with<br />arguments and result, guard<br />decisions (blocked,<br />quarantined, resubmitted) and<br />the terminal tool. Makes the<br />agentic design visible in the<br />demo.</div>"]
+        style 19 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        20["<div style='font-weight: bold'>KPI View</div><div style='font-size: 70%; margin-top: 0px'>[Component: Streamlit, Vega-Lite]</div><div style='font-size: 80%; margin-top:10px'>Renders KPI snapshots with<br />the same panel definitions as<br />the static dashboard; never<br />computes metrics; offers the<br />HTML report for download.</div>"]
+        style 20 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        21["<div style='font-weight: bold'>UI Audit Logger</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Records who uploaded,<br />launched, decided, labelled<br />or downloaded what, by role<br />and pseudonymous id.</div>"]
+        style 21 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+      end
+
+      107["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
+      style 107 fill:#d8f1f6,stroke:#ef601b,color:#272834
+      111[("<div style='font-weight: bold'>Version & Artifact Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: Filesystem CAS + DuckDB, Git tags]</div><div style='font-size: 80%; margin-top:10px'>Content-addressed store and<br />lineage index for every<br />versioned artifact: input<br />snapshots, taxonomy,<br />evaluation sets, prompts,<br />lexicon, calibration maps,<br />model identities, run<br />manifests, outputs, KPI<br />snapshots.</div>")]
+      style 111 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      113[("<div style='font-weight: bold'>Telemetry & Episode Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: DuckDB]</div><div style='font-size: 80%; margin-top:10px'>Action telemetry (what<br />happened), decision telemetry<br />(why) and outcome telemetry<br />(what followed), linked by<br />case_id and tagged with the<br />run's version.</div>")]
+      style 113 fill:#e2e3fb,stroke:#343ced,color:#272834
+      22["<div style='font-weight: bold'>Run Console</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python 3.12, Typer CLI]</div><div style='font-size: 80%; margin-top:10px'>Command-line entry point and<br />the only pipeline<br />orchestrator: 'itemizer run<br /><export.xlsx>'. Resolves<br />configuration, opens a run<br />manifest, runs the stages,<br />and exposes evaluate / review<br />/ promote sub-commands. The<br />Web UI launches runs through<br />it.</div>"]
+      style 22 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      26["<div style='font-weight: bold'>Data Transformation & Check</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Reads the TMS Excel export,<br />validates it against the<br />input contract, normalizes<br />fields, fingerprints and<br />de-duplicates notes, masks<br />names, and writes an<br />immutable input snapshot.</div>"]
+      style 26 fill:#e2e3fb,stroke:#343ced,color:#272834
+      54["<div style='font-weight: bold'>Human Review System</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Review service behind the Web<br />UI: builds the review queue<br />within reviewer capacity,<br />validates and records<br />approvals, edits and<br />adjudications, runs blind<br />labelling for the test set,<br />and closes cases. An Excel<br />review workbook remains as an<br />offline fallback.</div>"]
+      style 54 fill:#e2e3fb,stroke:#343ced,color:#272834
+    end
+
+    3-. "<div>Runs 'itemizer run',<br />'evaluate', 'promote'</div><div style='font-size: 70%'>[CLI]</div>" .->22
+    22-. "<div>Resolves and freezes the<br />effective config</div><div style='font-size: 70%'></div>" .->107
+    22-. "<div>Opens and closes the run<br />manifest</div><div style='font-size: 70%'></div>" .->111
+    22-. "<div>Starts ingest of the export</div><div style='font-size: 70%'></div>" .->26
+    22-. "<div>Exports / imports review<br />workbooks</div><div style='font-size: 70%'></div>" .->54
+    26-. "<div>Writes raw + normalized input<br />snapshots</div><div style='font-size: 70%'></div>" .->111
+    26-. "<div>Writes data-quality action<br />telemetry</div><div style='font-size: 70%'></div>" .->113
+    54-. "<div>Offline fallback review<br />workbook</div><div style='font-size: 70%'>[Excel]</div>" .->1
+    1-. "<div>Offline fallback: returned<br />review workbook</div><div style='font-size: 70%'>[Excel]</div>" .->54
+    54-. "<div>Reads predictions and run<br />manifests</div><div style='font-size: 70%'></div>" .->111
+    54-. "<div>Writes outcome telemetry and<br />closed cases</div><div style='font-size: 70%'></div>" .->113
+    54-. "<div>Reads audit sample rate and<br />weekly capacity</div><div style='font-size: 70%'></div>" .->107
+    1-. "<div>Signs in</div><div style='font-size: 70%'>[HTTPS]</div>" .->11
+    3-. "<div>Signs in</div><div style='font-size: 70%'>[HTTPS]</div>" .->11
+    4-. "<div>Signs in</div><div style='font-size: 70%'>[HTTPS]</div>" .->11
+    2-. "<div>Signs in</div><div style='font-size: 70%'>[HTTPS]</div>" .->11
+    11-. "<div>Reads role map</div><div style='font-size: 70%'></div>" .->107
+    11-. "<div>Authorizes operator /<br />accountant</div><div style='font-size: 70%'></div>" .->12
+    11-. "<div>Authorizes operator /<br />accountant</div><div style='font-size: 70%'></div>" .->13
+    11-. "<div>Authorizes all roles except<br />blind labelling sessions</div><div style='font-size: 70%'></div>" .->14
+    11-. "<div>Authorizes operator</div><div style='font-size: 70%'></div>" .->15
+    11-. "<div>Authorizes accountant /<br />operator</div><div style='font-size: 70%'></div>" .->16
+    11-. "<div>Authorizes adjudicator</div><div style='font-size: 70%'></div>" .->17
+    11-. "<div>Authorizes labeler / client<br />owner</div><div style='font-size: 70%'></div>" .->18
+    11-. "<div>Authorizes all roles</div><div style='font-size: 70%'></div>" .->20
+    12-. "<div>Pre-checks input contract</div><div style='font-size: 70%'></div>" .->26
+    12-. "<div>Registers raw export</div><div style='font-size: 70%'></div>" .->111
+    12-. "<div>Registered upload id</div><div style='font-size: 70%'></div>" .->13
+    13-. "<div>Spawns 'itemizer run' job</div><div style='font-size: 70%'></div>" .->22
+    13-. "<div>Reads stage progress</div><div style='font-size: 70%'></div>" .->113
+    14-. "<div>Reads predictions and output<br />workbook</div><div style='font-size: 70%'></div>" .->111
+    14-. "<div>Reads decision telemetry</div><div style='font-size: 70%'></div>" .->113
+    15-. "<div>Reads DEV/PROD error-typed<br />rows and TEST aggregates from<br />KPI snapshots</div><div style='font-size: 70%'></div>" .->111
+    16-. "<div>Reads queue</div><div style='font-size: 70%'></div>" .->54
+    17-. "<div>Submits bucket and reason<br />code</div><div style='font-size: 70%'></div>" .->54
+    18-. "<div>Submits blind labels and<br />resolutions</div><div style='font-size: 70%'></div>" .->54
+    20-. "<div>Reads KPI snapshots</div><div style='font-size: 70%'></div>" .->111
+    11-. "<div>Authorizes operator /<br />accountant</div><div style='font-size: 70%'></div>" .->19
+    14-. "<div>Opens trace for a row</div><div style='font-size: 70%'></div>" .->19
+    19-. "<div>Reads tool-call and guard<br />telemetry</div><div style='font-size: 70%'></div>" .->113
+    12-. "<div>Upload events</div><div style='font-size: 70%'></div>" .->21
+    16-. "<div>Decision events</div><div style='font-size: 70%'></div>" .->21
+    14-. "<div>Download events</div><div style='font-size: 70%'></div>" .->21
+    21-. "<div>UI audit events</div><div style='font-size: 70%'></div>" .->113
+    3-. "<div>Proposes parameter changes<br />via pull request</div><div style='font-size: 70%'></div>" .->107
+
+  end

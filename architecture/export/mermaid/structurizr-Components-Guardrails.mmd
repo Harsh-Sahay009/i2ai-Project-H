@@ -1,0 +1,59 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Component View: Freight Invoice Itemizer - Guardrail Layer"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    subgraph 9 ["Freight Invoice Itemizer"]
+      style 9 fill:#ffffff,stroke:#1b1c24,color:#1b1c24
+
+      subgraph 94 ["Guardrail Layer"]
+        style 94 fill:#ffffff,stroke:#ef601b,color:#ef601b
+
+        100["<div style='font-weight: bold'>Guardrail Profile Resolver</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Resolves guardrails.profile;<br />refuses anything but 'full'<br />outside the experiment<br />environment.</div>"]
+        style 100 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        95["<div style='font-weight: bold'>Input Guard (untrusted note text)</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python, regex + classifier]</div><div style='font-size: 80%; margin-top:10px'>Delimits note text as data,<br />strips control sequences,<br />detects instruction-like<br />content (prompt injection)<br />and quarantines it as a<br />Review reason.</div>"]
+        style 95 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        96["<div style='font-weight: bold'>Tool-Call Guard</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Allowlist per agent, argument<br />schema validation, step<br />budget, call budget,<br />duplicate-call detection,<br />terminal-tool requirement.</div>"]
+        style 96 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        97["<div style='font-weight: bold'>Output Guard</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Schema validation, evidence<br />verbatim check, no-edit<br />check, category in taxonomy;<br />a failing submission goes<br />back to the agent once, then<br />to Review.</div>"]
+        style 97 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        98["<div style='font-weight: bold'>Action Guard</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Blocks prohibited actions and<br />language: payment decisions,<br />approvals, writing to source<br />data, contacting carriers.</div>"]
+        style 98 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        99["<div style='font-weight: bold'>Privacy Guard</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Blocks PII in any model-bound<br />or MCP-bound payload; works<br />with the router's<br />confidentiality gate.</div>"]
+        style 99 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+      end
+
+      107["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
+      style 107 fill:#d8f1f6,stroke:#ef601b,color:#272834
+      33["<div style='font-weight: bold'>Model Router</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Decides which model handles<br />each note, enforces the<br />confidentiality gate, applies<br />fallback, caches responses by<br />content hash and meters<br />tokens and cost. The provider<br />interface is the exit path.</div>"]
+      style 33 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      43["<div style='font-weight: bold'>Itemization Classifier</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pydantic]</div><div style='font-size: 80%; margin-top:10px'>Turns one note into charge<br />items with category, amount<br />and exact evidence span using<br />a bounded tool-calling LLM<br />agent; checks evidence,<br />reconciles to the disputed<br />amount, scores confidence and<br />assigns the row outcome.<br />Never invents or edits an<br />amount.</div>"]
+      style 43 fill:#e2e3fb,stroke:#343ced,color:#272834
+      61["<div style='font-weight: bold'>KPI Calculator</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, scikit-learn, SciPy]</div><div style='font-size: 80%; margin-top:10px'>Computes every success and<br />error metric from immutable,<br />versioned inputs only, per<br />population (TEST, DEV, FRESH,<br />PROD), with sample sizes,<br />weights and confidence<br />intervals, and evaluates the<br />Level 1/2/3 gates.</div>"]
+      style 61 fill:#e2e3fb,stroke:#343ced,color:#272834
+      83["<div style='font-weight: bold'>Agent Tool Library & MCP Server</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, MCP Python SDK]</div><div style='font-size: 80%; margin-top:10px'>Custom deterministic tools<br />with LLM-oriented docstrings.<br />Pipeline tools are called<br />in-process by the Itemization<br />Agent; analyst tools are<br />served read-only over MCP to<br />Claude Code (team) and to the<br />client's future agent, guided<br />by the skill folder.</div>"]
+      style 83 fill:#e2e3fb,stroke:#343ced,color:#272834
+    end
+
+    43-. "<div>Requests structured<br />itemization per note</div><div style='font-size: 70%'></div>" .->33
+    43-. "<div>Reads thresholds, tolerances,<br />prompt and lexicon versions</div><div style='font-size: 70%'></div>" .->107
+    33-. "<div>Reads routing policy,<br />approval flag, model ids,<br />budgets</div><div style='font-size: 70%'></div>" .->107
+    61-. "<div>Reads metric set, weights,<br />targets, price table versions</div><div style='font-size: 70%'></div>" .->107
+    33-. "<div>Model turn (tool call or<br />final)</div><div style='font-size: 70%'></div>" .->43
+    43-. "<div>Calls pipeline tools chosen<br />by the agent</div><div style='font-size: 70%'></div>" .->83
+    83-. "<div>Reads lexicon and tolerances</div><div style='font-size: 70%'></div>" .->107
+    43-. "<div>Wraps and screens note text</div><div style='font-size: 70%'></div>" .->95
+    43-. "<div>Proposed tool call</div><div style='font-size: 70%'></div>" .->96
+    96-. "<div>Allowed call</div><div style='font-size: 70%'></div>" .->83
+    96-. "<div>Checks for prohibited actions</div><div style='font-size: 70%'></div>" .->98
+    83-. "<div>Delegates</div><div style='font-size: 70%'></div>" .->43
+    83-. "<div>Submitted items</div><div style='font-size: 70%'></div>" .->97
+    97-. "<div>Accepted submission</div><div style='font-size: 70%'></div>" .->43
+    99-. "<div>Pre-checks model-bound<br />payloads</div><div style='font-size: 70%'></div>" .->33
+    43-. "<div>Model-bound payload</div><div style='font-size: 70%'></div>" .->99
+    100-. "<div>Reads guardrails.profile</div><div style='font-size: 70%'></div>" .->107
+    83-. "<div>Screens MCP responses</div><div style='font-size: 70%'></div>" .->99
+    61-. "<div>Runs each profile in<br />experiment env</div><div style='font-size: 70%'></div>" .->100
+
+  end
