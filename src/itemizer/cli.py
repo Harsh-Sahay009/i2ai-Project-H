@@ -14,6 +14,8 @@ from .bootstrap.data import Config, ContractError, Workspace, group_notes, load_
 app = typer.Typer(no_args_is_help=True, help="Freight Invoice Itemizer.")
 gt = typer.Typer(no_args_is_help=True, help="Create D1 (charge category list) and D2 (locked test set).")
 app.add_typer(gt, name="gt")
+acceptance_app = typer.Typer(no_args_is_help=True, help="Check a deliverable against its done-when conditions.")
+app.add_typer(acceptance_app, name="acceptance")
 
 CATEGORIES = Path("taxonomy/categories.yaml")
 APPROVAL = Path("taxonomy/approval.yaml")
@@ -394,6 +396,30 @@ def compare_command(
     report = compare_models(Path.cwd(), [name.strip() for name in models.split(",") if name.strip()], set_name, limit)
     typer.echo(format_table(report))
     typer.echo(f"Report: {report['report_path'].relative_to(Path.cwd())}")
+
+
+@acceptance_app.command("d3")
+@_guard
+def acceptance_d3_command(run_id: str = typer.Option(None, "--run", help="The run to report. Without this, the newest on all rows.")) -> None:
+    """Write the one-page status for D1, D2 and D3."""
+    from .acceptance import d3_check
+
+    summary = d3_check(Path.cwd(), run_id)
+    d3 = summary["d3"]
+    _show({"d1": summary["d1"], "d2": summary["d2"], "d3": {key: d3.get(key) for key in ("status", "reason", "run_id", "labels_status", "client_review")},
+           "level1": d3.get("level1"), "page": str(summary["page"].relative_to(Path.cwd()))})
+
+
+@acceptance_app.command("record-review")
+@_guard
+def acceptance_review_command(
+    date: str = typer.Option(..., help="Review date, YYYY-MM-DD."),
+    evidence: Path = typer.Option(..., help="A file showing the client has seen the prototype, such as a saved email."),
+) -> None:
+    """Record that the client has seen the prototype."""
+    from .acceptance import record_review
+
+    _show(record_review(Path.cwd(), date, evidence))
 
 
 if __name__ == "__main__":
