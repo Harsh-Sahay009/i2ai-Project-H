@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import collections
 import csv
+import json
 import random
 import re
 from decimal import Decimal, InvalidOperation
@@ -27,10 +28,14 @@ SPOT_CHECK = 15
 CLIENT_ROLE = "client_owner"
 MODEL_ROLE = "model_provisional"
 MODEL_DRAFT = "model_draft"  # the marker in a filled pack's comment column
+_PERSON_SOURCES = ("person_checked", "person_corrected")
+_REVIEW_PACK = "packs/test_label_review.xlsx"
+_REVIEW_LABELS = "labels/test_label_review.json"
 LINE_TYPES = ["charge", "tax", "already_paid"]
 DERIVATIONS = ["stated", "rate_x_quantity"]
 LABEL_COLUMNS = ["note_id", "carrier", "disputed_amount", "note", "item", "category", "amount", "evidence",
                  "line_type", "derivation", "no_charge_stated", "comment"]
+_REVIEW_COLUMNS = LABEL_COLUMNS + ["priority", "checked"]
 _NUMBER_WITH_THOUSANDS = re.compile(r"\d{1,3}(?:[ ,]\d{3})+(?:\.\d+)?")  # notes write "$1 277.68"
 _PLAIN_NUMBER = re.compile(r"\d*\.\d+|\d+")  # includes ".67"
 
@@ -397,17 +402,20 @@ def write_client_pack(ws: Workspace, notes: dict[str, Note], categories: list[di
     _instructions(workbook, [
         "Please review every note on the Review sheet. Each one was labelled twice, separately. A labeller named claude is a model.",
         "In decision, choose accept_A or accept_B, or choose correct and add the right items on the Corrections sheet.",
+        "If team_correction is filled, the team changed this label after reading the note. Choose accept_correction to keep it.",
         "Notes marked YES in disagreement differ between the two labellers. Notes marked NO agree, but please still check them.",
         "Totals and subtotals are not charges. Please do not decide here whether a charge should be paid.",
     ] + INSTRUCTIONS[1:3])
     category_rows = _write_categories(workbook, categories)
     review = workbook.create_sheet("Review")
-    review.append(["note_id", "carrier", "disputed_amount", "note", "labeller_A", "labeller_B", "disagreement", "decision", "comment"])
+    review.append(["note_id", "carrier", "disputed_amount", "note", "labeller_A", "labeller_B", "disagreement", "decision", "comment", "team_correction"])
+    team = _team_review(ws)
     for fp in packs["label_A"]:
         note = notes[fp]
+        corrected = team[fp] if fp in team and team[fp].source == "person_corrected" else None
         review.append([note.note_id, note.carrier, float(note.disputed), note.text, _describe(a[fp]), _describe(b[fp]),
-                       "YES" if fp in flagged else "NO", None, None])
-    _dropdown(review, "H", '"accept_A,accept_B,correct"', review.max_row)
+                       "YES" if fp in flagged else "NO", None, None, _describe(corrected) if corrected else None])
+    _dropdown(review, "H", '"accept_A,accept_B,correct,accept_correction"', review.max_row)
     _style(review, {"A": 13, "B": 10, "C": 10, "D": 50, "E": 40, "F": 40, "G": 12, "H": 12, "I": 25})
     for row in review.iter_rows(min_row=2):
         for cell in row[3:6]:
@@ -434,6 +442,7 @@ def import_client_review(ws: Workspace, path: Path, reviewer_role: str, date: st
     _check_review_can_be_replaced(ws, reviewer_role)
     packs = ws.read_json("packs.json")
     a, b = _stored_labels(ws, "label_A"), _stored_labels(ws, "label_B")
+    team = _team_review(ws)
     report = ws.read_json("agreement.json")
     flagged = {d["fingerprint"] for d in report["disagreements"]}
     expected = {notes[fp].note_id: fp for fp in packs["label_A"]}
@@ -458,6 +467,11 @@ def import_client_review(ws: Workspace, path: Path, reviewer_role: str, date: st
             if label is None:
                 errors.append({"note_id": note_id, "row": number, "code": "correction_missing", "message": "decision is correct, but the Corrections sheet has no valid items"})
                 continue
+        elif decision == "accept_correction":
+            label = team.get(fp)
+            if label is None:
+                errors.append({"note_id": note_id, "row": number, "code": "correction_missing", "message": "decision is accept_correction, but the team has not corrected this note"})
+                continue
         else:
             errors.append({"note_id": note_id, "row": number, "code": "not_reviewed", "message": "this note has no decision"})
             continue
@@ -475,13 +489,157 @@ def import_client_review(ws: Workspace, path: Path, reviewer_role: str, date: st
 
 
 def gold_labels(ws: Workspace) -> dict[str, NoteLabel]:
-    """The client's decision on the 50 double-labelled notes, and the labeller's answer on the others."""
+    """The labeller's answer, then what people checked or corrected. The client's decision on the 50 notes wins over a team's."""
     gold = dict(_stored_labels(ws, "label_single"))
     if ws.exists("labels/label_replacements.json"):
         gold.update(_stored_labels(ws, "label_replacements"))
-    for fp, decision in ws.read_json("client_review.json")["decisions"].items():
-        gold[fp] = NoteLabel.model_validate(decision["label"])
+    review = ws.read_json("client_review.json")
+    decisions = {fp: NoteLabel.model_validate(decision["label"]) for fp, decision in review["decisions"].items()}
+    layers = [_team_review(ws), decisions] if review["reviewer_role"] == CLIENT_ROLE else [decisions, _team_review(ws)]
+    for layer in layers:
+        gold.update(layer)
     return gold
+
+
+def _team_review(ws: Workspace) -> dict[str, NoteLabel]:
+    if not ws.exists(_REVIEW_LABELS):
+        return {}
+    return {fp: NoteLabel.model_validate(v) for fp, v in ws.read_json(_REVIEW_LABELS)["labels"].items()}
+
+
+def current_test_labels(ws: Workspace) -> dict[str, NoteLabel]:
+    return load_test_gold(ws)[0] if is_test_frozen(ws) else gold_labels(ws)
+
+
+def _review_priority(label: NoteLabel, note: Note, disagreed: set[str], large_usd: Decimal) -> tuple[int, str]:
+    """Which notes most need a person, first."""
+    if label.source in _PERSON_SOURCES:
+        return 6, "already_checked"
+    if note.fingerprint in disagreed:
+        return 0, "labellers_disagreed"
+    if label.comment:
+        return 1, f"model_doubt:{label.comment}"
+    if note.max_disputed >= large_usd:
+        return 2, "large_dispute"
+    if len(label.items) >= 2:
+        return 3, "several_charges"
+    if label.no_charge_stated:
+        return 4, "no_charge_stated"
+    return 5, ""
+
+
+def _write_text(cell, value: str | None) -> None:
+    cell.value = value
+    if value is not None:
+        cell.data_type = "s"  # note text and evidence can start with "=", and must not become formulas
+
+
+def write_label_review(ws: Workspace, manifest: dict, notes: dict[str, Note], categories: list[dict]) -> dict:
+    """Every TEST note with its current label, the notes most in need of a person first. It holds no tool output."""
+    if ws.exists("seal_record.json"):
+        raise ContractError("TEST is sealed, so its labels cannot change; a correction needs a new version")
+    test = notes_in_set(manifest, "TEST")
+    current = current_test_labels(ws)
+    missing = [fp for fp in test if fp not in current]
+    if missing:
+        raise ContractError(f"{len(missing)} TEST notes have no label yet, so there is nothing to review for them")
+    disagreed = {d["fingerprint"] for d in ws.read_json("agreement.json")["disagreements"]}
+    ranked = {fp: _review_priority(current[fp], notes[fp], disagreed, ws.cfg.large_dispute_usd) for fp in test}
+    workbook = openpyxl.Workbook()
+    _instructions(workbook, ["Go through the Labels sheet from the top. deliverables/reviewing_test_labels.md explains the steps.",
+                             "Do not open data/runs or any itemized.xlsx while reviewing: those hold the tool's answers.",
+                             "If a label is right, put Y in checked. If it is wrong, change it. A changed label counts as checked."] + INSTRUCTIONS[1:-1])
+    category_rows = _write_categories(workbook, categories)
+    sheet = workbook.create_sheet("Labels")
+    sheet.append(_REVIEW_COLUMNS)
+    for fp in sorted(test, key=lambda fp: (ranked[fp][0], notes[fp].note_id)):
+        note, label = notes[fp], current[fp]
+        for index in range(len(label.items) + 1):  # one blank line, for a charge the label missed
+            item = label.items[index] if index < len(label.items) else None
+            first = index == 0
+            sheet.append([note.note_id, note.carrier if first else None, float(note.disputed) if first else None, None, index + 1,
+                          item.category if item else None, float(item.amount) if item else None, None, item.line_type if item else None,
+                          item.derivation if item else None, "Y" if first and label.no_charge_stated else None, label.comment if first else None,
+                          ranked[fp][1] if first else None, "Y" if first and label.source in _PERSON_SOURCES else None])
+            row = sheet[sheet.max_row]
+            _write_text(row[3], note.text if first else None)
+            _write_text(row[7], item.evidence_text if item else None)
+    _finish_label_sheet(sheet, category_rows)
+    _dropdown(sheet, "N", '"Y"', sheet.max_row)
+    sheet.column_dimensions["M"].width = 24
+    sheet.column_dimensions["N"].width = 8
+    for row in sheet.iter_rows(min_row=2, max_col=4, min_col=4):
+        row[0].alignment = Alignment(wrap_text=True, vertical="top")
+    workbook.move_sheet("Labels", offset=-1)
+    workbook.active = workbook.sheetnames.index("Labels")
+    path = ws.path(_REVIEW_PACK)
+    workbook.save(path)
+    order = collections.Counter(reason.split(":")[0] or "rest" for _, reason in ranked.values())
+    return {"notes": len(test), "by_priority": dict(sorted(order.items())), "workbook": str(path.relative_to(ws.project_root))}
+
+
+def _label_content(label: NoteLabel) -> tuple:
+    return (label.no_charge_stated, sorted((i.category, i.amount, i.evidence_text, i.line_type, i.derivation) for i in label.items))
+
+
+def _update_frozen(ws: Workspace, reviewed: dict[str, NoteLabel], notes: dict[str, Note], corrected: int) -> None:
+    """Change the reviewed notes in the frozen labels and nothing else, so a client's review still waits for the final seal."""
+    frozen = ws.read_json("test_provisional.json")
+    for fp, label in reviewed.items():
+        frozen["labels"][fp] = label.model_dump(mode="json")
+        frozen["strata"][fp] = gold_stratum(label, notes[fp], ws.cfg.large_dispute_usd)
+    digest = sha256_file(ws.write_json("test_provisional.json", frozen))
+    record = ws.read_json("provisional_record.json")
+    sources = collections.Counter(label["source"] for label in frozen["labels"].values())
+    record.update(sha256=digest, sources=dict(sorted(sources.items())), single=sum(s == "single" for s in frozen["strata"].values()),
+                  multi_or_large=sum(s != "single" for s in frozen["strata"].values()),
+                  corrected_after_freeze=record.get("corrected_after_freeze", 0) + corrected)
+    ws.write_json("provisional_record.json", record)
+
+
+def import_label_review(ws: Workspace, path: Path, reviewer: str, date: str, manifest: dict, notes: dict[str, Note], codes: set[str]) -> dict:
+    """Take back what people checked or changed. Any failure rejects the whole file, and no label changes."""
+    if ws.exists("seal_record.json"):
+        raise ContractError("TEST is sealed, so its labels cannot change; a correction needs a new version")
+    if not reviewer.strip():
+        raise ContractError("name the reviewer, because the labels record who checked them")
+    test = set(notes_in_set(manifest, "TEST"))
+    current = current_test_labels(ws)
+    lines = _read_label_lines(path, "Labels")
+    checked = {_clean(line.get("note_id")) for _, line in lines if _clean(line.get("checked")).upper() == "Y"}
+    parsed, errors = parse_lines(lines, test, notes, codes, f"person:{reviewer.strip()}", "test_label_review")
+    errors = [e for e in errors if not (e["code"] == "not_labelled" and e["row"] == 0)]  # a partial review is fine
+    review = ws.read_json("client_review.json") if ws.exists("client_review.json") else {"reviewer_role": "", "decisions": {}}
+    client_decided = set(review["decisions"]) if review["reviewer_role"] == CLIENT_ROLE else set()
+    reviewed: dict[str, NoteLabel] = {}
+    corrected: list[str] = []
+    for fp, label in parsed.items():
+        before = current.get(fp)
+        changed = before is None or _label_content(label) != _label_content(before)
+        if not changed and (label.note_id not in checked or before.source in _PERSON_SOURCES):
+            continue  # untouched, or already checked: the workbook marks those Y, and the person who checked it stays on record
+        if fp in client_decided:
+            if changed:
+                errors.append({"note_id": label.note_id, "row": 0, "code": "client_decided", "message": "the client's review decided this note, and that decision stands"})
+            continue
+        if changed:
+            corrected.append(fp)
+        reviewed[fp] = label.model_copy(update={"source": "person_corrected" if changed else "person_checked"})
+    with ws.path("labels/test_label_review.errors.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["note_id", "row", "code", "message"])
+        writer.writeheader()
+        writer.writerows(errors)
+    if errors:
+        return {"errors": len(errors), "error_codes": dict(collections.Counter(e["code"] for e in errors)), "reviewed": 0, "corrected": 0}
+    stored = ws.read_json(_REVIEW_LABELS)["labels"] if ws.exists(_REVIEW_LABELS) else {}
+    stored.update({fp: label.model_dump(mode="json") for fp, label in reviewed.items()})
+    ws.write_json(_REVIEW_LABELS, {"labels": stored})
+    if ws.exists("provisional_record.json") and reviewed:
+        _update_frozen(ws, reviewed, notes, len(corrected))
+    with ws.path("labels/test_label_review_log.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"date": date, "reviewer": reviewer.strip(), "source_sha256": sha256_file(path), "reviewed": len(reviewed),
+                                 "corrected_note_ids": sorted(notes[fp].note_id for fp in corrected)}, sort_keys=True) + "\n")
+    return {"errors": 0, "reviewed": len(reviewed), "corrected": len(corrected), "label_sources": label_sources(ws)}
 
 
 def gold_stratum(label: NoteLabel, note: Note, large_dispute_usd: Decimal) -> str:
@@ -587,6 +745,7 @@ def _write_frozen(ws: Workspace, labels_name: str, record_name: str, test: list[
     record = {"sha256": digest, "notes": len(test), "single": singles, "multi_or_large": len(strata) - singles,
               "agreement": {k: v for k, v in ws.read_json("agreement.json").items() if k != "disagreements"},
               "changed_agreed_labels": sum(d["changed_agreed_label"] for d in review["decisions"].values()),
+              "sources": dict(sorted(collections.Counter(gold[fp].source for fp in test).items())),
               "reviewer_role": review["reviewer_role"], "review_date": review["date"]}
     ws.write_json(record_name, record)
     return record

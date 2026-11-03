@@ -61,6 +61,8 @@ def _d2(project: Project) -> dict:
     sources = lb.label_sources(ws)
     result = {"status": status, "labelled_notes": len(test & labelled), "target_notes": len(test),  # a swapped-out note does not count
               "written_by_model": sources.get("model_draft", 0), "checked_by_person": sources.get("person_checked", 0) + sources.get("person_corrected", 0)}
+    if provisional:
+        result["corrected_after_freeze"] = ws.read_json("provisional_record.json").get("corrected_after_freeze", 0)
     if ws.exists("agreement.json"):
         agreement = ws.read_json("agreement.json")
         result["agreement"] = {"notes_compared": agreement["notes_compared"], "cohens_kappa_category": agreement["cohens_kappa_category"],
@@ -144,6 +146,8 @@ def _page(summary: dict, shipments: list[dict]) -> str:
     if d2["written_by_model"] or d2["checked_by_person"]:
         parts.append(f"<p>{d2['written_by_model']} labels are drafts written by Claude Opus that no person has checked, and "
                      f"{d2['checked_by_person']} have been checked by a person. D2 needs people to have checked them all.</p>")
+    if d2.get("corrected_after_freeze"):
+        parts.append(f"<p>{d2['corrected_after_freeze']} labels were corrected after TEST was frozen, when tool output existed.</p>")
     if "agreement" in d2:
         agreement = d2["agreement"]
         parts.append(f"<p>Two labellers compared on {agreement['notes_compared']} notes: category agreement (Cohen's kappa) "

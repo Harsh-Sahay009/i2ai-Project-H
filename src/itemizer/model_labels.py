@@ -39,11 +39,6 @@ def build_label_prompt(categories: list[dict], template: Path) -> str:
     return text.replace("{{rules}}", rules).replace("{{categories}}", described)
 
 
-def _write_text(cell, value: str) -> None:
-    cell.value = value
-    cell.data_type = "s"  # evidence can start with "=", and must not be read back as a formula
-
-
 def fill_pack(blank: Path, target: Path, results: dict[str, NoteResult]) -> None:
     """Copy a blank pack with the model's answers written in, for the same import a person's workbook goes through."""
     by_id = {result.note_id: result for result in results.values() if result.status == "ok"}
@@ -55,7 +50,7 @@ def fill_pack(blank: Path, target: Path, results: dict[str, NoteResult]) -> None
     def write_item(row, item) -> None:
         row[at["category"]].value = item.category
         row[at["amount"]].value = float(item.amount)
-        _write_text(row[at["evidence"]], item.evidence_text)
+        lb._write_text(row[at["evidence"]], item.evidence_text)
         row[at["line_type"]].value = item.line_type
         row[at["derivation"]].value = item.derivation
 

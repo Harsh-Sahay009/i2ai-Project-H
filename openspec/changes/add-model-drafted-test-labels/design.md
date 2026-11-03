@@ -39,7 +39,7 @@ The prompt says never to answer `unsure`: a label must exist. Doubt goes in `rea
 
 - `write_label_review(ws, notes, categories)` writes `packs/test_label_review.xlsx`: the pack's columns, plus `priority` and `checked`. It holds the current label for each TEST note and no tool output. Notes come in the order disagreement, model doubt, large, multi-charge, no charge, then the rest.
 - `import_label_review(ws, path, reviewer, date, notes, codes)`: a note counts as reviewed if `checked` is `Y` or if its label differs from the current one, so a changed label is never ignored because someone forgot the flag. Reviewed notes become `person_checked` or `person_corrected`, with labeller `person:<reviewer>`. Any failure rejects the whole file, and nothing changes.
-- It accumulates in `labels/test_label_review.json` and logs each import to `labels/test_label_review_log.jsonl`. `gold_labels` applies it after a model's review, and a client's decisions still win. A note the client decided is refused.
+- It accumulates in `labels/test_label_review.json` and logs each import to `labels/test_label_review_log.jsonl`. `gold_labels` applies it after a model's review, and a client's decisions still win. A note the client decided is refused. Where the team corrected one of the 50 notes, the client's workbook shows it in `team_correction`, and `accept_correction` keeps it.
 - After a provisional freeze, the frozen file is updated for the reviewed notes only, and its record gets the new hash, `checked_by_person` and `corrected_after_freeze`. So a client review imported after the freeze still waits for the final seal. A sealed TEST refuses, as before.
 
 ### Running the test again
