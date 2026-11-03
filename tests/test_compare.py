@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 
 import pytest
 from test_bootstrap import fill_pack
@@ -109,3 +110,12 @@ def test_the_table_has_a_column_for_each_model(d3):
     table = compare.format_table(report).splitlines()
     assert table[0].split()[1:] == MODELS
     assert all(line.startswith(label) for line, (_, label, _) in zip(table[1:], compare._TABLE[1:], strict=True))
+
+
+def test_a_cold_start_is_not_multiplied_across_all_notes():
+    cold, warm = Decimal("0.03"), Decimal("0.005")
+    assert compare.projected_usd([cold] * 8 + [warm] * 22, 730) == Decimal("3.85")  # 730 typical notes, plus the 8 cold calls' extra 0.20
+
+
+def test_a_sample_with_no_cold_start_projects_its_plain_cost():
+    assert compare.projected_usd([Decimal("0.005")] * 10, 100) == Decimal("0.50")

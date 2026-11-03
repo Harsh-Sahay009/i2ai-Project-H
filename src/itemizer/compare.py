@@ -4,6 +4,7 @@ from __future__ import annotations
 import collections
 import json
 import re
+import statistics
 from decimal import Decimal
 from pathlib import Path
 
@@ -34,6 +35,15 @@ def _accuracy(results: dict[str, NoteResult], labels: dict[str, NoteLabel], tole
             "accuracy": correct / len(answered) if answered else None}
 
 
+def projected_usd(costs: list[Decimal], all_notes: int) -> Decimal:
+    """A cold start writes the prompt cache for the first calls at once. That happens once, so it is not scaled up.
+
+    A typical note costs the median, and whatever the sample spent beyond that is added once.
+    """
+    typical = statistics.median(costs)
+    return (typical * all_notes + max(sum(costs) - typical * len(costs), Decimal(0))).quantize(Decimal("0.01"))
+
+
 def _report_line(name: str, outcome: RunOutcome, first: RunOutcome | None, labels: dict[str, NoteLabel], tolerance: Decimal,
                  all_notes: int, concurrency: int) -> dict:
     results = outcome.note_results
@@ -57,7 +67,7 @@ def _report_line(name: str, outcome: RunOutcome, first: RunOutcome | None, label
         "usd": outcome.measured_usd,
         "usd_per_note": usd_per_note,
         "mean_latency_ms": round(latency),
-        "projected_usd_all_notes": (usd_per_note * all_notes).quantize(Decimal("0.01")),
+        "projected_usd_all_notes": projected_usd([Decimal(line["measured_cost_usd"]) for line in telemetry], all_notes),
         "projected_minutes_all_notes": round(latency * all_notes / max(concurrency, 1) / 60_000, 1),
     }
 
