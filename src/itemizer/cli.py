@@ -313,6 +313,30 @@ def final_strata_command(apply: bool = typer.Option(False, help="Move the notes 
     _show(result)
 
 
+@gt.command("draft-test-labels")
+@_guard
+def draft_test_labels_command(
+    send: bool = typer.Option(False, "--send", help="Actually send TEST notes to the model. Without this, only show what would go."),
+    first_model: str = typer.Option(None, help="The model for labeller A and the single-labelled notes."),
+    second_model: str = typer.Option(None, help="The model for labeller B."),
+) -> None:
+    """Have a model draft the TEST labels (ADR 0015). Each is marked as a draft until a person has checked it."""
+    import datetime as dt
+
+    from .model_labels import FIRST_LABELLER, SECOND_LABELLER, draft_test_labels, plan_test_labels
+
+    first, second = first_model or FIRST_LABELLER, second_model or SECOND_LABELLER
+    if not send:
+        _show(plan_test_labels(Path.cwd(), first, second))
+        typer.echo("Nothing was sent. Add --send to send these notes to the model.")
+        return
+    report = draft_test_labels(Path.cwd(), dt.date.today().isoformat(), first, second)
+    _show(report)
+    if not report["complete"]:
+        typer.secho("Some notes have no label. Run this again to continue, or see the errors file for each pack.", fg=typer.colors.YELLOW)
+        raise typer.Exit(code=1)
+
+
 @gt.command("seal")
 @_guard
 def seal_command(

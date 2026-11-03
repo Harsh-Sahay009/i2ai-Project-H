@@ -142,7 +142,7 @@ class NoteLabel(BaseModel):
     pack: str
     no_charge_stated: bool = False
     items: list[GoldItem] = []
-    source: Literal["human", "model_suggestion_confirmed"] = "human"
+    source: Literal["human", "model_suggestion_confirmed", "model_draft", "person_checked", "person_corrected"] = "human"
     comment: str = ""
 
 
