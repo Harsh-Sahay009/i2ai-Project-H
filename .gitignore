@@ -4,3 +4,20 @@
 architecture/.structurizr/
 *.pdf
 *.pptx
+
+# Client data stays out of this public repo (ADR 0013)
+*.xlsx
+*.xls
+*.csv
+*.parquet
+data/
+
+# Secrets
+.env
+.env.*
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

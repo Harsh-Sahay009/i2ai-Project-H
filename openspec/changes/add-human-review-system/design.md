@@ -16,7 +16,7 @@ Authority: the accountant decides; the tool recommends. Payment remains **prohib
 - **Queue:** all Review and Discrepancy rows + `review.audit_sample_rate_verified` random sample of Verified rows (seeded, recorded); sorted by `review.priority`; truncated at `review.weekly_capacity_rows`; overflow logged as backlog.
 - **Blind audit:** audit rows hide the tool's outcome and confidence band; items are still shown (cannot hide without making review impossible); disagreement reported separately as automation-bias guard.
 - **Adjudication** by a labeller/adjudicator role, not the original reviewer: buckets AI wrong / human wrong / context changed / genuine exception. Only AI wrong and context changed may feed improvement (`adjudication.min_cases_for_change` before a change is proposed).
-- **Labelling protocol (D2):** two labellers label 50 notes without tool output; Cohen's kappa on category, exact-match on amounts; disagreements go to client owner; remaining 150 single-labelled with spot checks; seal via ground truth store.
+- **Labelling protocol (D2):** two labellers label 50 notes without tool output; Cohen's kappa on category, exact-match on amounts; the client reviewer (Jake or a PPG accountant) reviews all 50 and resolves every disagreement; remaining 150 single-labelled with spot checks; seal via ground truth store. The tooling comes from `add-ground-truth-bootstrap`.
 - **Case closure:** reason code + replay pack (note fingerprint, manifest, prediction, decision) + outcome link + version tag.
 
 ## Risks / Trade-offs

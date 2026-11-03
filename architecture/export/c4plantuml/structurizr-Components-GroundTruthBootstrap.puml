@@ -1,0 +1,52 @@
+@startuml
+title <size:24>Component View: Freight Invoice Itemizer - Ground Truth Bootstrap</size>\n<size:24>Level 3 — profile, split, taxonomy draft, blind labelling packs, sealing: how D1 and D2 are created.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+Person(PPGClientOwner, "PPG Client Owner", $descr="Freight Analytics lead at PPG. Approves the charge category list (D1), reviews the 50 double-labelled notes and resolves label disagreements for the locked test set (D2), reviews the prototype (D3) and KPIs in the UI, and authorizes external AI use on anything other than the anonymized open dataset.", $tags="", $link="")
+Person(ItemizerOperator, "Itemizer Operator", $descr="Project team member who uploads exports and launches runs (UI or CLI), reviews errors, owns configuration and publishes versioned changes.", $tags="", $link="")
+Person(LabelerAdjudicator, "Labeler / Adjudicator", $descr="Team member or PPG accountant who labels notes blind and adjudicates review cases into the four buckets in the UI.", $tags="", $link="")
+
+System(ExternalLLMAPIProvider, "External LLM API Provider", $descr="Hosted large language model inference. Default route for the anonymized open dataset (ADR 0013); any other data needs the client owner's written approval.", $tags="", $link="")
+
+System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
+  Container_Boundary("FreightInvoiceItemizer.GroundTruthBootstrap_boundary", "Ground Truth Bootstrap", $tags="") {
+    Component(FreightInvoiceItemizer.GroundTruthBootstrap.DatasetProfiler, "Dataset Profiler", $techn="Python, regex", $descr="Counts rows, distinct notes, carriers and disputed dollars; scans note text for names, phone numbers and emails before any text is sent out.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.GroundTruthBootstrap.SplitBuilder, "Split Builder", $techn="Python", $descr="Assigns each distinct note a provisional stratum, sends already-labelled notes to TRAIN, draws TEST and its reserve first from notes nobody has read, then TRAIN and VALIDATION, with a recorded seed; checks disjointness and writes the split manifest.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.GroundTruthBootstrap.TaxonomyDrafter, "Taxonomy Drafter", $techn="Python, LLM API", $descr="Proposes 12 to 20 categories with definitions and real examples from TRAIN notes only, using the LLM; checks every quote is verbatim; writes an editable draft and a client approval document.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.GroundTruthBootstrap.LabellingPackBuilder, "Labelling Pack Builder", $techn="openpyxl", $descr="Writes labelling workbooks containing notes and the taxonomy but no tool output: one per labeller for the 50 double-labelled notes, one for the other 150, and one for the client reviewer.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.GroundTruthBootstrap.LabelValidatorSealer, "Label Validator & Sealer", $techn="Python, pandas", $descr="Checks returned labels (category, amount, verbatim evidence), computes agreement, applies the client reviewer's decisions, and seals TEST only when every check passes.", $tags="", $link="")
+  }
+
+  ContainerDb(FreightInvoiceItemizer.GroundTruthStore, "Ground Truth Store", $techn="Parquet + DuckDB, access-controlled folder", $descr="Approved charge taxonomy (D1), sealed locked test set (D2), TRAIN, VALIDATION and FRESH sets, the split manifest and labelling records. Test labels are readable only by the KPI Calculator.", $tags="", $link="")
+}
+
+Rel(ItemizerOperator, FreightInvoiceItemizer.GroundTruthBootstrap.DatasetProfiler, "Runs profile, split, draft and seal", $techn="CLI", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GroundTruthBootstrap.DatasetProfiler, FreightInvoiceItemizer.GroundTruthBootstrap.SplitBuilder, "Profile and note groups", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GroundTruthBootstrap.SplitBuilder, FreightInvoiceItemizer.GroundTruthBootstrap.TaxonomyDrafter, "TRAIN notes only", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GroundTruthBootstrap.SplitBuilder, FreightInvoiceItemizer.GroundTruthBootstrap.LabellingPackBuilder, "TEST, VALIDATION and TRAIN notes", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GroundTruthBootstrap.TaxonomyDrafter, ExternalLLMAPIProvider, "TRAIN notes, structured output request", $techn="HTTPS/JSON", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GroundTruthBootstrap.TaxonomyDrafter, PPGClientOwner, "Category list for written approval", $techn="Document", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GroundTruthBootstrap.LabellingPackBuilder, LabelerAdjudicator, "Labelling workbooks with no tool output", $techn="Excel", $tags="", $link="")
+Rel(LabelerAdjudicator, FreightInvoiceItemizer.GroundTruthBootstrap.LabelValidatorSealer, "Returned labels", $techn="Excel", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GroundTruthBootstrap.LabellingPackBuilder, PPGClientOwner, "Review workbook for the 50 double-labelled notes", $techn="Excel", $tags="", $link="")
+Rel(PPGClientOwner, FreightInvoiceItemizer.GroundTruthBootstrap.LabelValidatorSealer, "Review decisions", $techn="Excel", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GroundTruthBootstrap.LabelValidatorSealer, FreightInvoiceItemizer.GroundTruthStore, "Seals TEST; registers labels, split manifest and approved taxonomy", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.GroundTruthBootstrap.SplitBuilder, FreightInvoiceItemizer.GroundTruthStore, "Registers the split manifest", $techn="", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

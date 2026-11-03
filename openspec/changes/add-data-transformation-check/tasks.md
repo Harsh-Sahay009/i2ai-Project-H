@@ -8,15 +8,10 @@
 
 - [ ] 2.1 Implement normalized columns preserving raw bytes
 - [ ] 2.2 Implement fingerprinting, row-frequency map and fan-out index
-- [ ] 2.3 Implement TEST fingerprint flagging
+- [ ] 2.3 Implement TEST and VALIDATION fingerprint flagging
+- [ ] 2.4 Assign `row_id` from export position; flag `repeated_invoice`, `empty_note` and `non_positive_delta`
 
-## 3. Masking
+## 3. Snapshots
 
-- [ ] 3.1 Implement regex + NER masker with stable placeholders and offset map
-- [ ] 3.2 Store reversal map as confidential artifact
-- [ ] 3.3 Measure masking recall on DEV fixture
-
-## 4. Snapshots
-
-- [ ] 4.1 Write Parquet snapshots and register with transform SHA
-- [ ] 4.2 Tests per scenario in `data-ingestion`
+- [ ] 3.1 Write Parquet snapshots, recording `data.dataset_class`, and register with transform SHA
+- [ ] 3.2 Tests per scenario in `data-ingestion`

@@ -15,20 +15,22 @@ left to right direction
 !include <C4/C4_Context>
 
 Person(PPGAccountant, "PPG Accountant", $descr="Uploads the weekly export, explores itemized results, approves or edits rows in the Review UI, downloads the itemized workbook, and alone decides what is paid.", $tags="", $link="")
-Person(PPGClientOwner, "PPG Client Owner", $descr="Freight Analytics lead at PPG. Approves the charge category list (D1), resolves label disagreements for the locked test set (D2), reviews the prototype (D3) and KPIs in the UI, and authorizes any external AI use.", $tags="", $link="")
+Person(PPGClientOwner, "PPG Client Owner", $descr="Freight Analytics lead at PPG. Approves the charge category list (D1), reviews the 50 double-labelled notes and resolves label disagreements for the locked test set (D2), reviews the prototype (D3) and KPIs in the UI, and authorizes external AI use on anything other than the anonymized open dataset.", $tags="", $link="")
 Person(ItemizerOperator, "Itemizer Operator", $descr="Project team member who uploads exports and launches runs (UI or CLI), reviews errors, owns configuration and publishes versioned changes.", $tags="", $link="")
 Person(LabelerAdjudicator, "Labeler / Adjudicator", $descr="Team member or PPG accountant who labels notes blind and adjudicates review cases into the four buckets in the UI.", $tags="", $link="")
-System(ExternalLLMAPIProvider, "External LLM API Provider", $descr="Hosted large language model inference. Used only with the client owner's written approval and only on masked note text.", $tags="", $link="")
+System(ExternalLLMAPIProvider, "External LLM API Provider", $descr="Hosted large language model inference. Default route for the anonymized open dataset (ADR 0013); any other data needs the client owner's written approval.", $tags="", $link="")
 System(StandardChargeCodeLists, "Standard Charge Code Lists", $descr="ANSI X12 code lists (licensed) or carrier-published accessorial lists such as XPO's. Level 3 stretch only.", $tags="", $link="")
 System(FreightInvoiceItemizer, "Freight Invoice Itemizer", $descr="Itemizes each dispute row into charge items (category, amount, exact source words), reconciles them to the disputed amount and labels every row Verified, Discrepancy or Review.", $tags="", $link="")
 
 Rel(ItemizerOperator, FreightInvoiceItemizer, "Uploads exports, runs itemization, reviews errors, evaluates and promotes", $techn="HTTPS / CLI", $tags="", $link="")
 Rel(PPGAccountant, FreightInvoiceItemizer, "Uploads exports, reviews rows, downloads the itemized workbook", $techn="HTTPS", $tags="", $link="")
-Rel(PPGClientOwner, FreightInvoiceItemizer, "Approves taxonomy, resolves label disagreements, reads KPIs", $techn="HTTPS", $tags="", $link="")
+Rel(PPGClientOwner, FreightInvoiceItemizer, "Approves taxonomy, reviews 50 labelled notes, reads KPIs", $techn="HTTPS", $tags="", $link="")
 Rel(LabelerAdjudicator, FreightInvoiceItemizer, "Labels notes blind; adjudicates review cases", $techn="HTTPS", $tags="", $link="")
-Rel(FreightInvoiceItemizer, ExternalLLMAPIProvider, "Sends masked note text for itemization (only if approved)", $techn="HTTPS/JSON", $tags="", $link="")
+Rel(FreightInvoiceItemizer, ExternalLLMAPIProvider, "Sends anonymized note text for itemization", $techn="HTTPS/JSON", $tags="", $link="")
 Rel(FreightInvoiceItemizer, StandardChargeCodeLists, "Maps categories to standard codes (Level 3)", $techn="File import", $tags="", $link="")
 Rel(FreightInvoiceItemizer, PPGAccountant, "Offline fallback review workbook", $techn="Excel", $tags="", $link="")
+Rel(FreightInvoiceItemizer, PPGClientOwner, "Category list for written approval", $techn="Document", $tags="", $link="")
+Rel(FreightInvoiceItemizer, LabelerAdjudicator, "Labelling workbooks with no tool output", $techn="Excel", $tags="", $link="")
 
 SHOW_LEGEND(true)
 hide stereotypes

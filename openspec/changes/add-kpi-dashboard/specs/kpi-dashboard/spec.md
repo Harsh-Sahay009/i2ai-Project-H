@@ -8,7 +8,7 @@ The dashboard SHALL be generated only from KPI snapshots and MUST NOT compute me
 - **THEN** the dashboard reports that the run has not been scored instead of computing values
 
 ### Requirement: Required panels
-The run report SHALL show level gates with intervals, coverage in dollars and rows, errors a–g, success metrics a–e, cost per run and per row, calibration curve with AUC, approval rate with audit disagreement, loop health and open cases.
+The run report SHALL show level gates with intervals, coverage in dollars and rows, errors a–g, success metrics a–e, cost per run and per row, calibration curve with AUC, approval rate with audit disagreement, loop health, open cases, per-carrier coverage and accuracy, and the Level 3 cost-driver summary when it exists.
 
 #### Scenario: Prototype review
 - **WHEN** the client owner opens the D3 report

@@ -6,8 +6,8 @@
 
 ## 2. Labelling
 
-- [ ] 2.1 Implement blind labelling workbook generator (no predictions)
-- [ ] 2.2 Implement agreement statistics and disagreement resolution workbook
+- [ ] 2.1 Wrap the Labelling Pack Builder and Label Validator from add-ground-truth-bootstrap as the service behind the Blind Labelling Page
+- [ ] 2.2 Wrap agreement statistics and client review from add-ground-truth-bootstrap for use from the UI
 - [ ] 2.3 Hook sealing into ground truth store
 
 ## 3. Adjudication

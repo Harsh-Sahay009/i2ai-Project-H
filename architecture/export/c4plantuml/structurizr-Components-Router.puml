@@ -16,12 +16,12 @@ left to right direction
 !include <C4/C4_Container>
 !include <C4/C4_Component>
 
-System(ExternalLLMAPIProvider, "External LLM API Provider", $descr="Hosted large language model inference. Used only with the client owner's written approval and only on masked note text.", $tags="", $link="")
+System(ExternalLLMAPIProvider, "External LLM API Provider", $descr="Hosted large language model inference. Default route for the anonymized open dataset (ADR 0013); any other data needs the client owner's written approval.", $tags="", $link="")
 
 System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
   Container_Boundary("FreightInvoiceItemizer.ModelRouter_boundary", "Model Router", $tags="") {
     Component(FreightInvoiceItemizer.ModelRouter.RoutingPolicyEngine, "Routing Policy Engine", $techn="Python", $descr="Applies the configured route: rules-only, local model, or external API, with per-carrier and per-size overrides.", $tags="", $link="")
-    Component(FreightInvoiceItemizer.ModelRouter.ConfidentialityGate, "Confidentiality Gate", $techn="Python", $descr="Blocks any external call unless 'external_ai_approved' is true in the active config and the payload is masked. Fails closed.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ModelRouter.ConfidentialityGate, "Confidentiality Gate", $techn="Python", $descr="Blocks any external call unless the dataset class is open_anonymized with a recorded source, or 'external_ai_approved' is true with an approval reference. Fails closed.", $tags="", $link="")
     Component(FreightInvoiceItemizer.ModelRouter.ProviderInterface, "Provider Interface", $techn="Python Protocol", $descr="Stable contract: complete(prompt, schema, params) -> structured response + usage. Every adapter must pass the same contract tests.", $tags="", $link="")
     Component(FreightInvoiceItemizer.ModelRouter.ExternalAPIAdapter, "External API Adapter", $techn="HTTPS SDK", $descr="Adapter for the hosted LLM API: structured output, retries, timeouts, rate limits.", $tags="", $link="")
     Component(FreightInvoiceItemizer.ModelRouter.LocalModelAdapter, "Local Model Adapter", $techn="HTTP", $descr="Adapter for the self-hosted model runtime.", $tags="", $link="")
@@ -32,7 +32,7 @@ System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $
 
   Container(FreightInvoiceItemizer.ConfigurationRegistry, "Configuration Registry", $techn="YAML in Git, JSON Schema, pydantic", $descr="The configurable layer. Typed parameters with limits, owner, change log and validity horizon; layered resolution core -> environment -> carrier override; every resolved config is hashed into the run manifest.", $tags="", $link="")
   ContainerDb(FreightInvoiceItemizer.TelemetryEpisodeStore, "Telemetry & Episode Store", $techn="DuckDB", $descr="Action telemetry (what happened), decision telemetry (why) and outcome telemetry (what followed), linked by case_id and tagged with the run's version.", $tags="", $link="")
-  Container(FreightInvoiceItemizer.LocalModelRuntime, "Local Model Runtime", $techn="Ollama", $descr="Self-hosted open-weights model used when external AI is not approved, and as the tested fallback.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.LocalModelRuntime, "Local Model Runtime", $techn="Ollama", $descr="Self-hosted open-weights model: the tested fallback and exit path, and the route for any data not cleared for external AI.", $tags="", $link="")
   Container(FreightInvoiceItemizer.ItemizationClassifier, "Itemization Classifier", $techn="Python, pydantic", $descr="Turns one note into charge items with category, amount and exact evidence span using a bounded tool-calling LLM agent; checks evidence, reconciles to the disputed amount, scores confidence and assigns the row outcome. Never invents or edits an amount.", $tags="", $link="")
   Container(FreightInvoiceItemizer.GuardrailLayer, "Guardrail Layer", $techn="Python", $descr="Policy checks around the agent: input guard, tool-call guard, output guard, action guard and privacy guard. Always 'full' in dev and prod; the 'none' and single-guard-off profiles exist only in the experiment environment on synthetic data, for the with/without evaluation.", $tags="", $link="")
 }
@@ -48,7 +48,7 @@ Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.ModelRo
 Rel(FreightInvoiceItemizer.ModelRouter.RoutingPolicyEngine, FreightInvoiceItemizer.ConfigurationRegistry, "Reads route, model ids, budget", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.ModelRouter.RoutingPolicyEngine, FreightInvoiceItemizer.ModelRouter.ResponseCache, "Looks up cached response", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.ModelRouter.RoutingPolicyEngine, FreightInvoiceItemizer.ModelRouter.ConfidentialityGate, "Candidate external call", $techn="", $tags="", $link="")
-Rel(FreightInvoiceItemizer.ModelRouter.ConfidentialityGate, FreightInvoiceItemizer.ModelRouter.ProviderInterface, "Approved, masked call", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ModelRouter.ConfidentialityGate, FreightInvoiceItemizer.ModelRouter.ProviderInterface, "Allowed call", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.ModelRouter.RoutingPolicyEngine, FreightInvoiceItemizer.ModelRouter.ProviderInterface, "Local call", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.ModelRouter.ProviderInterface, FreightInvoiceItemizer.ModelRouter.ExternalAPIAdapter, "Dispatches", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.ModelRouter.ProviderInterface, FreightInvoiceItemizer.ModelRouter.LocalModelAdapter, "Dispatches", $techn="", $tags="", $link="")

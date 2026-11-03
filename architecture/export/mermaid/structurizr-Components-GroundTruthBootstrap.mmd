@@ -1,0 +1,52 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Component View: Freight Invoice Itemizer - Ground Truth Bootstrap"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    2["<div style='font-weight: bold'>PPG Client Owner</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Freight Analytics lead at<br />PPG. Approves the charge<br />category list (D1), reviews<br />the 50 double-labelled notes<br />and resolves label<br />disagreements for the locked<br />test set (D2), reviews the<br />prototype (D3) and KPIs in<br />the UI, and authorizes<br />external AI use on anything<br />other than the anonymized<br />open dataset.</div>"]
+    style 2 fill:#343ced,stroke:#242aa5,color:#ffffff
+    3["<div style='font-weight: bold'>Itemizer Operator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Project team member who<br />uploads exports and launches<br />runs (UI or CLI), reviews<br />errors, owns configuration<br />and publishes versioned<br />changes.</div>"]
+    style 3 fill:#343ced,stroke:#242aa5,color:#ffffff
+    4["<div style='font-weight: bold'>Labeler / Adjudicator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Team member or PPG accountant<br />who labels notes blind and<br />adjudicates review cases into<br />the four buckets in the UI.</div>"]
+    style 4 fill:#343ced,stroke:#242aa5,color:#ffffff
+
+    6["<div style='font-weight: bold'>External LLM API Provider</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Hosted large language model<br />inference. Default route for<br />the anonymized open dataset<br />(ADR 0013); any other data<br />needs the client owner's<br />written approval.</div>"]
+    style 6 fill:#8b8c9c,stroke:#8b8c9c,color:#ffffff
+
+    subgraph 9 ["Freight Invoice Itemizer"]
+      style 9 fill:#ffffff,stroke:#1b1c24,color:#1b1c24
+
+      subgraph 116 ["Ground Truth Bootstrap"]
+        style 116 fill:#ffffff,stroke:#343ced,color:#343ced
+
+        117["<div style='font-weight: bold'>Dataset Profiler</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python, regex]</div><div style='font-size: 80%; margin-top:10px'>Counts rows, distinct notes,<br />carriers and disputed<br />dollars; scans note text for<br />names, phone numbers and<br />emails before any text is<br />sent out.</div>"]
+        style 117 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        118["<div style='font-weight: bold'>Split Builder</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Assigns each distinct note a<br />provisional stratum, sends<br />already-labelled notes to<br />TRAIN, draws TEST and its<br />reserve first from notes<br />nobody has read, then TRAIN<br />and VALIDATION, with a<br />recorded seed; checks<br />disjointness and writes the<br />split manifest.</div>"]
+        style 118 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        119["<div style='font-weight: bold'>Taxonomy Drafter</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python, LLM API]</div><div style='font-size: 80%; margin-top:10px'>Proposes 12 to 20 categories<br />with definitions and real<br />examples from TRAIN notes<br />only, using the LLM; checks<br />every quote is verbatim;<br />writes an editable draft and<br />a client approval document.</div>"]
+        style 119 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        120["<div style='font-weight: bold'>Labelling Pack Builder</div><div style='font-size: 70%; margin-top: 0px'>[Component: openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Writes labelling workbooks<br />containing notes and the<br />taxonomy but no tool output:<br />one per labeller for the 50<br />double-labelled notes, one<br />for the other 150, and one<br />for the client reviewer.</div>"]
+        style 120 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        121["<div style='font-weight: bold'>Label Validator & Sealer</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python, pandas]</div><div style='font-size: 80%; margin-top:10px'>Checks returned labels<br />(category, amount, verbatim<br />evidence), computes<br />agreement, applies the client<br />reviewer's decisions, and<br />seals TEST only when every<br />check passes.</div>"]
+        style 121 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+      end
+
+      115[("<div style='font-weight: bold'>Ground Truth Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: Parquet + DuckDB, access-controlled folder]</div><div style='font-size: 80%; margin-top:10px'>Approved charge taxonomy<br />(D1), sealed locked test set<br />(D2), TRAIN, VALIDATION and<br />FRESH sets, the split<br />manifest and labelling<br />records. Test labels are<br />readable only by the KPI<br />Calculator.</div>")]
+      style 115 fill:#e2e3fb,stroke:#343ced,color:#272834
+    end
+
+    3-. "<div>Runs profile, split, draft<br />and seal</div><div style='font-size: 70%'>[CLI]</div>" .->117
+    117-. "<div>Profile and note groups</div><div style='font-size: 70%'></div>" .->118
+    118-. "<div>TRAIN notes only</div><div style='font-size: 70%'></div>" .->119
+    118-. "<div>TEST, VALIDATION and TRAIN<br />notes</div><div style='font-size: 70%'></div>" .->120
+    119-. "<div>TRAIN notes, structured<br />output request</div><div style='font-size: 70%'>[HTTPS/JSON]</div>" .->6
+    119-. "<div>Category list for written<br />approval</div><div style='font-size: 70%'>[Document]</div>" .->2
+    120-. "<div>Labelling workbooks with no<br />tool output</div><div style='font-size: 70%'>[Excel]</div>" .->4
+    4-. "<div>Returned labels</div><div style='font-size: 70%'>[Excel]</div>" .->121
+    120-. "<div>Review workbook for the 50<br />double-labelled notes</div><div style='font-size: 70%'>[Excel]</div>" .->2
+    2-. "<div>Review decisions</div><div style='font-size: 70%'>[Excel]</div>" .->121
+    121-. "<div>Seals TEST; registers labels,<br />split manifest and approved<br />taxonomy</div><div style='font-size: 70%'></div>" .->115
+    118-. "<div>Registers the split manifest</div><div style='font-size: 70%'></div>" .->115
+
+  end

@@ -4,7 +4,7 @@ Date: 2026-10-31
 
 ## Status
 
-Accepted
+Accepted. Stays in force under [13. The project uses only an anonymized open dataset](0013-anonymized-open-dataset.md). DEV is now TRAIN and VALIDATION ([ADR 12](0012-train-validation-test-split.md)).
 
 ## Context
 

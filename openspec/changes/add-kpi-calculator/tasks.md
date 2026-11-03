@@ -12,13 +12,16 @@
 
 ## 3. Metrics
 
-- [ ] 3.1 Implement coverage and weighted accuracy with note-to-row fan-out
+- [ ] 3.1 Implement coverage (counting `no_charge_stated` as Verified under policy) and weighted accuracy with note-to-row fan-out
 - [ ] 3.2 Implement error metrics a–g including ECE and invariant counts
 - [ ] 3.3 Implement cost recomputation from per-call telemetry and price table
 - [ ] 3.4 Implement item- and row-level AUC with undefined handling
 - [ ] 3.5 Implement approval rate by outcome and audit disagreement
 - [ ] 3.6 Implement reproducibility comparison between runs
 - [ ] 3.7 Implement loop health metrics
+- [ ] 3.8 Implement per-carrier coverage and accuracy
+- [ ] 3.9 Implement the Level 3 cost-driver summary by carrier and category
+- [ ] 3.10 Report dollar coverage with and without repeated-invoice rows, and accuracy for seen and unseen formats
 
 ## 4. Weighting and uncertainty
 
@@ -28,7 +31,7 @@
 ## 5. Gates and snapshots
 
 - [ ] 5.1 Implement Level Gate Evaluator with invariant gate
-- [ ] 5.2 Implement TEST peek budget and aggregate-only response
+- [ ] 5.2 Implement TEST peek budget, refusal of promotion requests for TEST, and aggregate VALIDATION responses
 - [ ] 5.3 Implement immutable KPI Snapshot Writer with equality check
 
 ## 6. Tests

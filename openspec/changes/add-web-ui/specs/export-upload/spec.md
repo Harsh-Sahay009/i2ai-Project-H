@@ -11,6 +11,13 @@ The UI SHALL accept only file types in `ui.allowed_upload_types` up to `ui.max_u
 - **WHEN** a file with an existing hash is uploaded
 - **THEN** the UI reports the earlier upload and its runs instead of storing a duplicate
 
+### Requirement: Synthetic demo uploads kept apart
+An upload that matches a published SYNTH or ADV set SHALL be marked synthetic, its runs SHALL show a synthetic banner on every page, and they SHALL be listed apart from runs on the real dataset.
+
+#### Scenario: Website demo
+- **WHEN** a presenter uploads a synthetic export
+- **THEN** every page for that run shows "synthetic", and its results do not appear among the real runs
+
 ### Requirement: Run launch through the pipeline
 Launching from the UI SHALL start the same `itemizer run` pipeline the CLI uses, as a background job, and SHALL refuse a new launch when `ui.max_concurrent_runs` jobs are already running.
 

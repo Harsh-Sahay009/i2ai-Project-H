@@ -43,8 +43,12 @@ The system SHALL record for each reviewed row whether it was approved without ed
 - **THEN** outcome records exist for every decided row with decision and timestamps
 
 ### Requirement: Blind double labelling for TEST
-The labelling protocol SHALL give two labellers the same 50 notes without tool output, compute agreement, send disagreements to the client owner, and allow sealing only when every disagreement is resolved.
+The labelling protocol SHALL give two labellers the same 50 notes without tool output, compute agreement, send all 50 notes to the client reviewer (Jake or a PPG accountant), and allow sealing only when the review is complete and every disagreement is resolved.
 
 #### Scenario: Labeller sees predictions
 - **WHEN** a labelling workbook or labelling page session for TEST is created
 - **THEN** it contains no prediction data
+
+#### Scenario: Both labellers agree
+- **WHEN** both labellers give the same items for a note
+- **THEN** the note still goes to the client reviewer

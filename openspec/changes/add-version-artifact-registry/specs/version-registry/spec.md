@@ -38,10 +38,3 @@ The registry SHALL restore every artifact referenced by a run manifest into a wo
 #### Scenario: Rerun after six weeks
 - **WHEN** `itemizer rerun <run_id>` is executed on a clean checkout
 - **THEN** all referenced artifacts are restored from the CAS and the run starts with the same manifest
-
-### Requirement: Retention with tombstones
-Deleting an artifact SHALL remove its bytes and keep a tombstone with hash, reason, approver and timestamp.
-
-#### Scenario: Client requests deletion
-- **WHEN** raw exports are deleted at project end
-- **THEN** lineage still shows the hashes and the tombstones, and restore reports them as deleted

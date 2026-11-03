@@ -11,6 +11,20 @@ The system SHALL validate each export against the input contract and SHALL stop 
 - **WHEN** two rows share the same invoice key
 - **THEN** both rows are kept, flagged `repeated_invoice`, and counted in the report
 
+### Requirement: Row id from export position
+The system SHALL give every row a `row_id` from its position in the export, because no combination of ID columns identifies a row, and SHALL keep the original ID columns alongside it.
+
+#### Scenario: Same shipment on several rows
+- **WHEN** one shipment appears on 24 rows
+- **THEN** each row has its own `row_id` and all 24 keep the same shipment id
+
+### Requirement: Rows with unusual amounts kept and flagged
+The system SHALL keep rows whose disputed amount is zero or negative, SHALL flag them `non_positive_delta`, and SHALL count them in the data-quality report.
+
+#### Scenario: Negative delta
+- **WHEN** a row's billed charge is below its estimated charge
+- **THEN** the row is kept, flagged and counted
+
 ### Requirement: Pre-check without side effects
 The system SHALL offer a pre-check of an uploaded export against the input contract that returns the data-quality report without creating a snapshot or starting a run.
 
@@ -32,19 +46,19 @@ The system SHALL compute a fingerprint per note, itemize each distinct fingerpri
 - **WHEN** 37 rows share the same note
 - **THEN** one distinct note is passed to the classifier and its result is fanned out to all 37 rows
 
-### Requirement: Test-set exclusion for tuning data
-The system SHALL mark rows whose fingerprint belongs to the sealed TEST set so that they are never exported to DEV, few-shot candidates or calibration data.
+### Requirement: TEST and VALIDATION exclusion from tuning data
+The system SHALL mark rows whose fingerprint belongs to TEST or VALIDATION so that they are never exported to TRAIN or to few-shot or lexicon candidates, and rows marked TEST SHALL also stay out of calibration data.
 
 #### Scenario: Test note in weekly export
 - **WHEN** a production row's note matches a TEST fingerprint
 - **THEN** the row is itemized normally but flagged `test_fingerprint` and excluded from tuning exports
 
-### Requirement: Confidentiality masking
-The system SHALL produce masked note text with stable placeholders for person names, phone numbers and emails, SHALL store the reversal map only on team storage, and SHALL provide offsets mapping masked text back to the raw note.
+### Requirement: Dataset class recorded
+The system SHALL record `data.dataset_class` on every snapshot, and SHALL pass note text unchanged to later stages.
 
-#### Scenario: Driver name in note
-- **WHEN** a note says "per driver John Smith 2hrs det"
-- **THEN** masked text reads "per driver ⟨PERSON_1⟩ 2hrs det" and evidence offsets still resolve to the raw note
+#### Scenario: Anonymized dataset
+- **WHEN** an export is ingested with `data.dataset_class` set to `open_anonymized`
+- **THEN** the snapshot records that class and its evidence offsets refer to the note text as ingested
 
 ### Requirement: Snapshot registration
 The system SHALL write raw and normalized tables as Parquet, register them in the version registry with the transform code SHA, and pass only the snapshot id downstream.

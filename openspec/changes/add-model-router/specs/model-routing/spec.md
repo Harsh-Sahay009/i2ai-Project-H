@@ -8,14 +8,18 @@ All model providers SHALL implement one interface that accepts a prompt, an outp
 - **THEN** the router refuses to register it
 
 ### Requirement: Fail-closed confidentiality gate
-The router MUST NOT send any text to an external provider unless `routing.external_ai_approved` is true, `routing.approval_ref` is set, and the payload passes the unmasked-PII check; otherwise the call SHALL be blocked and logged.
+The router MUST NOT send any text to an external provider unless the payload passes the PII check and either `data.dataset_class` is `open_anonymized` with `data.source_ref` set, or `routing.external_ai_approved` is true with `routing.approval_ref` set; otherwise the call SHALL be blocked and logged.
 
-#### Scenario: No approval
-- **WHEN** the route is `external` and approval is false
+#### Scenario: Confidential data without approval
+- **WHEN** the route is `external`, `data.dataset_class` is `client_confidential` and approval is false
 - **THEN** no external request is made and the run fails at config resolution
 
-#### Scenario: Unmasked name slips through
-- **WHEN** an approved external call's payload contains a phone number pattern
+#### Scenario: Anonymized dataset with a source
+- **WHEN** the route is `external`, `data.dataset_class` is `open_anonymized` and `data.source_ref` is set
+- **THEN** the external call is allowed
+
+#### Scenario: Name left in the anonymized data
+- **WHEN** an external call's payload contains a phone number pattern
 - **THEN** the call is blocked, the note is routed per fallback order, and a `gate_block` event is logged
 
 ### Requirement: Configured routing

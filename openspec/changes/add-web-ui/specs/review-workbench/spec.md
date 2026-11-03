@@ -26,7 +26,7 @@ The Adjudication Page SHALL let an adjudicator assign one of AI wrong, human wro
 - **THEN** the action is refused
 
 ### Requirement: Blind labelling page
-The Blind Labelling Page SHALL show only the note and taxonomy, SHALL never receive predictions or another labeller's labels, and SHALL offer the client owner a disagreement resolution view.
+The Blind Labelling Page SHALL show only the note and taxonomy, SHALL never receive predictions or another labeller's labels, and SHALL offer the client reviewer a view to review all 50 double-labelled notes and resolve disagreements.
 
 #### Scenario: Second labeller
 - **WHEN** the second labeller opens a note already labelled by the first

@@ -16,7 +16,7 @@ C4 container **Output Formatter**. Placement: **common core** (output contract).
   - `Run Info`: run id, created, taxonomy, prompt, lexicon, model, config hash, code SHA, row counts per outcome, coverage $ and rows.
   - `Categories`: taxonomy version definitions.
 - **Deterministic writing:** fixed workbook properties (creation timestamp from manifest), sorted rows, no volatile formulas, so the same predictions give the same bytes.
-- **Masked text never written.** Evidence and notes come from raw text; PPG staff are allowed to see their own data.
+- **Evidence and notes** come from the raw note text in the snapshot.
 - **Confidence bands** instead of raw floats to discourage over-reading; raw value in a hidden column for audits.
 
 ## Risks / Trade-offs
@@ -26,3 +26,4 @@ C4 container **Output Formatter**. Placement: **common core** (output contract).
 ## Open Questions
 
 - Does PPG want a currency column per item or per row only?
+- Final table layout. The team's example sheet is not final, and a simpler layout with a largest-disputes view is proposed in `scope_alignment.md`. This change's spec is updated once the team chooses.
