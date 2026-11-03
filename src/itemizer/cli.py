@@ -381,5 +381,20 @@ def models_command() -> None:
     _show(lines)
 
 
+@app.command("compare-models")
+@_guard
+def compare_command(
+    models: str = typer.Option(..., help="Comma-separated names from config/models.yaml. The first is the reference."),
+    set_name: str = typer.Option("train", "--set", help="train or validation. TEST never chooses between candidates."),
+    limit: int = typer.Option(None, help="Only this many notes."),
+) -> None:
+    """Run several models on the same notes and compare them on the same measures."""
+    from .compare import compare_models, format_table
+
+    report = compare_models(Path.cwd(), [name.strip() for name in models.split(",") if name.strip()], set_name, limit)
+    typer.echo(format_table(report))
+    typer.echo(f"Report: {report['report_path'].relative_to(Path.cwd())}")
+
+
 if __name__ == "__main__":
     app()
