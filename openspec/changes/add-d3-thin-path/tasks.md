@@ -18,9 +18,9 @@
 
 ## 4. Workbook
 
-- [ ] 4.1 Implement the five sheets, highlighting and fixed sentences for `ai_reason`
-- [ ] 4.2 Implement the largest-disputes view
-- [ ] 4.3 Make the file byte-identical for identical inputs
+- [x] 4.1 Implement the five sheets, highlighting and fixed sentences for `ai_reason`
+- [x] 4.2 Implement the largest-disputes view
+- [x] 4.3 Make the file byte-identical for identical inputs
 
 ## 5. Evaluation
 
