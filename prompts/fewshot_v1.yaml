@@ -1,9 +1,10 @@
 # Worked examples for the prompt. Offsets only: the note text is read from the dataset at runtime.
-# claude_draft_unconfirmed entries need a person to confirm them (add-d3-thin-path task 7.3).
+# Confirmed by the team on 2026-11-03 (add-d3-thin-path task 7.3). `source` says where each example started.
 version: fewshot@v1
+confirmed: {by: team, date: "2026-11-03"}
 examples:
 - note_id: n_a3f042ca
-  source: claude_draft_unconfirmed
+  source: claude_draft_confirmed
   items:
   - category: purchased_transportation
     amount: '20.00'
@@ -13,7 +14,7 @@ examples:
     derivation: stated
     basis: named_in_note
 - note_id: n_9735d5b0
-  source: team_example_corrected
+  source: team_example_confirmed
   items:
   - category: terminal_handling
     amount: '60.00'
@@ -37,7 +38,7 @@ examples:
     derivation: stated
     basis: named_in_note
 - note_id: n_077781a1
-  source: team_example_corrected
+  source: team_example_confirmed
   items:
   - category: fuel_surcharge
     amount: '27.05'
@@ -54,7 +55,7 @@ examples:
     derivation: stated
     basis: named_in_note
 - note_id: n_c383e38c
-  source: claude_draft_unconfirmed
+  source: claude_draft_confirmed
   items:
   - category: purchased_transportation
     amount: '20.00'
@@ -64,7 +65,7 @@ examples:
     derivation: stated
     basis: named_in_note
 - note_id: n_ae12682c
-  source: claude_draft_unconfirmed
+  source: claude_draft_confirmed
   items:
   - category: combined_charges
     amount: '36.75'
@@ -74,7 +75,7 @@ examples:
     derivation: stated
     basis: named_in_note
 - note_id: n_17db31fa
-  source: claude_draft_unconfirmed
+  source: claude_draft_confirmed
   items:
   - category: other_unmapped
     amount: '57.67'
@@ -84,7 +85,7 @@ examples:
     derivation: stated
     basis: no_description
 - note_id: n_3a01242c
-  source: claude_draft_unconfirmed
+  source: claude_draft_confirmed
   items:
   - category: ramp_storage
     amount: '300.00'
@@ -94,7 +95,7 @@ examples:
     derivation: stated
     basis: named_in_note
 - note_id: n_09b6ae14
-  source: claude_draft_unconfirmed
+  source: claude_draft_confirmed
   items:
   - category: equipment_detention
     amount: '150.00'
@@ -104,7 +105,7 @@ examples:
     derivation: stated
     basis: named_in_note
 - note_id: n_d1c918c6
-  source: claude_draft_unconfirmed
+  source: claude_draft_confirmed
   items:
   - category: short_paid
     amount: '75.27'
@@ -114,7 +115,7 @@ examples:
     derivation: stated
     basis: named_in_note
 - note_id: n_6c17fb32
-  source: claude_draft_unconfirmed
+  source: claude_draft_confirmed
   items:
   - category: temperature_protection
     amount: '100.00'
@@ -131,7 +132,7 @@ examples:
     derivation: stated
     basis: named_in_note
 - note_id: n_fe81dcf7
-  source: claude_draft_unconfirmed
+  source: claude_draft_confirmed
   items:
   - category: tailgate_delivery
     amount: '15.00'
@@ -141,7 +142,7 @@ examples:
     derivation: stated
     basis: named_in_note
 - note_id: n_546304da
-  source: claude_draft_unconfirmed
+  source: claude_draft_confirmed
   items:
   - category: base_rate_correction
     amount: '3085.00'
