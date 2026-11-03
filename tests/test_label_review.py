@@ -355,7 +355,7 @@ def test_the_page_counts_corrections_after_the_freeze(frozen):
     do_import(frozen, path)
     summary = acceptance.d3_check(frozen.tmp)
     assert summary["d2"]["corrected_after_freeze"] == 1 and summary["d2"]["written_by_model"] == 199 and summary["d2"]["checked_by_person"] == 1
-    assert "1 labels were corrected after TEST was frozen" in Path(summary["page"]).read_text(encoding="utf-8")
+    assert "1 label was corrected after TEST was frozen" in Path(summary["page"]).read_text(encoding="utf-8")
 
 
 # ---- running the test again
@@ -408,6 +408,17 @@ def test_the_client_can_keep_a_team_correction(frozen):
     workbook.save(review_path)
     assert lb.import_client_review(frozen.ws, review_path, lb.CLIENT_ROLE, "2026-11-05", frozen.notes, CODES)["errors"] == 0
     assert lb.gold_labels(frozen.ws)[note.fingerprint].items[0].category == "cat_5"
+
+
+def test_the_clients_decision_wins_over_a_team_correction_it_did_not_keep(frozen):
+    note = frozen.notes[frozen.packs["label_A"][0]]
+    original = by_id(frozen, note.note_id).items[0].category
+    path = write_pack(frozen)
+    edit(path, set_category(note.note_id))
+    do_import(frozen, path)
+    assert lb.gold_labels(frozen.ws)[note.fingerprint].items[0].category == "cat_5"
+    assert lb.import_client_review(frozen.ws, fill_review(frozen, "accept_A"), lb.CLIENT_ROLE, "2026-11-05", frozen.notes, CODES)["errors"] == 0
+    assert lb.gold_labels(frozen.ws)[note.fingerprint].items[0].category == original != "cat_5"
 
 
 def test_accept_correction_needs_a_correction(drafted):

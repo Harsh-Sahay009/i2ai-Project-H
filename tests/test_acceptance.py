@@ -331,3 +331,6 @@ def test_negative_rows_left_uncovered_are_flagged_on_the_page(d3):
     snapshot["coverage"]["usd"]["negative_rows_not_covered"] = 3
     path.write_text(json.dumps(snapshot), encoding="utf-8")
     assert "3 rows with negative amounts are not covered" in page(acceptance.d3_check(d3.tmp))
+    snapshot["coverage"]["usd"]["negative_rows_not_covered"] = 1
+    path.write_text(json.dumps(snapshot), encoding="utf-8")
+    assert "1 row with a negative amount is not covered" in page(acceptance.d3_check(d3.tmp))

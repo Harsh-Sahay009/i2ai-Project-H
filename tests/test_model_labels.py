@@ -269,7 +269,7 @@ def test_the_snapshot_and_the_page_say_the_labels_are_drafts(labels):
     text = Path(summary["page"]).read_text(encoding="utf-8")
     assert "200 of the 200 TEST labels behind this result were written by Claude Opus" in text
     assert "shows how far the tool agrees with those labels, and not that it is right" in text
-    assert "200 labels are drafts written by Claude Opus" in text
+    assert "200 of the labels are drafts written by Claude Opus" in text
 
 
 def test_a_person_labelled_test_set_carries_no_draft_flag(d3):

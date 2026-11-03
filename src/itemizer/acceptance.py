@@ -111,6 +111,10 @@ def _d3(project: Project, run_id: str | None) -> tuple[dict, list[dict]]:
     return {**result, "status": "done", "reason": None}, shipments
 
 
+def _count(number: int, one: str, many: str) -> str:
+    return f"{number} {one if number == 1 else many}"
+
+
 def _percent(value: float | None) -> str:
     return "not measured" if value is None else f"{value * 100:.1f}%"
 
@@ -144,10 +148,10 @@ def _page(summary: dict, shipments: list[dict]) -> str:
         f"<p>Status: <b>{html.escape(d2['status'])}</b>. {d2['labelled_notes']} of {d2['target_notes']} notes labelled.</p>",
     ]
     if d2["written_by_model"] or d2["checked_by_person"]:
-        parts.append(f"<p>{d2['written_by_model']} labels are drafts written by Claude Opus that no person has checked, and "
+        parts.append(f"<p>{d2['written_by_model']} of the labels are drafts written by Claude Opus that no person has checked, and "
                      f"{d2['checked_by_person']} have been checked by a person. D2 needs people to have checked them all.</p>")
     if d2.get("corrected_after_freeze"):
-        parts.append(f"<p>{d2['corrected_after_freeze']} labels were corrected after TEST was frozen, when tool output existed.</p>")
+        parts.append(f"<p>{_count(d2['corrected_after_freeze'], 'label was', 'labels were')} corrected after TEST was frozen, when tool output existed.</p>")
     if "agreement" in d2:
         agreement = d2["agreement"]
         parts.append(f"<p>Two labellers compared on {agreement['notes_compared']} notes: category agreement (Cohen's kappa) "
@@ -177,7 +181,8 @@ def _page(summary: dict, shipments: list[dict]) -> str:
             parts.append(f"<p class='flag'>TEST was scored by {spent['runs_spent']} different runs at this milestone, against a budget of "
                          f"{spent['budget']}, so this result may be a little better than a first attempt would show. The reasons are in the budget ledger.</p>")
         if coverage["usd"]["negative_rows_not_covered"]:
-            parts.append(f"<p class='flag'>{coverage['usd']['negative_rows_not_covered']} rows with negative amounts are not covered, "
+            not_covered = coverage["usd"]["negative_rows_not_covered"]
+            parts.append(f"<p class='flag'>{_count(not_covered, 'row with a negative amount is', 'rows with negative amounts are')} not covered, "
                          "so dollar coverage reads a little high.</p>")
         if d3["code_dirty"]:
             parts.append("<p class='flag'>This run came from code that was not fully committed, so it cannot be rerun from one commit.</p>")
