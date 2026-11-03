@@ -6,6 +6,7 @@ from pathlib import Path
 
 import typer
 
+from .bootstrap import labels as lb
 from .bootstrap import split as sp
 from .bootstrap import taxonomy as tx
 from .bootstrap.data import Config, ContractError, Workspace, group_notes, load_config, load_export, sha256_file
@@ -211,6 +212,103 @@ def record_approval_command(
     ctx.categories()
     record = tx.record_approval(ctx.root / CATEGORIES, ctx.root / APPROVAL, role, date, evidence)
     ctx.ws.log("record-approval", [ctx.root / CATEGORIES, evidence], [ctx.root / APPROVAL])
+    _show(record)
+
+
+@gt.command("label-packs")
+@_guard
+def label_packs_command(
+    replacements: bool = typer.Option(False, help="Only write the pack for notes added by `gt final-strata --apply`."),
+    train_suggestions: Path = typer.Option(None, help="JSON of model suggestions, allowed for the TRAIN pack only."),
+    config: Path = Config_,
+) -> None:
+    """Write the labelling workbooks. TEST and VALIDATION packs contain no tool output."""
+    ctx = Context(config)
+    manifest, categories = ctx.manifest(), ctx.categories()
+    if replacements:
+        members = ctx.ws.read_json("packs.json").get("label_replacements")
+        if not members:
+            raise ContractError("there are no replacement notes")
+        lb.write_pack(ctx.ws.path("packs/label_replacements.xlsx"), "TEST", members, ctx.notes, categories)
+        typer.echo(f"Wrote the replacement pack with {len(members)} notes.")
+        return
+    suggestions = json.loads(train_suggestions.read_text(encoding="utf-8")) if train_suggestions else None
+    packs = lb.build_packs(ctx.ws, manifest, ctx.notes, categories, suggestions)
+    ctx.ws.log("label-packs", [ctx.root / CATEGORIES], [ctx.ws.path(f"packs/{name}.xlsx") for name in packs])
+    _show({name: len(members) for name, members in packs.items()})
+
+
+@gt.command("import-labels")
+@_guard
+def import_labels_command(
+    pack: str = typer.Argument(..., help="label_A, label_B, label_single, spot_check, label_replacements, validation or train."),
+    path: Path = typer.Argument(..., help="The filled workbook."),
+    labeller: str = typer.Option(..., help="Who labelled it."),
+    config: Path = Config_,
+) -> None:
+    """Check a returned workbook and report every failure per row."""
+    ctx = Context(config)
+    ctx.manifest()
+    result = lb.import_labels(ctx.ws, pack, path, labeller, ctx.notes, ctx.codes())
+    ctx.ws.log("import-labels", [path], [ctx.ws.path(f"labels/{pack}.json")], pack=pack, errors=result["errors"])
+    _show(result)
+    if result["errors"]:
+        typer.secho(f"Fix the rows in {ctx.ws.path(f'labels/{pack}.errors.csv').relative_to(ctx.root)} and import again.", fg=typer.colors.YELLOW)
+        raise typer.Exit(code=1)
+
+
+@gt.command("client-pack")
+@_guard
+def client_pack_command(config: Path = Config_) -> None:
+    """Compute agreement, and write the review workbook with all 50 double-labelled notes."""
+    ctx = Context(config)
+    report = lb.write_client_pack(ctx.ws, ctx.notes, ctx.categories())
+    ctx.ws.log("client-pack", [], [ctx.ws.path("agreement.json"), ctx.ws.path("packs/client_review.xlsx")])
+    _show({k: (len(v) if k == "disagreements" else v) for k, v in report.items()})
+
+
+@gt.command("import-client")
+@_guard
+def import_client_command(
+    path: Path = typer.Argument(..., help="The returned review workbook."),
+    date: str = typer.Option(..., help="Review date, YYYY-MM-DD."),
+    role: str = typer.Option("client_owner", help="Reviewer's role."),
+    config: Path = Config_,
+) -> None:
+    """Read the client's review. Their decision becomes the gold label."""
+    ctx = Context(config)
+    result = lb.import_client_review(ctx.ws, path, role, date, ctx.notes, ctx.codes())
+    ctx.ws.log("import-client", [path], [ctx.ws.path("client_review.json")], errors=result["errors"])
+    _show(result)
+    if result["errors"]:
+        raise typer.Exit(code=1)
+
+
+@gt.command("final-strata")
+@_guard
+def final_strata_command(apply: bool = typer.Option(False, help="Move the notes listed."), config: Path = Config_) -> None:
+    """Compare the labelled mix with 100/100, and list replacements from the reserve if it is off."""
+    ctx = Context(config)
+    manifest = ctx.manifest()
+    result = lb.final_strata(ctx.ws, manifest, ctx.notes, apply)
+    if apply and result["replace"]:
+        path = ctx.ws.write_json("split_manifest.json", manifest)
+        ctx.ws.log("final-strata", [], [path], moved=len(result.get("add_note_ids", [])))
+    _show(result)
+
+
+@gt.command("seal")
+@_guard
+def seal_command(mapping: Path = typer.Option(None, help="YAML mapping from draft codes to approved codes."), config: Path = Config_) -> None:
+    """Seal TEST when every condition holds, then release unused reserve notes."""
+    import yaml
+
+    ctx = Context(config)
+    manifest = ctx.manifest()
+    approved = tx.approved_codes(ctx.root / CATEGORIES, ctx.root / APPROVAL)
+    code_map = yaml.safe_load(mapping.read_text(encoding="utf-8")) if mapping else None
+    record = lb.seal(ctx.ws, manifest, ctx.notes, approved, code_map)
+    ctx.ws.log("seal", [], [ctx.ws.path("test_sealed.json"), ctx.ws.path("split_manifest.json")], sha256=record["sha256"])
     _show(record)
 
 
