@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -489,3 +490,143 @@ def test_gt_seal_stops_without_the_clients_approval(d3):
     result = runner.invoke(app, ["gt", "seal"])
     assert result.exit_code != 0 and "approval" in result.stderr + result.stdout
     assert lb.load_test_gold(d3.ws)[1] == "provisional" and not d3.ws.exists("seal_record.json")
+
+
+# ---- a score belongs to the run's own inputs
+def _ledger(d3) -> list[str]:
+    path = d3.tmp / "data" / "kpi" / "test_budget.jsonl"
+    if not path.exists():
+        return []
+    return [json.loads(line)["event"] for line in path.read_text(encoding="utf-8").splitlines()]
+
+
+def _settings(d3, change) -> None:
+    settings = yaml.safe_load((d3.tmp / pipeline.SETTINGS).read_text(encoding="utf-8"))
+    change(settings)
+    (d3.tmp / pipeline.SETTINGS).write_text(yaml.safe_dump(settings), encoding="utf-8")
+
+
+def _rename_a_category(d3) -> None:
+    taxonomy = tx.load_taxonomy(d3.tmp / pipeline.CATEGORIES)
+    next(c for c in taxonomy["categories"] if c["code"] == "cat_5")["code"] = "cat_renamed"
+    tx.write_taxonomy(d3.tmp / pipeline.CATEGORIES, taxonomy)
+
+
+def test_moving_a_gate_after_scoring_is_refused_with_nothing_charged(d3):
+    freeze(d3)
+    outcome = pipeline.run(d3.tmp)
+    before = pipeline.evaluate_run(d3.tmp, outcome.run_id)
+    _settings(d3, lambda s: s["gates"]["level1"].update(acc=0.10))
+    with pytest.raises(ContractError, match="out of date.*config/run.yaml"):
+        pipeline.evaluate_run(d3.tmp, outcome.run_id)
+    assert _ledger(d3) == ["spent"]
+    on_file = json.loads(kpi.snapshot_path(d3.tmp / "data", outcome.run_id, "d3").read_text(encoding="utf-8"))
+    assert on_file["levels"]["level1"]["conditions"]["acc"]["target"] == before["levels"]["level1"]["conditions"]["acc"]["target"] == 0.95
+
+
+def test_changing_a_category_after_the_run_is_refused_with_nothing_charged(d3):
+    freeze(d3)
+    outcome = pipeline.run(d3.tmp)
+    _rename_a_category(d3)
+    with pytest.raises(ContractError, match="out of date: the category list"):
+        pipeline.evaluate_run(d3.tmp, outcome.run_id)
+    assert _ledger(d3) == []
+
+
+def test_a_run_that_uses_the_renamed_list_can_be_scored_on_purpose(d3):
+    freeze(d3)
+    pipeline.evaluate_run(d3.tmp, pipeline.run(d3.tmp).run_id)
+    _rename_a_category(d3)
+    new = pipeline.run(d3.tmp)
+    with pytest.raises(ContractError, match="--extra-peek"):
+        pipeline.evaluate_run(d3.tmp, new.run_id)
+    snapshot = pipeline.evaluate_run(d3.tmp, new.run_id, extra_peek="client renamed a category at approval")
+    assert snapshot["test_budget"] == {"event": "extra_spent", "budget": 1, "runs_spent": 2, "extra_peeks": 1}
+    assert _ledger(d3) == ["spent", "refused", "extra_spent"]
+
+
+@pytest.mark.parametrize("change", [lambda s: s["budget"].update(max_usd_per_run="99.00"), lambda s: s["runtime"].update(concurrency=2)])
+def test_a_budget_or_concurrency_change_keeps_the_runs_identity(d3, change):
+    freeze(d3)
+    first = pipeline.run(d3.tmp)
+    pipeline.evaluate_run(d3.tmp, first.run_id)
+    _settings(d3, change)
+    second = pipeline.run(d3.tmp)
+    assert second.run_id == first.run_id
+    assert pipeline.evaluate_run(d3.tmp, second.run_id)["test_budget"]["event"] == "rescored"
+
+
+def test_a_run_with_unanswered_notes_spends_nothing_and_a_repeat_recovers_it(d3):
+    freeze(d3)
+    d3.broken.add("claude-opus-5-5")
+    down = pipeline.run(d3.tmp)
+    with pytest.raises(ContractError, match="got no answer"):
+        pipeline.evaluate_run(d3.tmp, down.run_id)
+    assert _ledger(d3) == []
+    d3.broken.clear()
+    back = pipeline.run(d3.tmp)
+    assert back.run_id == down.run_id
+    assert pipeline.evaluate_run(d3.tmp, back.run_id)["levels"]["level1"]["status"] == "pass"
+    assert _ledger(d3) == ["spent"]
+
+
+def test_new_answers_under_one_run_id_are_a_new_run(d3):
+    freeze(d3)
+    first = pipeline.run(d3.tmp)
+    pipeline.evaluate_run(d3.tmp, first.run_id)
+    shutil.rmtree(d3.tmp / "data" / "cache")
+    d3.wrong_on = "LUMPER"
+    second = pipeline.run(d3.tmp)
+    assert second.run_id == first.run_id
+    with pytest.raises(ContractError, match="budget for milestone d3 is spent"):
+        pipeline.evaluate_run(d3.tmp, second.run_id)
+
+
+def test_a_milestone_outside_the_list_has_no_budget(d3):
+    freeze(d3)
+    first, second = pipeline.run(d3.tmp), pipeline.run(d3.tmp, model_name="claude-sonnet-5-5")
+    pipeline.evaluate_run(d3.tmp, first.run_id)
+    result = runner.invoke(app, ["evaluate", "--run", second.run_id, "--milestone", "d3b"])
+    assert result.exit_code == 2 and "not in kpi.milestones" in result.stderr
+    assert _ledger(d3) == ["spent"]
+
+
+@pytest.mark.parametrize("edit", [
+    lambda rows: [row.update(outcome="no_charge_stated", outcome_reason="no_charge_in_note") for row in rows if row["outcome"] == "discrepancy"],
+    lambda rows: rows.pop(),
+    lambda rows: rows[0].update(disputed="0.00"),
+])
+def test_a_row_file_that_does_not_follow_from_the_notes_is_refused(d3, edit):
+    freeze(d3)
+    outcome = pipeline.run(d3.tmp)
+    path = outcome.folder / "row_results.json"
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    edit(rows)
+    path.write_text(json.dumps(rows), encoding="utf-8")
+    with pytest.raises(ContractError, match="does not follow"):
+        pipeline.evaluate_run(d3.tmp, outcome.run_id)
+    assert _ledger(d3) == []
+
+
+def test_the_scan_decision_is_part_of_the_runs_identity(d3):
+    first = pipeline.run(d3.tmp, set_name="train", limit=2)
+    d3.ws.write_json("scan_decision.json", {"decision": "exclude_flagged"})
+    assert pipeline.run(d3.tmp, set_name="train", limit=2).run_id != first.run_id
+
+
+def test_a_commit_changing_nothing_keeps_the_run_and_the_workbook(d3):
+    def git(*args):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", *args], cwd=d3.tmp, check=True, capture_output=True)
+
+    (d3.tmp / ".gitignore").write_text("data/\n.env\n*.xlsx\n", encoding="utf-8")
+    git("init", "-q")
+    git("add", ".")
+    git("commit", "-q", "-m", "first")
+    first = pipeline.run(d3.tmp, set_name="train", limit=3)
+    digest = hash_of(first.workbook)
+    (d3.tmp / "notes.md").write_text("A document changed.", encoding="utf-8")
+    git("add", ".")
+    git("commit", "-q", "-m", "docs only")
+    second = pipeline.run(d3.tmp, set_name="train", limit=3)
+    assert second.run_id == first.run_id and hash_of(second.workbook) == digest
+    assert second.manifest.code_commit != first.manifest.code_commit

@@ -91,21 +91,26 @@ def choose_model(root: Path, name: str | None) -> ModelSpec:
     return specs[name]
 
 
-def _code_identity(root: Path) -> tuple[str, bool]:
-    """The commit and a hash of the source, so an uncommitted code change still gives a new run."""
+def _code_identity(root: Path) -> tuple[str, str, bool]:
+    """A hash of the source and lockfile, then the commit and whether the tree is clean. Only the hash is in the run's id,
+    so a commit touching nothing else gives the same run and the same workbook."""
     digest = hashlib.sha256()
     package = Path(__file__).resolve().parent
     for path in sorted(package.rglob("*.py")):
         digest.update(path.relative_to(package).as_posix().encode("utf-8"))
         digest.update(path.read_bytes())
+    lock = root / "uv.lock"
+    if lock.exists():
+        digest.update(lock.read_bytes())
+    code_sha = digest.hexdigest()
 
     def git(*args: str) -> subprocess.CompletedProcess:
         return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
 
     head = git("rev-parse", "--short", "HEAD")
     if head.returncode != 0:
-        return f"no-git+{digest.hexdigest()[:12]}", False
-    return f"{head.stdout.strip()}+{digest.hexdigest()[:12]}", bool(git("status", "--porcelain", "--", "src", "prompts", "config").stdout.strip())
+        return code_sha, "no-git", False
+    return code_sha, head.stdout.strip(), bool(git("status", "--porcelain", "--", "src", "prompts", "config").stdout.strip())
 
 
 def _select(project: Project, rows: list[DisputeRow], notes: dict[str, Note], is_dataset: bool, set_name: str | None,
@@ -160,10 +165,18 @@ def _write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
 
 
-def _manifest(project: Project, spec: ModelSpec, export: Path, set_name: str | None, limit: int | None, system: str) -> RunManifest:
+def _config_sha(project: Project, left_out: set[str]) -> str:
+    """The settings that decide a run's results, and which notes the scan decision keeps back. A budget or a concurrency
+    changes how a run goes, and not what a finished answer says, so lowering either keeps the run's identity."""
+    deciding = {key: value for key, value in project.settings.items() if key not in ("budget", "runtime")}
+    config = json.dumps([deciding, str(project.cfg.large_dispute_usd), sorted(left_out)], sort_keys=True, default=str)
+    return hashlib.sha256(config.encode("utf-8")).hexdigest()
+
+
+def _manifest(project: Project, spec: ModelSpec, export: Path, set_name: str | None, limit: int | None, system: str,
+              left_out: set[str]) -> RunManifest:
     is_dataset = sha256_file(export) == project.split["dataset_sha256"]
-    code_sha, dirty = _code_identity(project.root)
-    config = json.dumps([project.settings, str(project.cfg.large_dispute_usd)], sort_keys=True, default=str)
+    code_sha, commit, dirty = _code_identity(project.root)
     return RunManifest(
         dataset_sha256=sha256_file(export),
         set_name=set_name or "all",
@@ -173,8 +186,9 @@ def _manifest(project: Project, spec: ModelSpec, export: Path, set_name: str | N
         fewshot_sha256=sha256_file(project.root / FEWSHOTS),
         grammar_version=GRAMMAR_VERSION,
         model=spec.model_dump(mode="json"),
-        config_sha256=hashlib.sha256(config.encode("utf-8")).hexdigest(),
+        config_sha256=_config_sha(project, left_out),
         code_sha=code_sha,
+        code_commit=commit,
         code_dirty=dirty,
         split_sha256=hashlib.sha256(json.dumps(project.split["notes"], sort_keys=True).encode("utf-8")).hexdigest() if is_dataset else None,
     )
@@ -221,12 +235,12 @@ def run(root: Path, model_name: str | None = None, set_name: str | None = None, 
     codes = {c["code"] for c in categories}
     fewshots = load_fewshots(root / FEWSHOTS, project.notes, project.split, codes)
     system = build_system_prompt(categories, fewshots, root / PROMPT)
-    manifest = _manifest(project, spec, path, set_name, limit, system)
+    left_out = _left_out_of_send(project, spec, notes, is_dataset)
+    manifest = _manifest(project, spec, path, set_name, limit, system, left_out)
     folder = project.data_root / "runs" / manifest.run_id
     folder.mkdir(parents=True, exist_ok=True)
     _write_json(folder / "manifest.json", {"run_id": manifest.run_id, **manifest.model_dump(mode="json")})
 
-    left_out = _left_out_of_send(project, spec, notes, is_dataset)
     provider = get_provider(spec, project_root=root)
     budget = _budget(project.settings)
     started = time.monotonic()
@@ -301,8 +315,38 @@ def latest_full_run(project: Project) -> str | None:
     return max(found)[1] if found else None
 
 
-def evaluate_run(root: Path, run_id: str | None = None, milestone: str = "d3") -> dict:
-    """Score a run on all rows against TEST. Aggregates only. Scoring the same run again uses no TEST budget."""
+def out_of_date(project: Project, manifest: RunManifest) -> list[str]:
+    """Which inputs that decide a run's results have changed since it ran. Labels are not among them: a corrected label is
+    scored on the same run. Code is not either, because a KPI fix re-scores the same answers, and the snapshot records it."""
+    root = project.root
+    changed = []
+    if sha256_file(root / CATEGORIES) != manifest.taxonomy_sha256:
+        changed.append("the category list")
+    if sha256_file(root / FEWSHOTS) != manifest.fewshot_sha256:
+        changed.append("the worked examples")
+    if GRAMMAR_VERSION != manifest.grammar_version:
+        changed.append("the grammar")
+    if not changed:  # the prompt is built from the two files above, and building it from a changed list could fail
+        categories = project.categories()
+        fewshots = load_fewshots(root / FEWSHOTS, project.notes, project.split, {c["code"] for c in categories})
+        system = build_system_prompt(categories, fewshots, root / PROMPT)
+        if hashlib.sha256(system.encode("utf-8")).hexdigest() != manifest.prompt_sha256:
+            changed.append("the prompt")
+    spec = ModelSpec.model_validate(manifest.model)
+    if _config_sha(project, _left_out_of_send(project, spec, project.notes, True)) != manifest.config_sha256:
+        changed.append("the settings in config/run.yaml or the scan decision")
+    return changed
+
+
+# These reasons mean a note never got an answer, and a repeat run recovers it. Scoring now would measure an outage.
+UNANSWERED = ("provider_unavailable", "budget_exhausted")
+
+
+def evaluate_run(root: Path, run_id: str | None = None, milestone: str = "d3", extra_peek: str | None = None) -> dict:
+    """Score a run on all rows against TEST. Aggregates only. Scoring the same results again uses no TEST budget.
+
+    Everything refused here is refused before any budget is spent.
+    """
     project = load_project(root)
     run_id = run_id or latest_full_run(project)
     if run_id is None:
@@ -310,6 +354,20 @@ def evaluate_run(root: Path, run_id: str | None = None, milestone: str = "d3") -
     manifest, rows, note_results = load_run(project, run_id)
     if manifest.dataset_sha256 != project.split["dataset_sha256"]:
         raise ContractError(f"run {run_id} used another export, and Level gates need the dataset file")
+    if manifest.set_name != "all" or manifest.limit is not None:
+        raise ContractError("Level gates need a run on all rows of the dataset file, with no --set and no --limit")
+    changed = out_of_date(project, manifest)
+    if changed:
+        raise ContractError(f"run {run_id} is out of date: {', '.join(changed)} changed after it ran. Run again, and pass "
+                            "--extra-peek with the reason if this milestone's TEST budget is spent")
+    unanswered = sum(result.review_reason in UNANSWERED for result in note_results.values())
+    if unanswered:
+        raise ContractError(f"{unanswered} notes in run {run_id} got no answer, because of a provider failure or a spent budget. "
+                            "Run again to recover them. Nothing was charged to the TEST budget")
+    rebuilt = assign_rows(project.rows, note_results, Policy.from_settings(project.settings))
+    if rebuilt != rows:
+        raise ContractError(f"row_results.json in run {run_id} does not follow from its note results and the dataset, so the "
+                            "folder was changed. Run again")
     gold, status = lb.load_test_gold(project.ws)
     entries = {e["fingerprint"]: e for e in project.split["notes"]}
     missing = [fp for fp in gold if fp not in entries]
@@ -319,6 +377,7 @@ def evaluate_run(root: Path, run_id: str | None = None, milestone: str = "d3") -
     test_entries = [{**entries[fp], "set": "TEST"} for fp in sorted(gold)]
     snapshot = kpi.evaluate(project.data_root, manifest, milestone, rows, note_results, project.notes,
                             {c["code"] for c in project.categories()}, test_entries, gold, status, project.settings,
-                            project.cfg.large_dispute_usd, project.cfg.seed)
-    project.ws.log("evaluate", [], [kpi.snapshot_path(project.data_root, run_id, milestone)], run_id=run_id, status=status)
+                            project.cfg.large_dispute_usd, project.cfg.seed, extra_peek)
+    project.ws.log("evaluate", [], [kpi.snapshot_path(project.data_root, run_id, milestone)], run_id=run_id, status=status,
+                   budget_event=snapshot["test_budget"]["event"])
     return snapshot

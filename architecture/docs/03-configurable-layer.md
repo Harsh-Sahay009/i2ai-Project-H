@@ -176,7 +176,7 @@ The thin path reads two files, without the layering and schema that add-configur
 | File | Holds |
 |---|---|
 | `config/models.yaml` | `default`, and for each model `provider`, `model`, `api_key_env` (the variable's name, never a key), `base_url`, `effort`, `refusal_fallback`, `max_tokens` and four prices in USD per million tokens |
-| `config/run.yaml` | `reconcile.abs_tolerance_usd`, `review.no_charge_stated_policy`, `review.repeated_invoice_policy`, `budget.max_usd_per_run`, `budget.max_minutes_per_run`, `runtime.concurrency`, `kpi.amount_match_tolerance_usd`, `kpi.bootstrap_resamples`, `kpi.test_peek_budget_per_milestone`, `gates` |
+| `config/run.yaml` | `reconcile.abs_tolerance_usd`, `review.no_charge_stated_policy`, `review.repeated_invoice_policy`, `budget.max_usd_per_run`, `budget.max_minutes_per_run`, `runtime.concurrency`, `kpi.amount_match_tolerance_usd`, `kpi.bootstrap_resamples`, `kpi.test_peek_budget_per_milestone`, `kpi.milestones`, `gates` |
 
 `budget.max_usd_per_run` is 25.00 and `runtime.concurrency` is 8 for D3. The live check on TRAIN projects about $3 for all 729 notes on `claude-opus-5-5`, so the budget can come down once a full run is measured. Doc 11 explains how to test another model.
 

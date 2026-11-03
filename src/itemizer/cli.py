@@ -353,12 +353,13 @@ def run_command(
 @_guard
 def evaluate_command(
     run_id: str = typer.Option(None, "--run", help="The run to score. Without this, the newest run on all rows."),
-    milestone: str = typer.Option("d3", help="The milestone this evaluation belongs to."),
+    milestone: str = typer.Option("d3", help="The milestone this evaluation belongs to, from kpi.milestones."),
+    extra_peek: str = typer.Option(None, "--extra-peek", help="Spend past the TEST budget on purpose, for this reason. It is logged and shown beside the result."),
 ) -> None:
     """Score a run on TEST and report the Level gates. Aggregates only."""
     from .pipeline import evaluate_run
 
-    snapshot = evaluate_run(Path.cwd(), run_id, milestone)
+    snapshot = evaluate_run(Path.cwd(), run_id, milestone, extra_peek)
     _show({key: snapshot[key] for key in ("run_id", "milestone", "labels_status", "accuracy_scope", "levels", "coverage", "accuracy", "invariants", "test_budget")})
 
 

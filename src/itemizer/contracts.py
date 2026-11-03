@@ -88,6 +88,10 @@ class RowResult(BaseModel):
     note: str = ""
 
 
+# Where the code was when the run happened. Recorded, but a commit or a clean tree changes no answer, so neither is in the id.
+_NOT_IN_RUN_ID = {"code_commit", "code_dirty"}
+
+
 class RunManifest(BaseModel):
     """Everything a run's numbers depend on. `model` is the full registry entry, which names a key's variable only."""
 
@@ -102,12 +106,13 @@ class RunManifest(BaseModel):
     grammar_version: str
     model: dict[str, Any]
     config_sha256: str
-    code_sha: str
+    code_sha: str  # a hash of the source and the lockfile
+    code_commit: str = ""
     code_dirty: bool
     split_sha256: str | None = None  # None for an export other than the dataset file, whose notes need no split
 
     def canonical_json(self) -> str:
-        return json.dumps(self.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+        return json.dumps(self.model_dump(mode="json", exclude=_NOT_IN_RUN_ID), sort_keys=True, separators=(",", ":"))
 
     @property
     def run_id(self) -> str:

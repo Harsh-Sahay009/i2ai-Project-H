@@ -427,8 +427,13 @@ def test_run_id_is_the_hash_of_the_canonical_json():
 
 def test_run_id_follows_the_inputs_and_not_their_order():
     assert _manifest().run_id == _manifest(model={"input_usd_per_mtok": "4.00", "name": "fake"}).run_id
-    for changes in ({"limit": None}, {"code_dirty": True}, {"model": {"name": "other"}}, {"set_name": "validation"}):
+    for changes in ({"limit": None}, {"code_sha": "other"}, {"model": {"name": "other"}}, {"set_name": "validation"}):
         assert _manifest(**changes).run_id != _manifest().run_id
+
+
+def test_where_the_code_was_is_recorded_but_is_not_part_of_the_run_id():
+    assert _manifest(code_dirty=True, code_commit="abc").run_id == _manifest(code_dirty=False, code_commit="def").run_id
+    assert _manifest(code_commit="abc").model_dump()["code_commit"] == "abc"
 
 
 def test_run_id_is_the_same_whichever_way_the_entry_was_dumped():
