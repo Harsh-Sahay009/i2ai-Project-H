@@ -12,9 +12,9 @@
 
 ## 3. Itemizer
 
-- [ ] 3.1 Write `prompts/itemize_v1.md` and `prompts/fewshot_v1.yaml`
-- [ ] 3.2 Implement note itemization with retry, cache, budget, concurrency and telemetry
-- [ ] 3.3 Implement row outcomes
+- [x] 3.1 Write `prompts/itemize_v1.md` and `prompts/fewshot_v1.yaml`
+- [x] 3.2 Implement note itemization with retry, cache, budget, concurrency and telemetry
+- [x] 3.3 Implement row outcomes
 
 ## 4. Workbook
 
@@ -30,8 +30,8 @@
 
 ## 6. Run and present
 
-- [ ] 6.1 Implement `itemizer run` with the manifest and run folder
-- [ ] 6.2 Implement `itemizer evaluate`
+- [x] 6.1 Implement `itemizer run` with the manifest and run folder
+- [x] 6.2 Implement `itemizer evaluate`
 - [ ] 6.3 Implement `itemizer acceptance d3` and `record-review`, and create `deliverables/requests.yaml`
 
 ## 7. Live check and people
