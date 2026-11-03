@@ -1,0 +1,17 @@
+# Settings for the D1 and D2 bootstrap. Keys match architecture/docs/03-configurable-layer.md.
+data:
+  source_file: "AutoPay Dispute Data 20220815_withExamples.xlsx"
+  # ADR 0013. client_confidential blocks external models; open_anonymized allows them.
+  dataset_class: open_anonymized
+  source_ref: "Team statement, 2026-11-02: the file is free, open and publicly available. Public link to be added."
+strata:
+  large_dispute_usd: "180.00"
+split:
+  seed: 20261102
+  validation_share: 0.40
+  min_validation_notes: 100
+  test_large_notes: 50
+  test_reserve_notes: 20
+  max_stratum_gap_notes: 10
+runtime:
+  data_root: data
