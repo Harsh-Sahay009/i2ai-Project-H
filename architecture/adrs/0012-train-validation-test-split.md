@@ -4,7 +4,7 @@ Date: 2026-11-02
 
 ## Status
 
-Accepted. Amends [4. "Training Algorithm" means calibration and configuration tuning, not weight training](0004-tuning-not-training.md) and [5. KPIs are computed only from immutable versioned inputs](0005-kpis-from-versioned-inputs.md). Replaces the DEV set with TRAIN and VALIDATION.
+Accepted. TEST labels are amended by [15. Claude Opus drafts TEST labels until people have checked them](0015-model-drafted-test-labels.md). Amends [4. "Training Algorithm" means calibration and configuration tuning, not weight training](0004-tuning-not-training.md) and [5. KPIs are computed only from immutable versioned inputs](0005-kpis-from-versioned-inputs.md). Replaces the DEV set with TRAIN and VALIDATION.
 
 ## Context
 

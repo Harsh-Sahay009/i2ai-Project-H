@@ -7,6 +7,10 @@ The system MUST NOT write, suggest or pre-fill a category, amount or evidence sp
 - **WHEN** an operator asks for model suggestions in a TEST pack
 - **THEN** the command refuses and explains that TEST labels are written by people
 
+#### Scenario: The team asks a model to draft TEST labels
+- **WHEN** an operator runs `gt draft-test-labels --send`, which `add-model-drafted-test-labels` adds under ADR 0015
+- **THEN** the labels are stored as `model_draft`, and this requirement's other limits still hold: no suggestion reaches a blank pack, and VALIDATION stays with people
+
 #### Scenario: Suggestion in a TRAIN pack
 - **WHEN** a labeller confirms a model suggestion in a TRAIN pack
 - **THEN** the label is stored with `source = model_suggestion_confirmed`
