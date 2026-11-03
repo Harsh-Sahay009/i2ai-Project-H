@@ -1,0 +1,90 @@
+{
+  "additionalProperties": false,
+  "description": "Everything a run's numbers depend on. `model` is the full registry entry, which names a key's variable only.",
+  "properties": {
+    "code_dirty": {
+      "title": "Code Dirty",
+      "type": "boolean"
+    },
+    "code_sha": {
+      "title": "Code Sha",
+      "type": "string"
+    },
+    "config_sha256": {
+      "title": "Config Sha256",
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "title": "Dataset Sha256",
+      "type": "string"
+    },
+    "fewshot_sha256": {
+      "title": "Fewshot Sha256",
+      "type": "string"
+    },
+    "grammar_version": {
+      "title": "Grammar Version",
+      "type": "string"
+    },
+    "limit": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Limit"
+    },
+    "model": {
+      "additionalProperties": true,
+      "title": "Model",
+      "type": "object"
+    },
+    "prompt_sha256": {
+      "title": "Prompt Sha256",
+      "type": "string"
+    },
+    "set_name": {
+      "enum": [
+        "all",
+        "train",
+        "validation"
+      ],
+      "title": "Set Name",
+      "type": "string"
+    },
+    "split_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Split Sha256"
+    },
+    "taxonomy_sha256": {
+      "title": "Taxonomy Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "dataset_sha256",
+    "set_name",
+    "taxonomy_sha256",
+    "prompt_sha256",
+    "fewshot_sha256",
+    "grammar_version",
+    "model",
+    "config_sha256",
+    "code_sha",
+    "code_dirty"
+  ],
+  "title": "RunManifest",
+  "type": "object"
+}

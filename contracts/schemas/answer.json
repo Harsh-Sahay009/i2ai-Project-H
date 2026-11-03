@@ -1,0 +1,81 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "type": "string"
+          },
+          "basis": {
+            "enum": [
+              "named_in_note",
+              "inferred_from_context",
+              "no_description"
+            ],
+            "type": "string"
+          },
+          "category": {
+            "enum": [
+              "category_code_supplied_at_runtime"
+            ],
+            "type": "string"
+          },
+          "derivation": {
+            "enum": [
+              "stated",
+              "rate_x_quantity"
+            ],
+            "type": "string"
+          },
+          "evidence_text": {
+            "type": "string"
+          },
+          "line_type": {
+            "enum": [
+              "charge",
+              "tax",
+              "already_paid"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "amount",
+          "evidence_text",
+          "line_type",
+          "derivation",
+          "basis"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "no_charge_stated": {
+      "type": "boolean"
+    },
+    "reason_code": {
+      "enum": [
+        "none",
+        "no_amount_stated",
+        "amount_unclear",
+        "charge_unclear",
+        "conflicting_amounts",
+        "instruction_in_note"
+      ],
+      "type": "string"
+    },
+    "unsure": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "items",
+    "no_charge_stated",
+    "unsure",
+    "reason_code"
+  ],
+  "type": "object"
+}

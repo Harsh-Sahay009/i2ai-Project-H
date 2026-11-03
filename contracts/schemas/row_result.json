@@ -1,0 +1,149 @@
+{
+  "additionalProperties": false,
+  "description": "One row's outcome. The totals are None when the row never reached reconciliation.",
+  "properties": {
+    "already_paid_total": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Already Paid Total"
+    },
+    "carrier": {
+      "title": "Carrier",
+      "type": "string"
+    },
+    "difference": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Difference"
+    },
+    "disputed": {
+      "title": "Disputed",
+      "type": "string"
+    },
+    "fingerprint": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fingerprint"
+    },
+    "invoice": {
+      "title": "Invoice",
+      "type": "string"
+    },
+    "item_count": {
+      "default": 0,
+      "title": "Item Count",
+      "type": "integer"
+    },
+    "items_total": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Items Total"
+    },
+    "note": {
+      "default": "",
+      "title": "Note",
+      "type": "string"
+    },
+    "note_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Note Id"
+    },
+    "outcome": {
+      "enum": [
+        "verified",
+        "discrepancy",
+        "no_charge_stated",
+        "review"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "outcome_reason": {
+      "enum": [
+        "empty_note",
+        "no_charge_in_note",
+        "does_not_add_up",
+        "repeated_invoice",
+        "adds_up",
+        "grammar_failed",
+        "evidence_failed",
+        "model_unsure",
+        "refused",
+        "provider_unavailable",
+        "budget_exhausted"
+      ],
+      "title": "Outcome Reason",
+      "type": "string"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "repeated": {
+      "default": false,
+      "title": "Repeated",
+      "type": "boolean"
+    },
+    "row_id": {
+      "title": "Row Id",
+      "type": "string"
+    },
+    "shipment": {
+      "title": "Shipment",
+      "type": "string"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "row_id",
+    "shipment",
+    "invoice",
+    "carrier",
+    "status",
+    "reason",
+    "disputed",
+    "outcome",
+    "outcome_reason"
+  ],
+  "title": "RowResult",
+  "type": "object"
+}

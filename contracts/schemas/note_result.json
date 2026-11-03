@@ -1,0 +1,179 @@
+{
+  "$defs": {
+    "ChargeItem": {
+      "additionalProperties": false,
+      "description": "One charge in a model's answer: a gold item's shape, plus what the fixed `ai_reason` sentence is rendered from.",
+      "properties": {
+        "amount": {
+          "title": "Amount",
+          "type": "string"
+        },
+        "basis": {
+          "enum": [
+            "named_in_note",
+            "inferred_from_context",
+            "no_description"
+          ],
+          "title": "Basis",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "derivation": {
+          "enum": [
+            "stated",
+            "rate_x_quantity"
+          ],
+          "title": "Derivation",
+          "type": "string"
+        },
+        "evidence_end": {
+          "title": "Evidence End",
+          "type": "integer"
+        },
+        "evidence_start": {
+          "title": "Evidence Start",
+          "type": "integer"
+        },
+        "evidence_text": {
+          "title": "Evidence Text",
+          "type": "string"
+        },
+        "item": {
+          "title": "Item",
+          "type": "integer"
+        },
+        "line_type": {
+          "enum": [
+            "charge",
+            "tax",
+            "already_paid"
+          ],
+          "title": "Line Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item",
+        "category",
+        "amount",
+        "evidence_text",
+        "evidence_start",
+        "evidence_end",
+        "line_type",
+        "derivation",
+        "basis"
+      ],
+      "title": "ChargeItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The answer for one distinct note. Items exist only when the note passed every check.",
+  "properties": {
+    "attempts": {
+      "default": 0,
+      "title": "Attempts",
+      "type": "integer"
+    },
+    "cached": {
+      "default": false,
+      "title": "Cached",
+      "type": "boolean"
+    },
+    "cost_usd": {
+      "default": "0",
+      "title": "Cost Usd",
+      "type": "string"
+    },
+    "fingerprint": {
+      "title": "Fingerprint",
+      "type": "string"
+    },
+    "items": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ChargeItem"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "latency_ms": {
+      "default": 0,
+      "title": "Latency Ms",
+      "type": "integer"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "no_charge_stated": {
+      "default": false,
+      "title": "No Charge Stated",
+      "type": "boolean"
+    },
+    "note_id": {
+      "title": "Note Id",
+      "type": "string"
+    },
+    "reason_code": {
+      "default": "none",
+      "enum": [
+        "none",
+        "no_amount_stated",
+        "amount_unclear",
+        "charge_unclear",
+        "conflicting_amounts",
+        "instruction_in_note"
+      ],
+      "title": "Reason Code",
+      "type": "string"
+    },
+    "review_reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "grammar_failed",
+            "evidence_failed",
+            "model_unsure",
+            "refused",
+            "provider_unavailable",
+            "budget_exhausted"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Review Reason"
+    },
+    "status": {
+      "enum": [
+        "ok",
+        "review"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "violations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Violations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "fingerprint",
+    "note_id",
+    "status",
+    "model"
+  ],
+  "title": "NoteResult",
+  "type": "object"
+}

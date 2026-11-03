@@ -1,0 +1,69 @@
+{
+  "additionalProperties": false,
+  "description": "One charge in a model's answer: a gold item's shape, plus what the fixed `ai_reason` sentence is rendered from.",
+  "properties": {
+    "amount": {
+      "title": "Amount",
+      "type": "string"
+    },
+    "basis": {
+      "enum": [
+        "named_in_note",
+        "inferred_from_context",
+        "no_description"
+      ],
+      "title": "Basis",
+      "type": "string"
+    },
+    "category": {
+      "title": "Category",
+      "type": "string"
+    },
+    "derivation": {
+      "enum": [
+        "stated",
+        "rate_x_quantity"
+      ],
+      "title": "Derivation",
+      "type": "string"
+    },
+    "evidence_end": {
+      "title": "Evidence End",
+      "type": "integer"
+    },
+    "evidence_start": {
+      "title": "Evidence Start",
+      "type": "integer"
+    },
+    "evidence_text": {
+      "title": "Evidence Text",
+      "type": "string"
+    },
+    "item": {
+      "title": "Item",
+      "type": "integer"
+    },
+    "line_type": {
+      "enum": [
+        "charge",
+        "tax",
+        "already_paid"
+      ],
+      "title": "Line Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "item",
+    "category",
+    "amount",
+    "evidence_text",
+    "evidence_start",
+    "evidence_end",
+    "line_type",
+    "derivation",
+    "basis"
+  ],
+  "title": "ChargeItem",
+  "type": "object"
+}
