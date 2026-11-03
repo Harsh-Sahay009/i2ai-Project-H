@@ -24,9 +24,9 @@
 
 ## 5. Evaluation
 
-- [ ] 5.1 Implement coverage, item matching and weighted accuracy with bootstrap and Wilson intervals
-- [ ] 5.2 Implement the Level gate under Option A, invariants and the TEST budget ledger
-- [ ] 5.3 Implement provisional freeze and `load_test_gold`
+- [x] 5.1 Implement coverage, item matching and weighted accuracy with bootstrap and Wilson intervals
+- [x] 5.2 Implement the Level gate under Option A, invariants and the TEST budget ledger
+- [x] 5.3 Implement provisional freeze and `load_test_gold`
 
 ## 6. Run and present
 

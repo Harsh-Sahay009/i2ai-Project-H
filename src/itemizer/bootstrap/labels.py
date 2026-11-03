@@ -618,5 +618,45 @@ def seal(ws: Workspace, manifest: dict, notes: dict[str, Note], approved: set[st
     return record
 
 
+def seal_provisional(ws: Workspace, manifest: dict, notes: dict[str, Note], codes: set[str]) -> dict:
+    """Freeze TEST on team-resolved labels, so evaluation can start before the client's review.
+
+    It needs no approval and keeps the reserve. It runs once: a run on all rows may follow it, so labels changed
+    afterwards could be following the tool. Only the client's review and the final seal change the labels from here.
+    """
+    if ws.exists("seal_record.json"):
+        raise ContractError("TEST is already sealed; a correction needs a new version")
+    if ws.exists("provisional_record.json"):
+        raise ContractError("TEST is already frozen; the next step is the client's review and the final seal")
+    test = notes_in_set(manifest, "TEST")
+    problems = _review_problems(ws, test)
+    if problems:
+        return _refuse(problems, "frozen")
+    gold, strata, problems = _gold_and_mix(ws, test, notes)
+    unknown = {i.category for fp in test if fp in gold for i in gold[fp].items if i.category not in codes}
+    if unknown:
+        problems.append("labels use categories outside the current list: " + ", ".join(sorted(unknown)))
+    if problems:
+        return _refuse(problems, "frozen")
+    return _write_frozen(ws, "test_provisional.json", "provisional_record.json", test, gold, strata)
+
+
+def is_test_frozen(ws: Workspace) -> bool:
+    return ws.exists("seal_record.json") or ws.exists("provisional_record.json")
+
+
+def load_test_gold(ws: Workspace) -> tuple[dict[str, NoteLabel], str]:
+    """TEST's frozen labels and their status: `sealed` once the final seal exists, otherwise `provisional`."""
+    if ws.exists("seal_record.json"):
+        record, name, status = "seal_record.json", "test_sealed.json", "sealed"
+    elif ws.exists("provisional_record.json"):
+        record, name, status = "provisional_record.json", "test_provisional.json", "provisional"
+    else:
+        raise ContractError("TEST is not frozen; run `gt seal --provisional` or `gt seal` first")
+    if not ws.exists(name) or sha256_file(ws.path(name)) != ws.read_json(record)["sha256"]:
+        raise ContractError(f"{name} is missing or was changed after {record} was written")
+    return {fp: NoteLabel.model_validate(v) for fp, v in ws.read_json(name)["labels"].items()}, status
+
+
 def _refuse(problems: list[str], outcome: str = "sealed") -> dict:
     raise ContractError(f"TEST cannot be {outcome}: " + "; ".join(problems))

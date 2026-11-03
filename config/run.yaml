@@ -1,0 +1,19 @@
+# Settings for `itemizer run` and `itemizer evaluate`. Keys match architecture/docs/03-configurable-layer.md.
+reconcile:
+  abs_tolerance_usd: "0.01"
+review:
+  no_charge_stated_policy: verified      # verified | review
+  repeated_invoice_policy: flag_discrepancy   # flag_discrepancy | none
+budget:
+  max_usd_per_run: "25.00"   # above the catalog's 10.00 default until a full run is measured
+  max_minutes_per_run: 30
+runtime:
+  concurrency: 8
+kpi:
+  amount_match_tolerance_usd: "0.01"
+  bootstrap_resamples: 2000
+  test_peek_budget_per_milestone: 1
+gates:
+  level1: {cov_usd: 0.80, cov_rows: 0.25, acc: 0.95}
+  level2: {cov_usd: 0.90, cov_rows: 0.85, acc: 0.95}
+  level3: {cov_usd: 0.95, cov_rows: 0.95, acc: 0.95}
