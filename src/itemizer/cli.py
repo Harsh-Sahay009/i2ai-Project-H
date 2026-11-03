@@ -299,12 +299,21 @@ def final_strata_command(apply: bool = typer.Option(False, help="Move the notes 
 
 @gt.command("seal")
 @_guard
-def seal_command(mapping: Path = typer.Option(None, help="YAML mapping from draft codes to approved codes."), config: Path = Config_) -> None:
+def seal_command(
+    mapping: Path = typer.Option(None, help="YAML mapping from draft codes to approved codes."),
+    provisional: bool = typer.Option(False, "--provisional", help="Freeze TEST on team-resolved labels, before the client's review."),
+    config: Path = Config_,
+) -> None:
     """Seal TEST when every condition holds, then release unused reserve notes."""
     import yaml
 
     ctx = Context(config)
     manifest = ctx.manifest()
+    if provisional:
+        record = lb.seal_provisional(ctx.ws, manifest, ctx.notes, ctx.codes())
+        ctx.ws.log("seal-provisional", [], [ctx.ws.path("test_provisional.json")], sha256=record["sha256"])
+        _show(record)
+        return
     approved = tx.approved_codes(ctx.root / CATEGORIES, ctx.root / APPROVAL)
     code_map = yaml.safe_load(mapping.read_text(encoding="utf-8")) if mapping else None
     record = lb.seal(ctx.ws, manifest, ctx.notes, approved, code_map)
