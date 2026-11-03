@@ -2,6 +2,11 @@
   "additionalProperties": false,
   "description": "Everything a run's numbers depend on. `model` is the full registry entry, which names a key's variable only.",
   "properties": {
+    "code_commit": {
+      "default": "",
+      "title": "Code Commit",
+      "type": "string"
+    },
     "code_dirty": {
       "title": "Code Dirty",
       "type": "boolean"

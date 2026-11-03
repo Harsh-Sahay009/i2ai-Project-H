@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from decimal import Decimal
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from test_bootstrap import fill_review
 from test_pipeline import CODES, NOTE_WORDS, ROOT, d3, freeze  # noqa: F401 (d3 is a fixture)
 from typer.testing import CliRunner
 
-from itemizer import acceptance, pipeline
+from itemizer import acceptance, kpi, pipeline
 from itemizer.bootstrap import labels as lb
 from itemizer.bootstrap import taxonomy as tx
 from itemizer.bootstrap.data import ContractError
@@ -216,3 +217,74 @@ def test_a_shipment_holding_a_quarter_of_the_dollars_shows_both_figures_once(d3)
     assert (top["shipment"], top["rows"], top["largest_dispute"], top["total_on_rows"]) == ("HUGE", 4, "8400.00", "32400.00")
     text = page(summary)
     assert text.count("HUGE") == 1 and "<td>HUGE</td><td>4</td><td>$8,400.00</td><td>$32,400.00</td>" in text
+
+
+# ---- the page shows only a score that still belongs to the run
+def test_a_category_changed_after_the_run_shows_no_numbers_and_does_not_crash(d3):
+    evaluated(d3)
+    taxonomy = tx.load_taxonomy(d3.tmp / pipeline.CATEGORIES)
+    next(c for c in taxonomy["categories"] if c["code"] == "cat_0")["code"] = "cat_renamed"
+    tx.write_taxonomy(d3.tmp / pipeline.CATEGORIES, taxonomy)
+    summary = acceptance.d3_check(d3.tmp)
+    assert summary["d3"]["reason"] == "run_out_of_date" and summary["d3"]["changed"] == ["the category list"]
+    text = page(summary)
+    assert "the category list changed" in text and "Level 1 result" not in text and summary["largest_disputes"] == []
+
+
+def test_a_definition_changed_at_approval_does_not_read_as_done(d3):
+    run_id = evaluated(d3)
+    taxonomy = tx.load_taxonomy(d3.tmp / pipeline.CATEGORIES)
+    taxonomy["categories"][0]["definition"] = "A definition the client rewrote."
+    tx.write_taxonomy(d3.tmp / pipeline.CATEGORIES, taxonomy)
+    email = evidence(d3)
+    tx.record_approval(d3.tmp / pipeline.CATEGORIES, d3.tmp / pipeline.APPROVAL, "client_owner", "2026-11-05", email)
+    assert lb.import_client_review(d3.ws, fill_review(d3), "client_owner", "2026-11-05", d3.notes, CODES)["errors"] == 0
+    assert "sha256" in lb.seal(d3.ws, d3.ws.read_json("split_manifest.json"), d3.notes, CODES)
+    acceptance.record_review(d3.tmp, "2026-11-05", email)
+    summary = acceptance.d3_check(d3.tmp, run_id)
+    assert summary["d1"]["status"] == "approved"
+    assert (summary["d3"]["status"], summary["d3"]["reason"]) == ("open", "run_out_of_date")
+
+
+def test_answers_changed_after_scoring_show_no_stale_result(d3):
+    run_id = evaluated(d3)
+    shutil.rmtree(d3.tmp / "data" / "cache")
+    d3.wrong_on = "LUMPER"
+    assert pipeline.run(d3.tmp).run_id == run_id
+    summary = acceptance.d3_check(d3.tmp)
+    assert summary["d3"]["reason"] == "results_changed_since_scored"
+    assert "answers changed" in page(summary) and "Level 1 result" not in page(summary)
+
+
+def test_an_extra_peek_is_flagged_beside_the_result(d3):
+    evaluated(d3)
+    other = pipeline.run(d3.tmp, model_name="claude-sonnet-5-5")
+    pipeline.evaluate_run(d3.tmp, other.run_id, extra_peek="checking a second model")
+    text = page(acceptance.d3_check(d3.tmp, other.run_id))
+    assert "scored by 2 different runs" in text and "against a budget of 1" in text
+
+
+def test_a_first_attempt_carries_no_extra_peek_flag(d3):
+    evaluated(d3)
+    assert "different runs" not in page(acceptance.d3_check(d3.tmp))
+
+
+@pytest.mark.parametrize("field, words", [("code_dirty", "not fully committed")])
+def test_a_run_from_uncommitted_code_is_flagged(d3, field, words):
+    run_id = evaluated(d3)
+    path = kpi.snapshot_path(d3.tmp / "data", run_id, "d3")
+    snapshot = json.loads(path.read_text(encoding="utf-8"))
+    assert snapshot["run"]["code_sha"] and field in snapshot["run"]
+    assert words not in page(acceptance.d3_check(d3.tmp))
+    snapshot["run"][field] = True
+    path.write_text(json.dumps(snapshot), encoding="utf-8")
+    assert words in page(acceptance.d3_check(d3.tmp))
+
+
+def test_negative_rows_left_uncovered_are_flagged_on_the_page(d3):
+    run_id = evaluated(d3)
+    path = kpi.snapshot_path(d3.tmp / "data", run_id, "d3")
+    snapshot = json.loads(path.read_text(encoding="utf-8"))
+    snapshot["coverage"]["usd"]["negative_rows_not_covered"] = 3
+    path.write_text(json.dumps(snapshot), encoding="utf-8")
+    assert "3 rows with negative amounts are not covered" in page(acceptance.d3_check(d3.tmp))

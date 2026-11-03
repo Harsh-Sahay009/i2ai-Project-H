@@ -601,8 +601,8 @@ def ledger_lines(path: Path) -> list[dict]:
 
 def test_re_evaluating_the_same_run_is_free(tmp_path):
     path = tmp_path / "kpi" / "ledger.jsonl"
-    assert kpi.spend_test_budget(path, "run_a", "d3", 1) == {"event": "spent", "budget": 1, "runs_spent": 1}
-    assert kpi.spend_test_budget(path, "run_a", "d3", 1) == {"event": "rescored", "budget": 1, "runs_spent": 1}
+    assert kpi.spend_test_budget(path, "run_a", "d3", 1) == {"event": "spent", "budget": 1, "runs_spent": 1, "extra_peeks": 0}
+    assert kpi.spend_test_budget(path, "run_a", "d3", 1) == {"event": "rescored", "budget": 1, "runs_spent": 1, "extra_peeks": 0}
     assert kpi.spend_test_budget(path, "run_a", "d3", 1)["event"] == "rescored"
     assert [e["event"] for e in ledger_lines(path)] == ["spent", "rescored", "rescored"]
 
@@ -626,7 +626,7 @@ def test_a_refusal_spends_nothing(tmp_path):
         with pytest.raises(ContractError):
             kpi.spend_test_budget(path, "run_b", "d3", 1)
     assert kpi.spend_test_budget(path, "run_a", "d3", 1)["event"] == "rescored"
-    assert kpi.spend_test_budget(path, "run_c", "d3", 2) == {"event": "spent", "budget": 2, "runs_spent": 2}
+    assert kpi.spend_test_budget(path, "run_c", "d3", 2) == {"event": "spent", "budget": 2, "runs_spent": 2, "extra_peeks": 0}
 
 
 def test_budget_is_per_milestone(tmp_path):
@@ -931,3 +931,42 @@ def test_bad_arguments_stop_before_any_budget_is_spent(world, changes, message):
     with pytest.raises(ContractError, match=message):
         run_evaluate(world, **changes)
     assert not (world.root / "kpi" / "test_budget.jsonl").exists()
+
+
+# ---- what a charge is tied to
+def test_different_results_under_one_run_id_are_a_new_run(tmp_path):
+    path = tmp_path / "budget.jsonl"
+    kpi.spend_test_budget(path, "run_a", "d3", 1, "results_one")
+    assert kpi.spend_test_budget(path, "run_a", "d3", 1, "results_one")["event"] == "rescored"
+    with pytest.raises(ContractError, match="budget for milestone d3 is spent"):
+        kpi.spend_test_budget(path, "run_a", "d3", 1, "results_two")
+
+
+def test_an_extra_peek_is_counted_logged_with_its_reason_and_needs_a_reason(tmp_path):
+    path = tmp_path / "budget.jsonl"
+    kpi.spend_test_budget(path, "run_a", "d3", 1, "r")
+    with pytest.raises(ContractError, match="--extra-peek"):
+        kpi.spend_test_budget(path, "run_b", "d3", 1, "r")
+    charge = kpi.spend_test_budget(path, "run_b", "d3", 1, "r", "client renamed a category")
+    assert charge == {"event": "extra_spent", "budget": 1, "runs_spent": 2, "extra_peeks": 1}
+    assert json.loads(path.read_text(encoding="utf-8").splitlines()[-1])["reason"] == "client renamed a category"
+    assert kpi.spend_test_budget(path, "run_b", "d3", 1, "r") == {"event": "rescored", "budget": 1, "runs_spent": 2, "extra_peeks": 1}
+
+
+def test_a_reason_is_not_used_while_budget_remains(tmp_path):
+    assert kpi.spend_test_budget(tmp_path / "budget.jsonl", "run_a", "d3", 1, "r", "not needed")["event"] == "spent"
+
+
+def test_the_results_digest_ignores_cost_latency_and_the_cache():
+    base = NoteResult(fingerprint="f", note_id="n_f", status="ok", model="m", no_charge_stated=True)
+    replay = base.model_copy(update={"cost_usd": Decimal("1.00"), "latency_ms": 9, "cached": True})
+    other = base.model_copy(update={"reason_code": "amount_unclear"})
+    assert kpi.results_digest({"f": base}) == kpi.results_digest({"f": replay}) != kpi.results_digest({"f": other})
+
+
+def test_negative_rows_left_uncovered_are_reported():
+    def row(disputed, outcome):
+        return RowResult(row_id="R1", shipment="S", invoice="I", carrier="C", status="O", reason="X", disputed=Decimal(disputed), outcome=outcome,
+                         outcome_reason="adds_up" if outcome == "verified" else "model_unsure")
+    block = kpi.coverage([row("700", "verified"), row("300", "review"), row("-300", "review")])["usd"]
+    assert block["negative_rows_not_covered"] == 1 and block["share"] == 1.0

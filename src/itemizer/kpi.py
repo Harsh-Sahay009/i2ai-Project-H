@@ -63,8 +63,10 @@ def _usd_block(rows: list[RowResult]) -> dict:
         share = float(covered / total)
         effective_n = float(sum((abs(r.disputed) for r in rows), Decimal(0)) ** 2 / sum(r.disputed ** 2 for r in rows))
         low, high = wilson(min(max(share, 0.0), 1.0) * effective_n, effective_n)
+    # The plain sum is the scope's figure, but a negative row left uncovered makes the share read high, so it is reported.
     return {"covered": str(covered), "total": str(total), "share": share, "ci_low": low, "ci_high": high,
-            "n": len(rows), "effective_n": effective_n}
+            "n": len(rows), "effective_n": effective_n,
+            "negative_rows_not_covered": sum(r.disputed < 0 and r.outcome not in COVERED for r in rows)}
 
 
 def coverage(row_results: list[RowResult]) -> dict:
@@ -275,35 +277,57 @@ def level_gate(level: str, coverage: Mapping[str, Any], accuracy: Mapping[str, A
             "invariant_violations": violations}
 
 
-def _runs_spent(path: Path, milestone: str) -> set[str]:
-    """The runs charged to a milestone. A ledger it cannot read stops the evaluation, because TEST must not be peeked at
-    while what was spent is unknown."""
+def results_digest(note_results: Mapping[str, NoteResult]) -> str:
+    """What the answers say, without cost, latency or whether they came from the cache."""
+    kept = {fp: result.model_dump(mode="json", exclude={"cost_usd", "latency_ms", "cached"}) for fp, result in note_results.items()}
+    return hashlib.sha256(json.dumps(kept, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+_CHARGED = ("spent", "extra_spent")
+
+
+def _runs_spent(path: Path, milestone: str) -> dict[tuple[str, str], str]:
+    """What is charged to a milestone: each run with the results it was scored on, and the event that charged it. A ledger
+    it cannot read stops the evaluation, because TEST must not be peeked at while what was spent is unknown."""
     if not path.exists():
-        return set()
+        return {}
     try:
         entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-        return {e["run_id"] for e in entries if e["milestone"] == milestone and e["event"] == "spent"}
+        return {(e["run_id"], e.get("results_sha256", "")): e["event"]
+                for e in entries if e["milestone"] == milestone and e["event"] in _CHARGED}
     except (ValueError, KeyError, TypeError):
         raise ContractError(f"the TEST budget ledger {path} has a line that cannot be read, "
                             "so what was spent is unknown; repair the file before evaluating") from None
 
 
-def spend_test_budget(path: Path, run_id: str, milestone: str, budget: int) -> dict:
-    """Charge a run to a milestone's TEST budget in a JSONL ledger. Re-scoring a run already charged is free, so labels
-    corrected by the client need no new run. Every evaluation and every refusal is logged."""
+def spend_test_budget(path: Path, run_id: str, milestone: str, budget: int, results: str = "", extra_peek: str | None = None) -> dict:
+    """Charge a run to a milestone's TEST budget in a JSONL ledger. Re-scoring the same results is free, so labels corrected
+    by the client need no new run. Different results under one id are a new run, because they could be a better score.
+
+    `extra_peek` spends past the budget on purpose, for a reason that is logged and shown beside the result. Otherwise a
+    category renamed at approval would leave no way to score the run that uses the approved list.
+    """
     spent = _runs_spent(path, milestone)
-    event = "rescored" if run_id in spent else ("spent" if len(spent) < budget else "refused")
-    runs_spent = len(spent) + (event == "spent")
-    entry = {"event": event, "run_id": run_id, "milestone": milestone, "budget": budget, "runs_spent": runs_spent,
+    if (run_id, results) in spent:
+        event = "rescored"
+    elif len(spent) < budget:
+        event = "spent"
+    else:
+        event = "extra_spent" if extra_peek else "refused"
+    runs_spent = len(spent) + (event in _CHARGED)
+    extra_peeks = sum(kind == "extra_spent" for kind in spent.values()) + (event == "extra_spent")
+    entry = {"event": event, "run_id": run_id, "results_sha256": results, "milestone": milestone, "budget": budget, "runs_spent": runs_spent,
              "who": getpass.getuser(), "when": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
+    if event == "extra_spent":
+        entry["reason"] = extra_peek
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry, sort_keys=True) + "\n")
     if event == "refused":
         raise ContractError(f"the TEST budget for milestone {milestone} is spent ({runs_spent} of {budget} runs), so "
-                            f"{run_id} was refused and the refusal is logged in {path}. Re-scoring a run already "
-                            "evaluated stays free")
-    return {"event": event, "budget": budget, "runs_spent": runs_spent}
+                            f"{run_id} was refused and the refusal is logged in {path}. Re-scoring the same results "
+                            "stays free. To spend past the budget on purpose, pass --extra-peek with the reason")
+    return {"event": event, "budget": budget, "runs_spent": runs_spent, "extra_peeks": extra_peeks}
 
 
 def snapshot_path(data_root: Path, run_id: str, milestone: str) -> Path:
@@ -330,7 +354,7 @@ def _per_carrier(row_results: list[RowResult], overall: Mapping[str, Any]) -> di
 def evaluate(data_root: Path, manifest: RunManifest, milestone: str, row_results: list[RowResult],
              note_results: Mapping[str, NoteResult], notes: Mapping[str, Note], codes: Iterable[str],
              test_entries: list[dict], gold: Mapping[str, NoteLabel], labels_status: str, settings: Mapping[str, Any],
-             large_usd: Decimal, seed: int) -> dict:
+             large_usd: Decimal, seed: int, extra_peek: str | None = None) -> dict:
     """Score a run on TEST against every level in `gates`. Returns and writes aggregates only.
 
     `settings` is config/run.yaml as parsed, and `labels_status` comes from `load_test_gold`. The budget is charged
@@ -348,9 +372,12 @@ def evaluate(data_root: Path, manifest: RunManifest, milestone: str, row_results
         tolerance = Decimal(str(settings["kpi"]["amount_match_tolerance_usd"]))
         abs_tolerance = Decimal(str(settings["reconcile"]["abs_tolerance_usd"]))
         gates = settings["gates"]
+        milestones = settings["kpi"]["milestones"]
     except (KeyError, TypeError, InvalidOperation):
         raise ContractError("the run settings need kpi.test_peek_budget_per_milestone, kpi.bootstrap_resamples, "
-                            "kpi.amount_match_tolerance_usd, reconcile.abs_tolerance_usd and gates") from None
+                            "kpi.amount_match_tolerance_usd, kpi.milestones, reconcile.abs_tolerance_usd and gates") from None
+    if milestone not in milestones:
+        raise ContractError(f"milestone {milestone} is not in kpi.milestones ({', '.join(milestones)}), so it has no TEST budget")
     if not test_entries or any(e.get("set") != "TEST" for e in test_entries):
         raise ContractError("evaluate scores TEST only, and needs TEST's entries from the split manifest")
     fingerprints = [e["fingerprint"] for e in test_entries]
@@ -358,7 +385,8 @@ def evaluate(data_root: Path, manifest: RunManifest, milestone: str, row_results
     if unusable:
         raise ContractError(f"{unusable} of {len(fingerprints)} TEST notes have no gold label or are not in the dataset")
     run_id = manifest.run_id
-    charge = spend_test_budget(data_root / "kpi" / "test_budget.jsonl", run_id, milestone, budget)
+    results = results_digest(note_results)
+    charge = spend_test_budget(data_root / "kpi" / "test_budget.jsonl", run_id, milestone, budget, results, extra_peek)
 
     # Final strata come from the gold items, so provisional and sealed labels are scored the same way.
     entries = [{**e, "stratum": gold_stratum(gold[e["fingerprint"]], notes[e["fingerprint"]], large_usd)}
@@ -374,6 +402,9 @@ def evaluate(data_root: Path, manifest: RunManifest, milestone: str, row_results
     labels = {fp: gold[fp].model_dump(mode="json") for fp in sorted(fingerprints)}
     snapshot = {
         "run_id": run_id,
+        "results_sha256": results,
+        "run": {field: getattr(manifest, field) for field in ("code_sha", "code_commit", "code_dirty", "grammar_version", "taxonomy_sha256",
+                                                              "prompt_sha256", "fewshot_sha256", "config_sha256")} | {"model": manifest.model.get("name")},
         "milestone": milestone,
         "population": "TEST",
         "accuracy_scope": "in_sample",  # until FRESH data arrives (doc 4.1)

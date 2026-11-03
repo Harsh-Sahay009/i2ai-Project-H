@@ -11,7 +11,7 @@ from .bootstrap import split as sp
 from .bootstrap import taxonomy as tx
 from .bootstrap.data import ContractError, sha256_file
 from .output import largest_shipments
-from .pipeline import APPROVAL, CATEGORIES, Project, latest_full_run, load_project, load_run
+from .pipeline import APPROVAL, CATEGORIES, Project, latest_full_run, load_project, load_run, out_of_date
 
 REVIEW_RECORD = "reports/client_review_d3.json"
 _CONDITION_NAMES = {"cov_usd": "Coverage of disputed dollars", "cov_rows": "Coverage of rows", "acc": "Accuracy on covered rows"}
@@ -72,16 +72,24 @@ def _d3(project: Project, run_id: str | None) -> tuple[dict, list[dict]]:
     manifest, rows, notes = load_run(project, run_id)
     if manifest.set_name != "all":
         raise ContractError("the D3 check needs a run on all rows of the dataset file")
+    result["model"] = manifest.model.get("name")
+    changed = out_of_date(project, manifest)
+    if changed:  # the run does not show what the current inputs would give, so none of its numbers are shown
+        return {**result, "status": "open", "reason": "run_out_of_date", "changed": changed}, []
     categories = project.categories()
     shipments = largest_shipments(rows, notes, categories)[:10]
-    result["model"] = manifest.model.get("name")
     snapshot_path = kpi.snapshot_path(project.data_root, run_id, "d3")
     if not snapshot_path.exists():
         return {**result, "status": "open", "reason": "not_evaluated"}, shipments
     snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
-    level = snapshot["levels"]["level1"]
+    if snapshot["results_sha256"] != kpi.results_digest(notes):  # the score on file was measured on other answers
+        return {**result, "status": "open", "reason": "results_changed_since_scored"}, shipments
+    level = snapshot["levels"].get("level1")
+    if level is None:
+        return {**result, "status": "open", "reason": "no_level1_in_gates"}, shipments
     result.update(level1=level, labels_status=snapshot["labels_status"], accuracy_scope=snapshot["accuracy_scope"],
-                  coverage=snapshot["coverage"], invariants=snapshot["invariants"], accuracy=snapshot["accuracy"])
+                  coverage=snapshot["coverage"], invariants=snapshot["invariants"], accuracy=snapshot["accuracy"],
+                  test_budget=snapshot["test_budget"], code_dirty=snapshot["run"]["code_dirty"], code_commit=snapshot["run"]["code_commit"])
     if level["status"] != "pass":
         return {**result, "status": "open", "reason": level.get("reason") or "level1_not_met"}, shipments
     if result["client_review"] is None:
@@ -142,6 +150,19 @@ def _page(summary: dict, shipments: list[dict]) -> str:
         coverage = d3["coverage"]
         parts.append(f"<p>Dollar coverage without repeated invoices: {_percent(coverage['without_repeats']['usd']['share'])}. "
                      f"Invariant violations: {d3['invariants']['violations']}.</p>")
+        spent = d3["test_budget"]
+        if spent["extra_peeks"]:
+            parts.append(f"<p class='flag'>TEST was scored by {spent['runs_spent']} different runs at this milestone, against a budget of "
+                         f"{spent['budget']}, so this result may be a little better than a first attempt would show. The reasons are in the budget ledger.</p>")
+        if coverage["usd"]["negative_rows_not_covered"]:
+            parts.append(f"<p class='flag'>{coverage['usd']['negative_rows_not_covered']} rows with negative amounts are not covered, "
+                         "so dollar coverage reads a little high.</p>")
+        if d3["code_dirty"]:
+            parts.append("<p class='flag'>This run came from code that was not fully committed, so it cannot be rerun from one commit.</p>")
+    elif d3.get("reason") == "run_out_of_date":
+        parts.append(f"<p class='flag'>No result is shown: {html.escape(', '.join(d3['changed']))} changed after the newest run. Run again.</p>")
+    elif d3.get("reason") == "results_changed_since_scored":
+        parts.append("<p class='flag'>No result is shown: the run's answers changed after they were scored. Score the run again.</p>")
     else:
         parts.append("<p>No accuracy is shown, because the test set has not been scored yet.</p>")
     review = d3.get("client_review")

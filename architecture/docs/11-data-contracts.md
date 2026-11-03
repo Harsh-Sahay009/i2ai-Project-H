@@ -109,11 +109,15 @@ Identical inputs give a byte-identical file. So `Run Info` holds only what a rer
 
 ## 11.6 The run manifest
 
-A run's folder is named by a hash of everything its numbers depend on: `dataset_sha256`, `set_name`, `limit`, `taxonomy_sha256`, `prompt_sha256`, `fewshot_sha256`, `grammar_version`, `model` (the full registry entry, which names a key's variable and never holds the key), `config_sha256`, `code_sha`, `code_dirty` and `split_sha256`. `run_id` is `run_` plus the first 16 hex characters of the SHA-256 of its canonical JSON. A folder whose manifest no longer matches its id is refused.
+A run's folder is named by a hash of everything its numbers depend on: `dataset_sha256`, `set_name`, `limit`, `taxonomy_sha256`, `prompt_sha256`, `fewshot_sha256`, `grammar_version`, `model` (the full registry entry, which names a key's variable and never holds the key), `config_sha256`, `code_sha` and `split_sha256`. `run_id` is `run_` plus the first 16 hex characters of the SHA-256 of its canonical JSON. A folder whose manifest no longer matches its id is refused.
+
+`code_commit` and `code_dirty` are recorded too, but are not in the id, because a commit that touches nothing else changes no answer. `config_sha256` covers the settings that decide results and the notes the scan decision keeps back. It leaves out `budget` and `runtime`, so lowering either keeps a run's identity.
 
 ## 11.7 KPI snapshot
 
 `itemizer evaluate` writes aggregates only, with no note text, items or row ids. Coverage comes from the run on all rows, and accuracy from TEST on covered notes, weighted back to the real mix. Each condition has `value`, `target`, `met`, `ci_low`, `ci_high`, `n` and `interval_contains_target`. A level passes when every measured value reaches its target and invariant violations are 0, and results say whether the labels are `provisional` or `sealed`. Metric definitions are in [doc 4](04-kpi-calculator.md).
+
+A score belongs to its run. `evaluate` refuses, with nothing charged, a run whose category list, worked examples, prompt, grammar or result-deciding settings changed after it ran, a run with notes that got no answer, and rows that do not follow from its note results. Each milestone in `kpi.milestones` has a TEST budget. Re-scoring the same results is free, and different answers under one run id count as a new run. `--extra-peek <reason>` spends past the budget on purpose, is logged, and is flagged on the status page.
 
 ## 11.8 How to test another model
 
