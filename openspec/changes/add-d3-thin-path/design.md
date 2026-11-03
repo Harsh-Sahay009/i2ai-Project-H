@@ -120,7 +120,8 @@ Doc: `architecture/docs/04-kpi-calculator.md`.
 - `compare_models(root, model_names, set_name="train", limit=None) -> dict`: same notes, same prompt, each model. For each model it reports valid-first-try rate, retry rate, Review share, Verified and Discrepancy shares, agreement with the first model on items, cost, mean latency, and the projected cost and minutes for all 729 notes. When TRAIN or VALIDATION labels exist, it adds accuracy on those notes as an aggregate. It refuses TEST. It writes `data/compare/<name>.json`, and prints aggregates only.
 - Settings come from `config/run.yaml`. Missing budget settings stop the run, because treating them as zero would send every note to Review without saying why.
 - Commands: `itemizer run`, `itemizer evaluate --run <id> --milestone d3`, `itemizer compare-models`, `itemizer models` (lists the registry), `itemizer acceptance d3`, `itemizer acceptance record-review`.
-- Commands print counts and paths, never note text.
+- Commands print counts and paths, never note text. A `ContractError` prints as a plain stop. Any other error prints its type only, because a library's message can quote a note, and `ITEMIZER_DEBUG=1` shows the rest. Crashes never show local variables, which can hold the key.
+- Cost figures use the prices in force when an answer was first made, and the cache keeps them. Correcting a price in the registry does not change the cost reported for answers already cached.
 
 ### Provisional freeze (`src/itemizer/bootstrap/labels.py`, `cli.py`)
 
@@ -138,7 +139,7 @@ Doc: `architecture/docs/04-kpi-calculator.md`.
 - **D3:** end-to-end status; Level 1 conditions with values, intervals and n; the labels' status; client review recorded or missing.
 - **Largest disputes:** the top 10 shipments, without note text.
 
-D3 stays `open` until `acceptance record-review --date --evidence` records the client's review (reason `client_review_missing`) and the labels are sealed (reason `labels_provisional`), because the result can still change when the client's labels are sealed. A score that no longer belongs to the run is not shown: the reason is `run_out_of_date` when an input changed, and `results_changed_since_scored` when the answers did. The page also flags an extra peek, a run from uncommitted code, and negative rows left uncovered. `deliverables/requests.yaml` tracks requests to PPG, with no data in it.
+D3 stays `open` until `acceptance record-review --date --evidence [--run]` records the client's review of this run (reason `client_review_missing`) and the labels are sealed (reason `labels_provisional`), because the result can still change when the client's labels are sealed. A score that no longer belongs to the run is not shown: the reason is `run_out_of_date` when an input changed, and `results_changed_since_scored` when the answers did. The page also flags an extra peek, a run from uncommitted code, and negative rows left uncovered. `deliverables/requests.yaml` tracks requests to PPG, with no data in it.
 
 ### Versions and telemetry
 

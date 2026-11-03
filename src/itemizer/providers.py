@@ -8,6 +8,7 @@ because those can quote the request, which holds a note and may hold a key.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import time
@@ -309,7 +310,7 @@ class _HttpProvider:
         except urllib.error.HTTPError as exc:
             exc.close()
             raise ProviderError(f"{self.spec.name}: the server answered with status {exc.code}") from None
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, http.client.HTTPException) as exc:  # a malformed reply must not stop the whole run
             raise ProviderError(f"{self.spec.name}: the request failed ({type(exc).__name__})") from None
         try:
             return self._read(reply, _elapsed_ms(started))

@@ -36,6 +36,14 @@ API keys SHALL be read from the environment or `.env`, and MUST NOT appear in lo
 - **WHEN** an operator asks to compare models on TEST
 - **THEN** the command refuses, because TEST never chooses between candidates
 
+#### Scenario: A typo in a later name
+- **WHEN** the second of two named models is not in the registry
+- **THEN** the command stops before the first model is called
+
+#### Scenario: Calls that were cut off or stopped
+- **WHEN** some calls were cut off at the token limit, or a budget stopped some notes
+- **THEN** the cut-off calls' cost is reported, and stopped notes do not pull the projection down
+
 #### Scenario: Labels available
 - **WHEN** the compared notes have labels
 - **THEN** the report adds accuracy on those notes as an aggregate

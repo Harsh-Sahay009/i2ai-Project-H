@@ -102,6 +102,38 @@ def _categories(d3) -> list[dict]:
     return tx.load_taxonomy(d3.tmp / CATEGORIES)["categories"]
 
 
+def test_a_typo_in_a_later_model_stops_before_anything_is_paid_for(d3):
+    with pytest.raises(ContractError, match="nobody"):
+        compare.compare_models(d3.tmp, [MODELS[0], "nobody"], "train", 3)
+    assert d3.calls == []
+
+
+def test_a_call_that_was_cut_off_still_shows_what_it_cost(d3, monkeypatch):
+    from itemizer import pipeline
+    from itemizer.providers import Completion, ProviderError
+
+    class CutOff:
+        def __init__(self, spec):
+            self.spec = spec
+
+        def complete(self, system, user, schema):
+            raise ProviderError("cut off", usage=Completion(text="", input_tokens=1000, output_tokens=0, latency_ms=10))
+
+    monkeypatch.setattr(pipeline, "get_provider", lambda spec, client=None, project_root=None: CutOff(spec))
+    line = compare.compare_models(d3.tmp, MODELS[:1], "train", 4)["models"][0]
+    assert line["usd"] == Decimal("0.016") and line["review_reasons"] == {"provider_unavailable": 4}
+    assert line["projected_usd_all_notes"] > 0
+
+
+def test_notes_a_budget_stopped_do_not_pull_the_projection_to_nothing():
+    costs = [Decimal("0")] * 17 + [Decimal("0.005")] * 3
+    assert compare.projected_usd(costs, 100) == Decimal("0.50")
+
+
+def test_a_sample_with_no_cost_projects_nothing_and_does_not_crash():
+    assert compare.projected_usd([], 100) == compare.projected_usd([Decimal("0")], 100) == Decimal("0.00")
+
+
 def test_no_models_named_is_refused(d3):
     with pytest.raises(ContractError, match="at least one model"):
         compare.compare_models(d3.tmp, [])

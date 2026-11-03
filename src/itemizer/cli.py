@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import typer
@@ -11,7 +12,8 @@ from .bootstrap import split as sp
 from .bootstrap import taxonomy as tx
 from .bootstrap.data import Config, ContractError, Workspace, group_notes, load_config, load_export, sha256_file
 
-app = typer.Typer(no_args_is_help=True, help="Freight Invoice Itemizer.")
+# Locals are never shown on a crash: they can hold the API key or a note.
+app = typer.Typer(no_args_is_help=True, help="Freight Invoice Itemizer.", pretty_exceptions_show_locals=False)
 gt = typer.Typer(no_args_is_help=True, help="Create D1 (charge category list) and D2 (locked test set).")
 app.add_typer(gt, name="gt")
 acceptance_app = typer.Typer(no_args_is_help=True, help="Check a deliverable against its done-when conditions.")
@@ -69,6 +71,14 @@ def _guard(function):
         except ContractError as exc:
             typer.secho(f"Stopped: {exc}", fg=typer.colors.RED, err=True)
             raise typer.Exit(code=2) from exc
+        except (typer.Exit, typer.Abort):
+            raise
+        except Exception as exc:
+            if os.environ.get("ITEMIZER_DEBUG"):
+                raise
+            typer.secho(f"Stopped: an unexpected {type(exc).__name__}. Its message is hidden because it can quote a note. "
+                        "Set ITEMIZER_DEBUG=1 to see it.", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=3) from None
 
     return wrapper
 
@@ -420,11 +430,12 @@ def acceptance_d3_command(run_id: str = typer.Option(None, "--run", help="The ru
 def acceptance_review_command(
     date: str = typer.Option(..., help="Review date, YYYY-MM-DD."),
     evidence: Path = typer.Option(..., help="A file showing the client has seen the prototype, such as a saved email."),
+    run_id: str = typer.Option(None, "--run", help="The run they saw. Without this, the newest on all rows."),
 ) -> None:
     """Record that the client has seen the prototype."""
     from .acceptance import record_review
 
-    _show(record_review(Path.cwd(), date, evidence))
+    _show(record_review(Path.cwd(), date, evidence, run_id))
 
 
 if __name__ == "__main__":

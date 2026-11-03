@@ -696,3 +696,75 @@ def test_a_review_import_needs_a_stated_role(d3):
     before = d3.ws.path("client_review.json").read_bytes()
     result = runner.invoke(app, ["gt", "import-client", str(fill_review(d3)), "--date", "2026-11-05"])
     assert result.exit_code != 0 and d3.ws.path("client_review.json").read_bytes() == before
+
+
+# ---- plain stops, before anything is paid for
+def test_missing_outcome_settings_stop_the_run_before_any_call(d3):
+    _settings(d3, lambda s: s.pop("reconcile"))
+    with pytest.raises(ContractError, match="reconcile"):
+        pipeline.run(d3.tmp, set_name="train", limit=2)
+    assert d3.calls == []
+
+
+@pytest.mark.parametrize("make", [
+    lambda folder: (folder / "a.csv").write_text("a,b\n1,2\n"),
+    lambda folder: (folder / "a.xlsx").write_text("not a workbook"),
+])
+def test_an_export_that_is_not_a_workbook_stops_plainly(d3, make):
+    folder = d3.tmp / "bad"
+    folder.mkdir()
+    make(folder)
+    path = next(folder.iterdir())
+    result = runner.invoke(app, ["run", "--export", str(path)])
+    assert result.exit_code == 2 and "cannot be read" in result.stderr
+
+
+def test_a_folder_given_as_an_export_stops_plainly(d3):
+    result = runner.invoke(app, ["run", "--export", str(d3.tmp / "config")])
+    assert result.exit_code == 2 and "cannot be read" in result.stderr
+
+
+def test_an_empty_workbook_stops_plainly(d3):
+    path = d3.tmp / "empty.xlsx"
+    openpyxl.Workbook().save(path)
+    result = runner.invoke(app, ["run", "--export", str(path)])
+    assert result.exit_code == 2 and "missing columns" in result.stderr
+
+
+def test_running_from_the_wrong_folder_stops_plainly(d3, tmp_path_factory, monkeypatch):
+    monkeypatch.chdir(tmp_path_factory.mktemp("elsewhere"))
+    result = runner.invoke(app, ["run", "--set", "train"])
+    assert result.exit_code == 2 and "settings not found" in result.stderr
+
+
+def test_a_truncated_manifest_stops_plainly_and_is_not_reported_as_a_run(d3):
+    freeze(d3)
+    outcome = pipeline.run(d3.tmp)
+    (outcome.folder / "manifest.json").write_text("{half a file", encoding="utf-8")
+    result = runner.invoke(app, ["evaluate", "--run", outcome.run_id])
+    assert result.exit_code == 2 and "cannot be read" in result.stderr
+    assert pipeline.latest_full_run(pipeline.load_project(d3.tmp)) is None
+
+
+def test_an_unexpected_failure_hides_its_message(d3, monkeypatch):
+    def boom(*args, **kwargs):
+        raise ValueError("LUMPER $85.00 quoted by a library")
+
+    monkeypatch.setattr(pipeline, "run", boom)
+    result = runner.invoke(app, ["run", "--set", "train"])
+    assert result.exit_code == 3 and "unexpected ValueError" in result.stderr
+    assert "LUMPER" not in result.stderr + result.stdout
+
+
+def test_the_debug_switch_shows_the_failure(d3, monkeypatch):
+    def boom(*args, **kwargs):
+        raise ValueError("visible when debugging")
+
+    monkeypatch.setattr(pipeline, "run", boom)
+    monkeypatch.setenv("ITEMIZER_DEBUG", "1")
+    result = runner.invoke(app, ["run", "--set", "train"])
+    assert isinstance(result.exception, ValueError)
+
+
+def test_a_crash_never_shows_local_variables():
+    assert app.pretty_exceptions_show_locals is False

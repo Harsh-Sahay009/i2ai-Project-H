@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 import yaml
 from test_bootstrap import fill_review
-from test_pipeline import CODES, NOTE_WORDS, ROOT, d3, freeze  # noqa: F401 (d3 is a fixture)
+from test_pipeline import CODES, NOTE_WORDS, ROOT, _other_export, d3, freeze  # noqa: F401 (d3 is a fixture)
 from typer.testing import CliRunner
 
 from itemizer import acceptance, kpi, pipeline
@@ -118,12 +118,54 @@ def test_sealed_labels_and_a_recorded_review_close_d3(d3):
     assert "provisional" not in page(summary)
 
 
-def test_the_review_records_the_date_and_the_evidence_hash(d3):
+def test_the_review_records_the_date_the_evidence_hash_and_the_run(d3):
+    run_id = evaluated(d3)
     path = evidence(d3)
     record = acceptance.record_review(d3.tmp, "2026-11-05", path)
     from itemizer.bootstrap.data import sha256_file
 
-    assert record == {"date": "2026-11-05", "evidence_sha256": sha256_file(path)}
+    assert record == {"date": "2026-11-05", "evidence_sha256": sha256_file(path), "run_id": run_id}
+
+
+def test_a_review_with_no_run_to_review_is_refused(d3):
+    with pytest.raises(ContractError, match="nothing for the client to have reviewed"):
+        acceptance.record_review(d3.tmp, "2026-11-05", evidence(d3))
+
+
+def test_a_review_of_another_run_does_not_close_d3(d3):
+    first = evaluated(d3)
+    acceptance.record_review(d3.tmp, "2020-01-01", evidence(d3), first)
+    assert acceptance.d3_check(d3.tmp, first)["d3"]["client_review"]["run_id"] == first
+    other = pipeline.run(d3.tmp, model_name="claude-sonnet-5-5")
+    pipeline.evaluate_run(d3.tmp, other.run_id, extra_peek="a second model")
+    status = acceptance.d3_check(d3.tmp, other.run_id)["d3"]
+    assert status["client_review"] is None and status["reason"] == "client_review_missing"
+
+
+def test_evidence_must_be_a_file(d3):
+    evaluated(d3)
+    with pytest.raises(ContractError, match="evidence file not found"):
+        acceptance.record_review(d3.tmp, "2026-11-05", d3.tmp)
+
+
+def test_another_export_is_not_a_d3_run(d3):
+    path = _other_export(d3.tmp / "other.xlsx", ["FRESH CHARGE $50.00"])
+    freeze(d3)
+    outcome = pipeline.run(d3.tmp, export=path)
+    with pytest.raises(ContractError, match="all rows of the dataset"):
+        acceptance.d3_check(d3.tmp, outcome.run_id)
+
+
+def test_a_note_swapped_out_of_test_no_longer_counts_as_labelled(d3):
+    freeze(d3)
+    assert acceptance.d3_check(d3.tmp)["d2"]["labelled_notes"] == 200
+    manifest = d3.ws.read_json("split_manifest.json")
+    entries = manifest["notes"]
+    out = next(entry for entry in entries if entry["set"] == "TEST")
+    swapped_in = next(entry for entry in entries if entry["set"] == "RESERVE")
+    out["set"], swapped_in["set"] = "RESERVE", "TEST"
+    d3.ws.write_json("split_manifest.json", manifest)
+    assert acceptance.d3_check(d3.tmp)["d2"]["labelled_notes"] == 199
 
 
 def test_a_review_needs_real_evidence_and_a_real_date(d3):
@@ -171,6 +213,7 @@ def test_the_summary_is_valid_json_and_the_page_needs_nothing_from_outside(d3):
 
 
 def test_the_commands_write_the_page_and_record_the_review(d3):
+    evaluated(d3)
     result = runner.invoke(app, ["acceptance", "d3"])
     assert result.exit_code == 0, result.stderr
     assert "d3_summary.html" in result.stdout and (d3.tmp / "data" / "reports" / "d3_summary.html").exists()

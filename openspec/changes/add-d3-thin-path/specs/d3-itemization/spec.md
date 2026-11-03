@@ -50,6 +50,21 @@ An export other than the cleared dataset file MUST NOT go to an external model i
 - **WHEN** the scan flags a note in another export and the model is external
 - **THEN** the run stops before any call, with counts only, and a local model is still allowed
 
+### Requirement: Plain stops
+A command that cannot go on SHALL stop with a plain message, and MUST NOT print a note, a key or a local variable. A slip in the settings or the model names SHALL stop before any model call is paid for. A malformed reply from a server SHALL send that note to Review and SHALL NOT stop the run.
+
+#### Scenario: Unexpected failure
+- **WHEN** a library raises an error whose message quotes a note
+- **THEN** the command prints the error's type only, and `ITEMIZER_DEBUG=1` shows the rest to someone debugging
+
+#### Scenario: A settings slip
+- **WHEN** `reconcile` is missing from `config/run.yaml`
+- **THEN** the run stops before any call
+
+#### Scenario: A file that is not an export
+- **WHEN** `--export` names a csv, a folder or a blank workbook
+- **THEN** the command stops with a plain message
+
 ### Requirement: What is kept back stays back
 A model counts as local only when its server's address is this machine. A worked example MUST NOT be a note the scan decision keeps back, and an external send MUST stop when the stored scan does not match the dataset file.
 

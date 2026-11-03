@@ -7,12 +7,14 @@ import hashlib
 import json
 import re
 import subprocess
+import zipfile
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Literal
 
 import openpyxl
 import yaml
+from openpyxl.utils.exceptions import InvalidFileException
 from pydantic import BaseModel, ConfigDict
 
 CENT = Decimal("0.01")
@@ -54,6 +56,8 @@ class Config(BaseModel):
 
 
 def load_config(path: Path) -> Config:
+    if not path.is_file():
+        raise ContractError(f"settings not found: {path}. Run this from the project's folder")
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     data, strata, split = raw.get("data", {}), raw.get("strata", {}), raw.get("split", {})
     return Config(
@@ -70,9 +74,12 @@ def load_config(path: Path) -> Config:
 def to_money(value: Any) -> Decimal:
     """Read an amount as Decimal cents. The export stores floats such as 75.59999999999997."""
     try:
-        return Decimal(str(value)).quantize(CENT, ROUND_HALF_UP)
-    except (InvalidOperation, ValueError) as exc:
-        raise ContractError(f"amount cannot be parsed: {value!r}") from exc
+        amount = Decimal(str(value)).quantize(CENT, ROUND_HALF_UP)
+    except (InvalidOperation, ValueError):
+        amount = None
+    if amount is None or not amount.is_finite():  # the value is not shown, because a shifted cell can hold a note
+        raise ContractError("a cell that should hold an amount holds something else") from None
+    return amount
 
 
 class DisputeRow(BaseModel):
@@ -189,13 +196,16 @@ def _event_date(value: Any) -> str:
 
 def load_export(path: Path, examples_sheet: str = "Sheet1") -> tuple[list[DisputeRow], set[str]]:
     """Read every row of the export, and the fingerprints of notes in the team's example sheet."""
-    workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    try:
+        workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    except (InvalidFileException, zipfile.BadZipFile, KeyError, OSError, ValueError):
+        raise ContractError(f"{path.name} cannot be read as an Excel workbook") from None
     try:
         main = next((ws for ws in workbook.worksheets if ws.title != examples_sheet), None)
         if main is None:
             raise ContractError("the workbook has no export sheet")
         rows_iter = main.iter_rows(values_only=True)
-        header = [str(c) if c is not None else "" for c in next(rows_iter)]
+        header = [str(c) if c is not None else "" for c in next(rows_iter, ())]
         missing = [name for name in COLUMNS.values() if name not in header]
         if missing:
             raise ContractError(f"missing columns: {', '.join(missing)}")
@@ -205,7 +215,11 @@ def load_export(path: Path, examples_sheet: str = "Sheet1") -> tuple[list[Disput
             if all(cell is None for cell in raw):
                 continue
             note = "" if raw[at["note"]] is None else str(raw[at["note"]])
-            disputed = to_money(raw[at["disputed"]])
+            try:
+                disputed = to_money(raw[at["disputed"]])
+                to_money(raw[at["repeat_marker"]])
+            except ContractError as exc:
+                raise ContractError(f"export row {number}: {exc}") from None
             flags = []
             if to_money(raw[at["repeat_marker"]]) == 0:
                 flags.append("repeated_invoice")
