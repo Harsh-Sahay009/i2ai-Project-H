@@ -8,7 +8,7 @@
 
 - [x] 2.1 Write `config/models.yaml` and implement the registry and `load_secret`
 - [x] 2.2 Implement the Anthropic, Ollama and OpenAI-compatible adapters and the shared contract test
-- [ ] 2.3 Implement `itemizer models` and `itemizer compare-models`
+- [x] 2.3 Implement `itemizer models` and `itemizer compare-models`
 
 ## 3. Itemizer
 
