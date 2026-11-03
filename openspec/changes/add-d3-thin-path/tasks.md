@@ -1,7 +1,7 @@
 ## 1. Contracts and grammar
 
-- [ ] 1.1 Implement `contracts.py` and `export_schemas`, and generate `contracts/schemas/`
-- [ ] 1.2 Implement `grammar.py`: answer schema with closed lists and the provider-independent parser
+- [x] 1.1 Implement `contracts.py` and `export_schemas`, and generate `contracts/schemas/`
+- [x] 1.2 Implement `grammar.py`: answer schema with closed lists and the provider-independent parser
 - [ ] 1.3 Write `architecture/docs/11-data-contracts.md`: input, note, label, item, row, output and KPI contracts
 
 ## 2. Models
