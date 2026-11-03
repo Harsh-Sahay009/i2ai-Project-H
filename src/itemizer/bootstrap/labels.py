@@ -1,8 +1,9 @@
 """D2: labelling packs, label checks, agreement, client review and sealing.
 
-People write every TEST and VALIDATION label. Accuracy measured against labels the
-tool wrote would only show the tool agreeing with itself, so these packs have no
-input for predictions at all.
+People write every VALIDATION label. They write TEST labels too, unless the team has a model
+draft them (ADR 0015). Accuracy measured against labels a model wrote only shows the tool
+agreeing with them, so a draft is marked as one, and the final seal refuses any left unchecked.
+These packs have no input for predictions at all.
 """
 from __future__ import annotations
 
@@ -24,6 +25,8 @@ ROWS_PER_NOTE = 5
 DOUBLE_LABELLED = 50
 SPOT_CHECK = 15
 CLIENT_ROLE = "client_owner"
+MODEL_ROLE = "model_provisional"
+MODEL_DRAFT = "model_draft"  # the marker in a filled pack's comment column
 LINE_TYPES = ["charge", "tax", "already_paid"]
 DERIVATIONS = ["stated", "rate_x_quantity"]
 LABEL_COLUMNS = ["note_id", "carrier", "disputed_amount", "note", "item", "category", "amount", "evidence",
@@ -257,12 +260,15 @@ def parse_lines(lines: list[tuple[int, dict]], allowed: set[str], notes: dict[st
         items: list[GoldItem] = []
         bad = False
         flagged = any(_clean(l.get("no_charge_stated")).upper() == "Y" for _, l in note_lines)
-        suggested = False
+        suggested = drafted = False
         comment = ""
         for number, line in note_lines:
             text = _clean(line.get("comment"))
             if text == "model_suggestion":
                 suggested = True
+            elif text.startswith(MODEL_DRAFT):
+                drafted = True
+                comment = text.removeprefix(MODEL_DRAFT).lstrip(":")  # the doubt the model reported, if any
             elif text:
                 comment = text
             fields = [_clean(line.get(k)) for k in ("category", "amount", "evidence", "line_type", "derivation")]
@@ -284,7 +290,7 @@ def parse_lines(lines: list[tuple[int, dict]], allowed: set[str], notes: dict[st
         if not bad:
             labels[note.fingerprint] = NoteLabel(
                 fingerprint=note.fingerprint, note_id=note_id, labeller=labeller, pack=pack, no_charge_stated=flagged,
-                items=items, source="model_suggestion_confirmed" if suggested else "human", comment=comment)
+                items=items, source="model_suggestion_confirmed" if suggested else (MODEL_DRAFT if drafted else "human"), comment=comment)
     for note_id, note in sorted(by_id.items()):
         if note_id not in grouped:
             errors.append({"note_id": note_id, "row": 0, "code": "not_labelled", "message": "this note is missing from the file"})
@@ -389,7 +395,7 @@ def write_client_pack(ws: Workspace, notes: dict[str, Note], categories: list[di
     flagged = {d["fingerprint"] for d in report["disagreements"]}
     workbook = openpyxl.Workbook()
     _instructions(workbook, [
-        "Please review every note on the Review sheet. Two people labelled each one separately.",
+        "Please review every note on the Review sheet. Each one was labelled twice, separately. A labeller named claude is a model.",
         "In decision, choose accept_A or accept_B, or choose correct and add the right items on the Corrections sheet.",
         "Notes marked YES in disagreement differ between the two labellers. Notes marked NO agree, but please still check them.",
         "Totals and subtotals are not charges. Please do not decide here whether a charge should be paid.",
@@ -455,6 +461,8 @@ def import_client_review(ws: Workspace, path: Path, reviewer_role: str, date: st
         else:
             errors.append({"note_id": note_id, "row": number, "code": "not_reviewed", "message": "this note has no decision"})
             continue
+        if reviewer_role == CLIENT_ROLE and label.source == MODEL_DRAFT:  # the client has now read it
+            label = label.model_copy(update={"source": "person_checked"})
         changed = fp not in flagged and _as_tuples(label) != _as_tuples(a[fp])
         decisions[fp] = {"decision": decision, "changed_agreed_label": changed, "was_disagreement": fp in flagged,
                          "label": label.model_dump(mode="json")}
@@ -597,6 +605,9 @@ def seal(ws: Workspace, manifest: dict, notes: dict[str, Note], approved: set[st
     if problems:
         return _refuse(problems)
     gold, strata, problems = _gold_and_mix(ws, test, notes)
+    drafts = sum(gold[fp].source == MODEL_DRAFT for fp in test if fp in gold)
+    if drafts:
+        problems.append(f"{drafts} TEST labels are model drafts that no person has checked. See deliverables/reviewing_test_labels.md")
     if approved is None:
         problems.append("the taxonomy has no valid client approval")
     else:
@@ -639,6 +650,18 @@ def seal_provisional(ws: Workspace, manifest: dict, notes: dict[str, Note], code
     if problems:
         return _refuse(problems, "frozen")
     return _write_frozen(ws, "test_provisional.json", "provisional_record.json", test, gold, strata)
+
+
+def label_sources(ws: Workspace) -> dict[str, int]:
+    """How many current TEST labels came from where: the frozen ones, or the imported ones until then."""
+    if is_test_frozen(ws):
+        labels = load_test_gold(ws)[0]
+    else:
+        labels = {}
+        for pack in ("label_single", "label_replacements", "label_A"):
+            if ws.exists(f"labels/{pack}.json"):
+                labels.update(_stored_labels(ws, pack))
+    return dict(sorted(collections.Counter(label.source for label in labels.values()).items()))
 
 
 def is_test_frozen(ws: Workspace) -> bool:

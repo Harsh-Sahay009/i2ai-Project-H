@@ -41,6 +41,8 @@ An export needs these columns, and a missing one stops the command.
 
 `row_id` is `R` plus the export row number, because no ID column identifies a row. A note's `fingerprint` is the SHA-256 of its normalized text, and `note_id` is `n_` plus its first 8 characters. Rows sharing a fingerprint share one model call.
 
+A gold label records where it came from in `source`: `human`, `model_suggestion_confirmed` (TRAIN), `model_draft` (ADR 0015), `person_checked` or `person_corrected`. A `model_draft` cannot be sealed.
+
 ## 11.3 The answer: the controlled grammar
 
 A model's answer is exactly this, with no other text:

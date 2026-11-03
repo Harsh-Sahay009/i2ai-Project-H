@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from . import kpi
+from .bootstrap import labels as lb
 from .bootstrap import split as sp
 from .bootstrap import taxonomy as tx
 from .bootstrap.data import ContractError, sha256_file
@@ -57,7 +58,9 @@ def _d2(project: Project) -> dict:
     for pack in ("label_A", "label_single", "label_replacements"):
         if ws.exists(f"labels/{pack}.json"):
             labelled |= set(ws.read_json(f"labels/{pack}.json")["labels"])
-    result = {"status": status, "labelled_notes": len(test & labelled), "target_notes": len(test)}  # a swapped-out note does not count
+    sources = lb.label_sources(ws)
+    result = {"status": status, "labelled_notes": len(test & labelled), "target_notes": len(test),  # a swapped-out note does not count
+              "written_by_model": sources.get("model_draft", 0), "checked_by_person": sources.get("person_checked", 0) + sources.get("person_corrected", 0)}
     if ws.exists("agreement.json"):
         agreement = ws.read_json("agreement.json")
         result["agreement"] = {"notes_compared": agreement["notes_compared"], "cohens_kappa_category": agreement["cohens_kappa_category"],
@@ -95,7 +98,8 @@ def _d3(project: Project, run_id: str | None) -> tuple[dict, list[dict]]:
         return {**result, "status": "open", "reason": "no_level1_in_gates"}, shipments
     result.update(level1=level, labels_status=snapshot["labels_status"], accuracy_scope=snapshot["accuracy_scope"],
                   coverage=snapshot["coverage"], invariants=snapshot["invariants"], accuracy=snapshot["accuracy"],
-                  test_budget=snapshot["test_budget"], code_dirty=snapshot["run"]["code_dirty"], code_commit=snapshot["run"]["code_commit"])
+                  test_budget=snapshot["test_budget"], code_dirty=snapshot["run"]["code_dirty"], code_commit=snapshot["run"]["code_commit"],
+                  labels_sources=snapshot["labels_sources"])
     if level["status"] != "pass":
         return {**result, "status": "open", "reason": level.get("reason") or "level1_not_met"}, shipments
     if result["client_review"] is None:
@@ -137,6 +141,9 @@ def _page(summary: dict, shipments: list[dict]) -> str:
         "<h2>D2: locked test set</h2>",
         f"<p>Status: <b>{html.escape(d2['status'])}</b>. {d2['labelled_notes']} of {d2['target_notes']} notes labelled.</p>",
     ]
+    if d2["written_by_model"] or d2["checked_by_person"]:
+        parts.append(f"<p>{d2['written_by_model']} labels are drafts written by Claude Opus that no person has checked, and "
+                     f"{d2['checked_by_person']} have been checked by a person. D2 needs people to have checked them all.</p>")
     if "agreement" in d2:
         agreement = d2["agreement"]
         parts.append(f"<p>Two labellers compared on {agreement['notes_compared']} notes: category agreement (Cohen's kappa) "
@@ -147,8 +154,13 @@ def _page(summary: dict, shipments: list[dict]) -> str:
                  + (f" ({html.escape(str(d3['reason']))})" if d3.get("reason") else "") + ".</p>")
     if "level1" in d3:
         if d3["labels_status"] == "provisional":
-            parts.append("<p class='flag'>These results are <b>provisional</b>. They use labels the team resolved, "
-                         "until the client has reviewed the 50 double-labelled notes.</p>")
+            parts.append("<p class='flag'>These results are <b>provisional</b>, until the client has reviewed the 50 double-labelled "
+                         "notes and TEST is sealed.</p>")
+        drafts = d3["labels_sources"].get("model_draft", 0)
+        if drafts:
+            parts.append(f"<p class='flag'>{drafts} of the {sum(d3['labels_sources'].values())} TEST labels behind this result were written by "
+                         "Claude Opus, and no person has checked them. Accuracy here shows how far the tool agrees with those labels, and not "
+                         "that it is right.</p>")
         parts.append(f"<p>Level 1 result: <b>{html.escape(d3['level1']['status'])}</b>. A level is met when the measured value "
                      "reaches the target, with its range shown beside it. Accuracy is in-sample, because all notes come from one file.</p>")
         parts.append("<table><tr><th>Condition</th><th>Measured</th><th>Target</th><th>Met</th><th>Range</th><th>n</th></tr>"

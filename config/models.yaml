@@ -40,6 +40,29 @@ models:
     cache_read_usd_per_mtok: "0.01"
     cache_write_usd_per_mtok: "0.125"
 
+  # The labellers for `gt draft-test-labels` (ADR 0015). With no refusal fallback, every label really is from Opus.
+  claude-opus-5-5-label-high:
+    provider: anthropic
+    model: claude-opus-5-5
+    api_key_env: CLAUDE_API_KEY
+    effort: high
+    refusal_fallback: false
+    input_usd_per_mtok: "4.00"
+    output_usd_per_mtok: "20.00"
+    cache_read_usd_per_mtok: "0.20"
+    cache_write_usd_per_mtok: "5.00"
+
+  claude-opus-5-5-label-xhigh:
+    provider: anthropic
+    model: claude-opus-5-5
+    api_key_env: CLAUDE_API_KEY
+    effort: xhigh
+    refusal_fallback: false
+    input_usd_per_mtok: "4.00"
+    output_usd_per_mtok: "20.00"
+    cache_read_usd_per_mtok: "0.20"
+    cache_write_usd_per_mtok: "5.00"
+
   # Examples for other providers. They run once the runtime or key exists.
   local-qwen:
     provider: ollama

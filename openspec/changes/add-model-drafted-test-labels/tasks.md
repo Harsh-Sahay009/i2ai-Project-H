@@ -10,11 +10,11 @@
 
 ## 3. Model-drafted labels
 
-- [ ] 3.1 Add `source` values, the `model_draft` marker and `prompts/label_v1.md`
-- [ ] 3.2 Implement `model_labels.draft_test_labels` and `gt draft-test-labels`, with two labeller entries in the registry
-- [ ] 3.3 Count drafts in the snapshot and on the status page
-- [ ] 3.4 Refuse the final seal while drafts remain
-- [ ] 3.5 Tests per scenario in `model-drafted-labels`, on invented notes with no network
+- [x] 3.1 Add `source` values, the `model_draft` marker and `prompts/label_v1.md`
+- [x] 3.2 Implement `model_labels.draft_test_labels` and `gt draft-test-labels`, with two labeller entries in the registry
+- [x] 3.3 Count drafts in the snapshot and on the status page
+- [x] 3.4 Refuse the final seal while drafts remain
+- [x] 3.5 Tests per scenario in `model-drafted-labels`, on invented notes with no network
 
 ## 4. Label review
 

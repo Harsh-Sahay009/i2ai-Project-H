@@ -409,6 +409,7 @@ def evaluate(data_root: Path, manifest: RunManifest, milestone: str, row_results
         "population": "TEST",
         "accuracy_scope": "in_sample",  # until FRESH data arrives (doc 4.1)
         "labels_status": labels_status,
+        "labels_sources": dict(sorted(collections.Counter(gold[fp].source for fp in fingerprints).items())),
         "labels_sha256": hashlib.sha256(json.dumps(labels, sort_keys=True).encode("utf-8")).hexdigest(),
         "metric_version": METRIC_VERSION,
         "settings": {"seed": seed, "bootstrap_resamples": resamples, "amount_match_tolerance_usd": str(tolerance),
