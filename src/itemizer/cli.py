@@ -312,5 +312,26 @@ def seal_command(mapping: Path = typer.Option(None, help="YAML mapping from draf
     _show(record)
 
 
+@app.command("models")
+@_guard
+def models_command() -> None:
+    """List the models you can use. To add one on a known API, add an entry to config/models.yaml."""
+    from .providers import load_models, load_secret
+
+    specs, default = load_models(Path.cwd() / "config/models.yaml")
+    lines = []
+    for name, spec in sorted(specs.items()):
+        key = "not needed"
+        if spec.api_key_env:
+            try:
+                load_secret(spec.api_key_env, Path.cwd())
+                key = f"{spec.api_key_env} is set"
+            except ContractError:
+                key = f"{spec.api_key_env} is not set"
+        lines.append({"name": name, "default": name == default, "provider": spec.provider, "model": spec.model, "effort": spec.effort,
+                      "key": key, "usd_per_mtok_in_out": [str(spec.input_usd_per_mtok), str(spec.output_usd_per_mtok)]})
+    _show(lines)
+
+
 if __name__ == "__main__":
     app()

@@ -74,7 +74,9 @@ class AnthropicDrafter:
         if client is None:
             import anthropic  # installed with the `llm` extra
 
-            client = anthropic.Anthropic()
+            from ..providers import load_secret  # providers imports this package's data module
+
+            client = anthropic.Anthropic(api_key=load_secret("CLAUDE_API_KEY", Path.cwd()))
         self.client = client
         self.model_id = model
 

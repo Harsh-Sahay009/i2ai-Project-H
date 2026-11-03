@@ -1,0 +1,63 @@
+# The model registry (ADR 0014). To test another model on a known API, add one entry.
+# Then: itemizer compare-models --models claude-opus-5-5,<your entry> --set train --limit 30
+#
+# provider:  anthropic | ollama | openai_compatible
+# Prices are USD per million tokens, and every number the tool reports is computed from them.
+# Claude prices are the first-party list prices as of 2026-10-06. Check them before relying on a cost figure.
+default: claude-opus-5-5
+
+models:
+  claude-opus-5-5:
+    provider: anthropic
+    model: claude-opus-5-5
+    api_key_env: CLAUDE_API_KEY
+    effort: medium
+    refusal_fallback: true
+    input_usd_per_mtok: "4.00"
+    output_usd_per_mtok: "20.00"
+    cache_read_usd_per_mtok: "0.20"
+    cache_write_usd_per_mtok: "5.00"
+
+  claude-sonnet-5-5:
+    provider: anthropic
+    model: claude-sonnet-5-5
+    api_key_env: CLAUDE_API_KEY
+    effort: medium
+    refusal_fallback: true
+    input_usd_per_mtok: "2.00"
+    output_usd_per_mtok: "10.00"
+    cache_read_usd_per_mtok: "0.20"
+    cache_write_usd_per_mtok: "2.50"
+
+  claude-haiku-5-5:
+    provider: anthropic
+    model: claude-haiku-5-5
+    api_key_env: CLAUDE_API_KEY
+    effort: medium
+    refusal_fallback: false
+    input_usd_per_mtok: "0.10"
+    output_usd_per_mtok: "0.50"
+    cache_read_usd_per_mtok: "0.01"
+    cache_write_usd_per_mtok: "0.125"
+
+  # Examples for other providers. They run once the runtime or key exists.
+  local-qwen:
+    provider: ollama
+    model: "qwen3:14b"
+    base_url: "http://localhost:11434"
+    refusal_fallback: false
+    input_usd_per_mtok: "0"
+    output_usd_per_mtok: "0"
+    cache_read_usd_per_mtok: "0"
+    cache_write_usd_per_mtok: "0"
+
+  openai-compatible-example:
+    provider: openai_compatible
+    model: "name-of-the-model"
+    base_url: "https://api.example.com/v1"
+    api_key_env: OTHER_API_KEY
+    refusal_fallback: false
+    input_usd_per_mtok: "0"
+    output_usd_per_mtok: "0"
+    cache_read_usd_per_mtok: "0"
+    cache_write_usd_per_mtok: "0"
