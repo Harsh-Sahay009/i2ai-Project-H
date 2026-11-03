@@ -19,15 +19,30 @@ The summary SHALL show the ten largest shipments, each counted once, with no not
 - **THEN** the summary shows its largest dispute and the total on its rows side by side
 
 ### Requirement: Client review recorded
-D3 SHALL stay `open` until `itemizer acceptance record-review` records the date and the hash of the evidence.
+D3 SHALL stay `open` until `itemizer acceptance record-review` records the date, the hash of the evidence and the run the client saw. A review of another run SHALL NOT close D3.
 
 #### Scenario: Not yet reviewed
 - **WHEN** the Level 1 conditions are met and no review is recorded
 - **THEN** D3 shows `open`, with reason `client_review_missing`
 
+#### Scenario: Review of another run
+- **WHEN** a review is recorded for one run and the summary reports a later run
+- **THEN** D3 shows `open`, with reason `client_review_missing`
+
 #### Scenario: Reviewed on provisional labels
 - **WHEN** a review is recorded and the labels are still provisional
 - **THEN** D3 shows `open`, with reason `labels_provisional`, until TEST is sealed and the run is scored again
+
+### Requirement: D3 reports the dataset file only
+The summary MUST refuse a run on another export, on one set, or with a limit, and SHALL count as labelled only notes now in TEST.
+
+#### Scenario: Another export
+- **WHEN** an operator asks for the summary of a run on another export
+- **THEN** the command refuses, so that file's disputes are not shown under the D3 heading
+
+#### Scenario: A note swapped out of TEST
+- **WHEN** `gt final-strata --apply` moves a labelled note out of TEST
+- **THEN** the labelled count no longer includes it
 
 ### Requirement: Only a score that belongs to the run
 The summary MUST NOT show a score when the run's inputs or answers changed after it was scored, and SHALL flag an extra peek, a run from uncommitted code and negative rows left uncovered.

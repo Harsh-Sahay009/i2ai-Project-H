@@ -200,7 +200,7 @@ def _read_cache(path: Path) -> dict | None:
         try:
             Decimal(str(stored.get("cost_usd", "0")))
             int(stored.get("latency_ms", 0))
-        except (InvalidOperation, TypeError, ValueError):
+        except (InvalidOperation, OverflowError, TypeError, ValueError):
             usable = False
     return stored if usable else None
 
@@ -239,8 +239,9 @@ class _Caller:
         usage.attempts += 1
         if stored is None:
             stored = self._call(user, usage, path)
-        usage.measured_cost += Decimal(str(stored.get("cost_usd", "0")))
-        usage.measured_latency_ms += int(stored.get("latency_ms", 0))
+        else:
+            usage.measured_cost += Decimal(str(stored.get("cost_usd", "0")))
+            usage.measured_latency_ms += int(stored.get("latency_ms", 0))
         if stored.get("refused"):
             raise ProviderRefused(f"{spec.name}: the model declined this note")
         return stored["text"]
@@ -252,6 +253,8 @@ class _Caller:
         cost = cost_usd(self.provider.spec, completion)
         self.budget.charge(cost)
         usage.add(completion, cost)
+        usage.measured_cost += cost  # here rather than from the cache entry, because a cut-off call is never stored
+        usage.measured_latency_ms += completion.latency_ms
         return {"cost_usd": str(cost), "latency_ms": completion.latency_ms}
 
     def _call(self, user: str, usage: _Usage, path: Path) -> dict:

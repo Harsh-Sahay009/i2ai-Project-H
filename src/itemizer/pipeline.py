@@ -227,8 +227,8 @@ def run(root: Path, model_name: str | None = None, set_name: str | None = None, 
     project = load_project(root)
     spec = choose_model(root, model_name)
     path = Path(export) if export else project.dataset
-    if not path.exists():
-        raise ContractError(f"export not found: {path}")
+    if not path.is_file():
+        raise ContractError(f"export not found, or it cannot be read as a file: {path}")
     is_dataset = sha256_file(path) == project.split["dataset_sha256"]  # by content, so a copy under another name counts
     if is_dataset:
         rows, notes = project.rows, project.notes
@@ -255,6 +255,7 @@ def run(root: Path, model_name: str | None = None, set_name: str | None = None, 
 
     provider = get_provider(spec, project_root=root)
     budget = _budget(project.settings)
+    policy = Policy.from_settings(project.settings)  # here, so a settings slip stops the run before any call is paid for
     started = time.monotonic()
     note_results = itemize_notes({fp: n for fp, n in notes.items() if fp not in left_out}, provider, codes, system,
                                  project.data_root / "cache" / "llm", budget,
@@ -263,7 +264,7 @@ def run(root: Path, model_name: str | None = None, set_name: str | None = None, 
         note_results[fp] = NoteResult(fingerprint=fp, note_id=notes[fp].note_id, status="review", review_reason="refused",
                                       violations=["not_sent_after_scan"], model=spec.name)
     minutes = (time.monotonic() - started) / 60
-    row_results = assign_rows(rows, note_results, Policy.from_settings(project.settings))
+    row_results = assign_rows(rows, note_results, policy)
 
     _write_json(folder / "note_results.json", {fp: r.model_dump(mode="json") for fp, r in sorted(note_results.items())})
     _write_json(folder / "row_results.json", [r.model_dump(mode="json") for r in row_results])
@@ -307,22 +308,29 @@ def load_run(project: Project, run_id: str) -> tuple[RunManifest, list[RowResult
     folder = project.data_root / "runs" / run_id
     if not (folder / "row_results.json").exists():
         raise ContractError(f"run {run_id} has no results; run `itemizer run` first")
-    stored = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
-    stored.pop("run_id", None)
-    manifest = RunManifest.model_validate(stored)
+    try:
+        stored = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+        stored.pop("run_id", None)
+        manifest = RunManifest.model_validate(stored)
+        rows = [RowResult.model_validate(r) for r in json.loads((folder / "row_results.json").read_text(encoding="utf-8"))]
+        notes = {fp: NoteResult.model_validate(r) for fp, r in json.loads((folder / "note_results.json").read_text(encoding="utf-8")).items()}
+    except (OSError, ValueError, TypeError, AttributeError):  # pydantic's error is a ValueError, and it can quote a note, so it is not shown
+        raise ContractError(f"the files in run {run_id} cannot be read. Run again") from None
     if manifest.run_id != run_id:
         raise ContractError(f"the manifest in run {run_id} does not match the run's id; the folder was changed")
-    rows = [RowResult.model_validate(r) for r in json.loads((folder / "row_results.json").read_text(encoding="utf-8"))]
-    notes = {fp: NoteResult.model_validate(r) for fp, r in json.loads((folder / "note_results.json").read_text(encoding="utf-8")).items()}
     return manifest, rows, notes
 
 
 def latest_full_run(project: Project) -> str | None:
-    """The newest run on all rows of the dataset file."""
+    """The newest run on all rows of the dataset file. A folder that cannot be read is not a run to report."""
     found = []
     for path in (project.data_root / "runs").glob("run_*/row_results.json"):
-        manifest = json.loads((path.parent / "manifest.json").read_text(encoding="utf-8"))
-        if manifest["set_name"] == "all" and manifest["dataset_sha256"] == project.split["dataset_sha256"]:
+        try:
+            manifest = json.loads((path.parent / "manifest.json").read_text(encoding="utf-8"))
+            usable = manifest["set_name"] == "all" and manifest["limit"] is None and manifest["dataset_sha256"] == project.split["dataset_sha256"]
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if usable:
             found.append((path.stat().st_mtime_ns, path.parent.name))
     return max(found)[1] if found else None
 

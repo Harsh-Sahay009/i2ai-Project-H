@@ -11,7 +11,7 @@ from pathlib import Path
 from . import kpi
 from .bootstrap.data import ContractError, NoteLabel
 from .contracts import NoteResult
-from .pipeline import SETS, RunOutcome, load_project, run
+from .pipeline import SETS, RunOutcome, choose_model, load_project, run
 
 
 def _item_key(result: NoteResult) -> list[tuple[str, Decimal]]:
@@ -40,8 +40,11 @@ def projected_usd(costs: list[Decimal], all_notes: int) -> Decimal:
 
     A typical note costs the median, and whatever the sample spent beyond that is added once.
     """
-    typical = statistics.median(costs)
-    return (typical * all_notes + max(sum(costs) - typical * len(costs), Decimal(0))).quantize(Decimal("0.01"))
+    answered = [cost for cost in costs if cost > 0]  # a note a budget stopped cost nothing, and says nothing about a typical note
+    if not answered:
+        return Decimal("0.00")
+    typical = statistics.median(answered)
+    return (typical * all_notes + max(sum(answered) - typical * len(answered), Decimal(0))).quantize(Decimal("0.01"))
 
 
 def _report_line(name: str, outcome: RunOutcome, first: RunOutcome | None, labels: dict[str, NoteLabel], tolerance: Decimal,
@@ -95,6 +98,8 @@ def compare_models(root: Path, model_names: list[str], set_name: str = "train", 
         raise ContractError(f"--set must be one of {', '.join(sorted(SETS))}. TEST never chooses between candidates.")
     if not model_names:
         raise ContractError("name at least one model")
+    for name in model_names:  # a typo in the last name must not stop the comparison after the first model is paid for
+        choose_model(root, name)
     project = load_project(root)
     pack = {"train": "train", "validation": "validation"}[set_name]
     labels: dict[str, NoteLabel] = {}

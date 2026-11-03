@@ -654,3 +654,10 @@ def test_final_seal_stores_the_approved_codes_when_a_mapping_is_used(world):
     labels = world.ws.read_json("test_sealed.json")["labels"].values()
     assert {item["category"] for label in labels for item in label["items"]} == {"approved_code"}
     assert world.ws.read_json("category_mapping.json") == {"cat_0": "approved_code"}
+
+
+@pytest.mark.parametrize("cell", ["NaN", "Infinity", "SEE THE NOTE ABOUT LUMPER"])
+def test_a_cell_that_is_not_an_amount_stops_without_quoting_it(cell):
+    with pytest.raises(ContractError) as caught:
+        to_money(cell)
+    assert cell not in str(caught.value)

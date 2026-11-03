@@ -145,7 +145,7 @@ A score belongs to its run. `evaluate` refuses, with nothing charged, a run whos
    itemizer compare-models --models claude-opus-5-5,my-new-model --set train --limit 30
    ```
 
-   This prints a table and writes `data/compare/`: valid-first-try rate, retries, Review, Verified and Discrepancy shares, agreement with the first model, cost, latency, and projected cost and minutes for all notes. A repeat comparison uses the cache, so it makes no new calls.
+   This prints a table and writes `data/compare/`: valid-first-try rate, retries, Review, Verified and Discrepancy shares, agreement with the first model, cost, latency, and projected cost and minutes for all notes. A repeat comparison uses the cache, so it makes no new calls, and its costs are those from when each answer was first made.
 4. Agreement is not accuracy. Choose a model on labelled VALIDATION notes. TEST never chooses between candidates, and the command refuses it.
 5. Use it: `itemizer run --model my-new-model`, or make it the `default` in the registry.
 

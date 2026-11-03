@@ -17,16 +17,20 @@ REVIEW_RECORD = "reports/client_review_d3.json"
 _CONDITION_NAMES = {"cov_usd": "Coverage of disputed dollars", "cov_rows": "Coverage of rows", "acc": "Accuracy on covered rows"}
 
 
-def record_review(root: Path, date: str, evidence: Path) -> dict:
-    """Record that the client has seen the prototype. D3 stays open until this exists."""
+def record_review(root: Path, date: str, evidence: Path, run_id: str | None = None) -> dict:
+    """Record that the client has seen the prototype. It belongs to one run, so a later run needs its own review."""
     project = load_project(root)
-    if not evidence.exists():
+    if not evidence.is_file():
         raise ContractError(f"evidence file not found: {evidence}")
     try:
         dt.date.fromisoformat(date)
     except ValueError:
         raise ContractError("the date must look like YYYY-MM-DD") from None
-    record = {"date": date, "evidence_sha256": sha256_file(evidence)}
+    run_id = run_id or latest_full_run(project)
+    if run_id is None:
+        raise ContractError("there is no run on all rows yet, so there is nothing for the client to have reviewed")
+    load_run(project, run_id)  # the run must exist and be readable
+    record = {"date": date, "evidence_sha256": sha256_file(evidence), "run_id": run_id}
     target = project.data_root / REVIEW_RECORD
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -48,12 +52,12 @@ def _d2(project: Project) -> dict:
     ws = project.ws
     sealed, provisional = ws.exists("seal_record.json"), ws.exists("provisional_record.json")
     status = "sealed" if sealed else ("provisional" if provisional else "not_frozen")
-    labelled = 0
-    if ws.exists("labels/label_single.json"):
-        labelled += len(ws.read_json("labels/label_single.json")["labels"])
-    if ws.exists("labels/label_A.json"):
-        labelled += len(ws.read_json("labels/label_A.json")["labels"])
-    result = {"status": status, "labelled_notes": labelled, "target_notes": len(sp.notes_in_set(project.split, "TEST"))}
+    test = set(sp.notes_in_set(project.split, "TEST"))
+    labelled: set[str] = set()
+    for pack in ("label_A", "label_single", "label_replacements"):
+        if ws.exists(f"labels/{pack}.json"):
+            labelled |= set(ws.read_json(f"labels/{pack}.json")["labels"])
+    result = {"status": status, "labelled_notes": len(test & labelled), "target_notes": len(test)}  # a swapped-out note does not count
     if ws.exists("agreement.json"):
         agreement = ws.read_json("agreement.json")
         result["agreement"] = {"notes_compared": agreement["notes_compared"], "cohens_kappa_category": agreement["cohens_kappa_category"],
@@ -66,11 +70,13 @@ def _d3(project: Project, run_id: str | None) -> tuple[dict, list[dict]]:
     result: dict = {"run_id": run_id, "client_review": None}
     review = project.data_root / REVIEW_RECORD
     if review.exists():
-        result["client_review"] = json.loads(review.read_text(encoding="utf-8"))
+        record = json.loads(review.read_text(encoding="utf-8"))
+        if record.get("run_id") == run_id:  # a review of another run says nothing about this one
+            result["client_review"] = record
     if run_id is None:
         return {**result, "status": "open", "reason": "no_run_on_all_rows"}, []
     manifest, rows, notes = load_run(project, run_id)
-    if manifest.set_name != "all":
+    if manifest.set_name != "all" or manifest.limit is not None or manifest.dataset_sha256 != project.split["dataset_sha256"]:
         raise ContractError("the D3 check needs a run on all rows of the dataset file")
     result["model"] = manifest.model.get("name")
     changed = out_of_date(project, manifest)

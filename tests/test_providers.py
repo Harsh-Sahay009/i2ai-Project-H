@@ -1,6 +1,7 @@
 """Tests per scenario for the model registry and providers. No network and no real keys: every client is a fake."""
 from __future__ import annotations
 
+import http.client
 import inspect
 import json
 import shutil
@@ -639,3 +640,10 @@ def test_an_openai_compatible_failure_reports_what_it_used(finish_reason, messag
     with pytest.raises(failure) as caught:
         get_provider(make_spec("openai_compatible"), client=FakeWire(reply)).complete(SYSTEM, USER, SCHEMA)
     assert (caught.value.usage.input_tokens, caught.value.usage.output_tokens) == (11, 7)
+
+
+@pytest.mark.parametrize("family", ["ollama", "openai_compatible"])
+@pytest.mark.parametrize("failure", [http.client.IncompleteRead(b"half"), http.client.BadStatusLine("nonsense")])
+def test_a_malformed_http_reply_is_a_provider_error_and_not_a_crash(family, failure):
+    with pytest.raises(ProviderError, match="the request failed"):
+        get_provider(make_spec(family, base_url="http://fake.invalid"), client=FakeWire(failure)).complete(SYSTEM, USER, SCHEMA)

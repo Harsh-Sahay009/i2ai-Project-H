@@ -666,7 +666,8 @@ def test_a_tampered_cache_entry_cannot_put_an_invented_amount_in_a_result(tmp_pa
 
 
 @pytest.mark.parametrize("damage", ["{half a file", "[]", '{"text": 5}', '{"other": "x"}', '{"refused": "yes"}',
-                                    '{"text": "x", "cost_usd": "a lot"}', '{"text": "x", "latency_ms": "soon"}'])
+                                    '{"text": "x", "cost_usd": "a lot"}', '{"text": "x", "latency_ms": "soon"}',
+                                    '{"text": "x", "latency_ms": Infinity}'])
 def test_an_unreadable_cache_entry_counts_as_missing_and_is_replaced(tmp_path, damage):
     notes = make_notes(LUMPER)
     run(notes, FakeProvider(GOOD), tmp_path)
