@@ -26,6 +26,10 @@
 - **WHEN** a reviewer changes a note the client's review already decided
 - **THEN** the file is rejected, because the client's decision stands
 
+#### Scenario: Team correction on a note the client will review
+- **WHEN** the team corrects one of the 50 double-labelled notes and the client's workbook is written
+- **THEN** it shows the correction, and `accept_correction` keeps it
+
 #### Scenario: After the final seal
 - **WHEN** TEST is sealed
 - **THEN** the command refuses

@@ -337,6 +337,34 @@ def draft_test_labels_command(
         raise typer.Exit(code=1)
 
 
+@gt.command("label-review-pack")
+@_guard
+def label_review_pack_command(config: Path = Config_) -> None:
+    """Write every TEST label to a workbook for people to check, with no tool output."""
+    ctx = Context(config)
+    result = lb.write_label_review(ctx.ws, ctx.manifest(), ctx.notes, ctx.categories())
+    ctx.ws.log("label-review-pack", [], [ctx.ws.path("packs/test_label_review.xlsx")], notes=result["notes"])
+    _show(result)
+
+
+@gt.command("import-label-review")
+@_guard
+def import_label_review_command(
+    path: Path = typer.Argument(..., help="The reviewed workbook."),
+    reviewer: str = typer.Option(..., help="Who reviewed it."),
+    date: str = typer.Option(..., help="Review date, YYYY-MM-DD."),
+    config: Path = Config_,
+) -> None:
+    """Take back what people checked or corrected. deliverables/reviewing_test_labels.md explains the steps."""
+    ctx = Context(config)
+    result = lb.import_label_review(ctx.ws, path, reviewer, date, ctx.manifest(), ctx.notes, ctx.codes())
+    ctx.ws.log("import-label-review", [path], [], reviewed=result["reviewed"], corrected=result["corrected"], errors=result["errors"])
+    _show(result)
+    if result["errors"]:
+        typer.secho(f"Nothing changed. Fix the rows in {ctx.ws.path('labels/test_label_review.errors.csv').relative_to(ctx.root)} and import again.", fg=typer.colors.YELLOW)
+        raise typer.Exit(code=1)
+
+
 @gt.command("seal")
 @_guard
 def seal_command(

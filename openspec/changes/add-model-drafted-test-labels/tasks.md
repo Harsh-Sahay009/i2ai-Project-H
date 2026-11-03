@@ -18,10 +18,10 @@
 
 ## 4. Label review
 
-- [ ] 4.1 Implement `gt label-review-pack`
-- [ ] 4.2 Implement `gt import-label-review`, with the frozen labels updated
-- [ ] 4.3 Write `deliverables/reviewing_test_labels.md`
-- [ ] 4.4 Tests per scenario in `test-label-review`, on invented notes with no network
+- [x] 4.1 Implement `gt label-review-pack`
+- [x] 4.2 Implement `gt import-label-review`, with the frozen labels updated
+- [x] 4.3 Write `deliverables/reviewing_test_labels.md`
+- [x] 4.4 Tests per scenario in `test-label-review`, on invented notes with no network
 
 ## 5. Live
 
