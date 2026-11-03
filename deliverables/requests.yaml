@@ -31,7 +31,10 @@ requests:
     asked: null
     status: open
   - item: How to treat a balance due written beside listed charges
-    why: 51 notes follow this pattern, and the rule decides whether those rows are flagged
+    why: >-
+      51 notes follow this pattern, and the rule decides whether those rows are flagged. In TRAIN, 33 of 51 such rows
+      add up only when the balance is added to the charges, 16 add up without it, and 2 do neither. Needed before labelling starts,
+      because labellers follow the same rule.
     owner: client_owner
     asked: null
     status: open

@@ -36,8 +36,8 @@
 
 ## 7. Live check and people
 
-- [ ] 7.1 Run on a small TRAIN sample with the real API and record cost and timing
-- [ ] 7.2 Run on all of TRAIN and fix what the real notes expose
+- [x] 7.1 Run on a small TRAIN sample with the real API and record cost and timing (see `live-check.md`)
+- [x] 7.2 Run on all of TRAIN and fix what the real notes expose
 - [ ] 7.3 (People) Confirm the worked examples in `prompts/fewshot_v1.yaml`
 - [ ] 7.4 (People) Label TEST and at least 100 VALIDATION notes, then freeze TEST
 - [ ] 7.5 Run on all rows, evaluate Level 1, and produce the summary
