@@ -1,11 +1,11 @@
 ## 1. Store
 
 - [ ] 1.1 Implement CAS write/read with sidecar metadata and immutability check
-- [ ] 1.2 Enforce `runtime.data_root` on the encrypted volume
+- [ ] 1.2 Refuse a `runtime.data_root` that Git does not ignore
 
 ## 2. Index
 
-- [ ] 2.1 Create DuckDB tables `artifacts`, `lineage`, `access_log`, `tombstones`
+- [ ] 2.1 Create DuckDB tables `artifacts`, `lineage`, `access_log`
 - [ ] 2.2 Implement lineage query and `itemizer lineage`
 
 ## 3. Git-tagged artifacts
@@ -16,7 +16,6 @@
 
 - [ ] 4.1 Implement sealed-set role check and access logging
 - [ ] 4.2 Implement manifest-driven restore for `itemizer rerun`
-- [ ] 4.3 Implement tombstone deletion
 
 ## 5. Tests
 

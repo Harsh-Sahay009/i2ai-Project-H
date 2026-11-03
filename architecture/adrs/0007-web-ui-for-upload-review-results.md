@@ -4,7 +4,7 @@ Date: 2026-10-31
 
 ## Status
 
-Accepted. Supersedes [2. CLI and Excel review workbook instead of a graphical UI](0002-cli-and-excel-instead-of-ui.md).
+Accepted. Supersedes [2. CLI and Excel review workbook instead of a graphical UI](0002-cli-and-excel-instead-of-ui.md). Amended by [11. Plain HTML UI served by a thin Python server](0011-plain-html-ui-with-thin-server.md), [12. Separate train, validation and test sets](0012-train-validation-test-split.md) and [13. The project uses only an anonymized open dataset](0013-anonymized-open-dataset.md).
 
 ## Context
 

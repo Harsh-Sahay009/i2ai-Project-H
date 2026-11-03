@@ -10,18 +10,22 @@ context: |
   Strategy guidance: AI Strategy Atlas (M4 owned/controlled/accessed, M5 three placements, design rules,
   telemetry layers, closed loop, adjudication capacity, validity horizons; M6 authority ladder).
 
-  Stack: Python 3.12, uv, Typer, Streamlit (Web UI, ADR 0007), pandas, pandera, pydantic v2, openpyxl, DuckDB, Parquet (pyarrow),
-  scikit-learn, SciPy, Jinja2, Ollama (local model), optional external LLM API behind a provider interface.
+  Stack: Python 3.12, uv, Typer, FastAPI with Jinja2 server-rendered HTML (Web UI, ADR 0011), pandas, pandera, pydantic v2, openpyxl,
+  DuckDB, Parquet (pyarrow), scikit-learn, SciPy, external LLM API and Ollama (fallback) behind a provider interface.
 
   Non-negotiable invariants (scope section 3):
   - Every item shows the exact words it came from.
   - The tool never invents or edits an amount to make a row add up.
   - A row that does not add up is flagged.
-  Constraints: PPG data stays on team-controlled storage; external AI only with written client approval
-  and masked text; locked test set (D2) never tunes the tool; <30 min for 1,500 rows; one command.
+  Dataset (ADR 0013): one file is the source of every partition. The team confirms it is free, open and public, so it may go to an external model. This repo still does not hold it.
+  Any other data needs written client approval before it reaches an external model.
+  Split (ADR 0012): TRAIN builds the tool, VALIDATION calibrates and chooses between candidates, TEST (D2) is used only
+  for Level gates and never tunes the tool. People write VALIDATION and TEST labels without seeing tool output.
+  Constraints: <30 min for 1,500 rows; one command.
   Out of scope: TMS/accounting integration, the payment decision.
-  Web UI (ADR 0007, supersedes ADR 0002): upload, results, error review, review, adjudication, blind labelling, KPIs;
-  no business logic in the UI; needs the client's written agreement as a scope change.
+  Web UI (ADR 0007, ADR 0011): plain HTML from a thin Python server; upload, run, results, error review, review,
+  adjudication, blind labelling, KPIs; no business logic in the UI; needs the client's written agreement as a scope change.
+  Course and atlas work are internal team check-ins that the client owner does not need to approve.
 
   Agentic design (ADR 0008-0010): the classifier is a bounded tool-calling agent on a pretrained LLM; custom
   deterministic tools (architecture/docs/08) do all arithmetic and verification; a guardrail layer wraps it;

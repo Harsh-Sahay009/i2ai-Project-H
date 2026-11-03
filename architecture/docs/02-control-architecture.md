@@ -21,7 +21,7 @@ The unit is the **element**, one level below the container. Each placement names
 | Element | Criterion | Evidence that would move it |
 |---|---|---|
 | Input contract (export columns, types) | Repeats weekly, every stage consumes it | A second TMS export format |
-| Item schema `{row_id, item_id, category, amount, currency, evidence_text, evidence_start, evidence_end, derivation, confidence}` | Every downstream consumer (Excel, KPI, review) depends on it | None expected within project |
+| Item schema `{row_id, item_id, category, amount, currency, evidence_text, evidence_start, evidence_end, line_type, derivation, confidence}` | Every downstream consumer (Excel, KPI, review) depends on it | None expected within project |
 | Row outcome set `{verified, discrepancy, review, no_charge_stated}` | Defined in scope §3 | Client change in writing |
 | Invariants: verbatim evidence, never edit amounts, flag non-reconciling rows | Scope "cannot be compromised" | None |
 | Provider interface `complete(prompt, schema, params) -> response, usage` | Two providers today, swap expected | — |
@@ -63,7 +63,7 @@ A rules-only itemizer, a local-model itemizer and an API-model itemizer must all
 | Model provider | Provider Interface + contract tests; local model is the tested fallback |
 | Episodes and labels | Parquet/DuckDB in an open schema; exportable |
 | Prompts, lexicon, taxonomy | Plain files in Git |
-| Re-validation cost | Switching provider = one replay of DEV + one TEST evaluation; measured and recorded as `substitution_time` |
+| Re-validation cost | Switching provider = one replay on VALIDATION, then the next Level gate on TEST; measured and recorded as `substitution_time` |
 
 ## 2.5 Authority ladder per consequential action (M6)
 
@@ -77,7 +77,7 @@ A rules-only itemizer, a local-model itemizer and an API-model itemizer must all
 | Flag Discrepancy | Recommend | Accountant reads the note |
 | Edit an amount | **Prohibited** | — |
 | Decide or record payment | **Prohibited** | Stays in PPG accounting |
-| Send text to external API | Supervised: only with written approval + masking | Local model route |
+| Send text to external API | Supervised: only for the anonymized open dataset with a recorded source, or with written approval (ADR 0013) | Local model route |
 | Publish a config change | Supervised: operator approval at the promotion gate | Rollback pointer |
 
-Promotion (e.g., shrinking the audit sample) requires operating evidence on TEST/FRESH, reliance evidence (approval rate with audit disagreement), control evidence (confidentiality gate tests), and recovery evidence (rollback rehearsed).
+Promotion (e.g., shrinking the audit sample) requires operating evidence from the Level gates on TEST or FRESH, reliance evidence (approval rate with audit disagreement), control evidence (confidentiality gate tests), and recovery evidence (rollback rehearsed).

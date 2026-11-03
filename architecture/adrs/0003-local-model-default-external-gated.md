@@ -4,7 +4,7 @@ Date: 2026-10-31
 
 ## Status
 
-Accepted
+Accepted. Amended by [12. Separate train, validation and test sets](0012-train-validation-test-split.md) and [13. The project uses only an anonymized open dataset](0013-anonymized-open-dataset.md).
 
 ## Context
 

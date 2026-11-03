@@ -4,7 +4,7 @@ Date: 2026-10-31
 
 ## Status
 
-Accepted
+Accepted. Amended by [12. Separate train, validation and test sets](0012-train-validation-test-split.md): the populations are now TRAIN, VALIDATION, TEST, FRESH and PROD.
 
 ## Context
 

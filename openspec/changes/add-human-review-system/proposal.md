@@ -7,7 +7,7 @@ Accountants keep the payment decision, and Review/Discrepancy rows need a person
 - Review Queue Builder bounded by weekly capacity, prioritized by disputed dollars, with a blind audit sample of Verified rows.
 - A single Review Decision Intake used by the Web UI (primary surface, see add-web-ui) and by an offline Excel review workbook (fallback) with locked prediction columns.
 - Adjudication into four buckets with reason codes from the error taxonomy.
-- Blind labelling protocol for TEST (two labellers, agreement, client resolution, sealing) and for DEV/FRESH.
+- Blind labelling protocol for TEST (two labellers on 50 notes, agreement, client review of all 50, sealing) and for TRAIN, VALIDATION and FRESH. D2 itself runs on workbooks from `add-ground-truth-bootstrap`; this change serves the UI and later labelling.
 - Case Closer requiring reason code, replay pack, outcome link and version tag.
 
 ## Capabilities

@@ -31,7 +31,7 @@ The Action Guard MUST block any output that approves, denies or schedules paymen
 ### Requirement: PII screening
 The Privacy Guard SHALL block any model-bound or MCP-bound payload containing a phone number, email or detected person name not replaced by a placeholder.
 
-#### Scenario: Unmasked phone number
+#### Scenario: Phone number left in a note
 - **WHEN** a payload includes "call 412-555-0182"
 - **THEN** the payload is blocked and the note follows the fallback route
 

@@ -39,6 +39,13 @@ Every accepted item MUST have evidence that is verbatim in the raw note under `e
 - **WHEN** the model quotes "lumper fee 85" but the note says "LUMPER 85"
 - **THEN** the item is rejected and the row is Review
 
+### Requirement: Subtotals and totals are not items
+A stated subtotal or total SHALL NOT become a charge item, and SHALL be recorded as checked against the items.
+
+#### Scenario: Note with a running total
+- **WHEN** a note reads "LUMPER $50.00 AND STOP FEE $14.00 = $64.00 + GST $3.20 = $67.20"
+- **THEN** the items are 50.00, 14.00 and 3.20, and 64.00 and 67.20 are recorded as subtotal and total
+
 ### Requirement: Amounts never edited
 The classifier MUST NOT change any amount produced by the note's text or its declared derivation, including to make a row reconcile.
 

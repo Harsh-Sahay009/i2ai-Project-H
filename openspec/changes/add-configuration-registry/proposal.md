@@ -4,7 +4,7 @@ Thresholds, prompts, vocabulary, routing and review policy differ by environment
 
 ## What Changes
 
-- Add a typed Parameter Schema covering every parameter in `architecture/docs/03-configurable-layer.md` (families: thresholds, prompting, vocabulary, routing, workflow, evaluation, runtime).
+- Add a typed Parameter Schema covering every parameter in `architecture/docs/03-configurable-layer.md` (families: thresholds, prompting, vocabulary, routing, workflow, evaluation, ui, agent, guardrails, synth, runtime, data, split).
 - Add a Config Resolver with layers core → environment → carrier override → CLI flag, limit validation and a frozen, hashed effective config.
 - Add an append-only Config Change Log and validity horizons per published value.
 - Mark promotion-gated and approval-gated parameters; refuse direct edits to them.

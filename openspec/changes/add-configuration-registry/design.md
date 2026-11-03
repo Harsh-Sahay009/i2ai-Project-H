@@ -14,7 +14,7 @@ C4 container **Configuration Registry** (components Parameter Schema, Config Res
 - **Parameter metadata in schema:** `owner_role`, `family`, `gate` (`none` | `promotion` | `written_approval` | `locked`), `validity_horizon_days`, `affects_metrics`, `cli_overridable`.
 - **Layer precedence:** core defaults < env < carrier override (only keys marked `carrier_overridable`) < CLI (only `cli_overridable`). Carrier overrides resolve per row at classification time; the manifest records the full override map.
 - **No silent clamping.** Out-of-range values fail resolution.
-- **Gated parameters:** changes to `gate: promotion` keys must reference a published change id; `gate: written_approval` keys (`routing.external_ai_approved`) need `approval_ref`; `gate: locked` keys (`routing.masking_required` when external) cannot be set false.
+- **Gated parameters:** changes to `gate: promotion` keys must reference a published change id; `gate: written_approval` keys (`routing.external_ai_approved`, `data.dataset_class`) need a recorded reference; `gate: locked` keys (such as `guardrails.profile` outside the experiment environment) cannot be changed.
 - **Invariants are not parameters.** There is no key to disable evidence verification, the no-edit rule or TEST-label isolation.
 
 ## Risks / Trade-offs

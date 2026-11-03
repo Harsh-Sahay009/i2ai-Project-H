@@ -22,14 +22,18 @@ Non-negotiable product characteristics (scope §3), enforced as **invariants** i
 
 The project changes only the **processing** step of the dispute lifecycle. Out of scope: how carriers write notes, any connection to Oracle TMS or accounting, pre-trip processing, and the payment decision, which stays with PPG accountants.
 
-> **Scope change (ADR 0007).** The approved scope excludes a user interface. The team now includes a **Web UI** for upload, results, error review, review, adjudication and blind labelling. Scope §Approval requires changes to be agreed in writing, so this needs the client owner's written agreement.
+> **Scope change (ADR 0007, ADR 0011).** The approved scope excludes a user interface. The team now includes a **Web UI** for upload, results, error review, review, adjudication and blind labelling. Scope §Approval requires changes to be agreed in writing, so this needs the client owner's written agreement.
+>
+> **Internal work.** Course and strategy-atlas work are internal team check-ins that the client owner does not need to approve.
+>
+> **Dataset (ADR 0013).** The project uses one anonymized open dataset. Notes may go to an external model, and they stay out of the public repo, poster and demos.
 
 ## From the slides to C4
 
 | Slide 2 block | C4 container | Notes |
 |---|---|---|
-| UI | Web UI (Streamlit) + Run Console (CLI) | ADR 0007: upload, run, results, error review, review, adjudication, labelling, KPIs. The CLI stays as the pipeline owner and the D4 one-command path. |
-| Data Transformation and Check | Data Transformation & Check | Adds note fingerprinting and masking. |
+| UI | Web UI (plain HTML, thin Python server) + Run Console (CLI) | ADR 0007 and ADR 0011: upload, run, results, error review, review, adjudication, labelling, KPIs. The CLI stays as the pipeline owner and the D4 one-command path. |
+| Data Transformation and Check | Data Transformation & Check | Adds note fingerprinting. |
 | Router | Model Router | Confidentiality gate, fallback, cache, cost meter. |
 | API Provider | External LLM API Provider (external) + Local Model Runtime | Two providers behind one interface = exit path. |
 | Classificatier | Itemization Classifier | Evidence verifier and amount reconciler enforce invariants. |
@@ -44,17 +48,18 @@ The project changes only the **processing** step of the dispute lifecycle. Out o
 | *(new)* | Synthetic Data Generator | SYNTH and ADV sets with quality checks (section 9). |
 | *(new)* | Configuration Registry | The configurable layer (section 3). |
 | *(new)* | Version & Artifact Registry | Section 5. |
-| *(new)* | Ground Truth Store | Taxonomy (D1), locked test set (D2), DEV and FRESH sets. |
+| *(new)* | Ground Truth Store | Taxonomy (D1), locked test set (D2), TRAIN, VALIDATION and FRESH sets (ADR 0012). |
+| *(new)* | Ground Truth Bootstrap | Creates D1 and D2: profile, split, taxonomy draft, labelling packs, sealing. |
 | *(new)* | Telemetry & Episode Store | Three telemetry layers and closed cases. |
 
-The four new containers are the **common core** the atlas says every system needs before experience can compound: a logging schema, an evaluation interface, a version registry and a routing contract.
+The Configuration Registry, Version & Artifact Registry, Ground Truth Store and Telemetry & Episode Store are the **common core** the atlas says every system needs before experience can compound: a logging schema, an evaluation interface, a version registry and a routing contract.
 
 ## Deliverables mapping
 
-| Deliverable | Due | Architecture elements |
-|---|---|---|
-| D1 Charge category list | 15 Oct | Ground Truth Store (taxonomy v1, approval record) |
-| D2 Locked test set | 22 Oct | Human Review System (blind labelling), Ground Truth Store (sealed) |
-| D3 Prototype, Level 1 | 5 Nov | Run Console, Data Prep, Router, Classifier, Output Formatter, KPI Calculator; Web UI upload + results pages |
-| D4 Final tool, Level 2 | 3 Dec | All containers including the full Web UI; <30 min for 1,500 rows |
-| D5 Methodology report | 3 Dec | KPI snapshots + run manifests make every number rerunnable |
+| Deliverable | Due | Status | Architecture elements |
+|---|---|---|---|
+| D1 Charge category list | 15 Oct | Late; not started as of 2 Nov | Ground Truth Bootstrap (Taxonomy Drafter), Ground Truth Store (taxonomy v1, approval record) |
+| D2 Locked test set | 22 Oct | Late; not started as of 2 Nov | Ground Truth Bootstrap (Split Builder, Labelling Pack Builder, Label Validator & Sealer), Ground Truth Store (sealed) |
+| D3 Prototype, Level 1 | 5 Nov | Open | Run Console (Acceptance Runner), Data Prep, Router, Classifier, Output Formatter, KPI Calculator; Web UI upload + results pages |
+| D4 Final tool, Level 2 | 3 Dec | Open | All containers including the full Web UI; <30 min for 1,500 rows |
+| D5 Methodology report | 3 Dec | Open | KPI Dashboard (Methodology Report Builder); KPI snapshots + run manifests make every number rerunnable |

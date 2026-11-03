@@ -12,11 +12,15 @@ The system SHALL represent every charge as a `ChargeItem` with row id, item id, 
 - **THEN** validation fails with a precision error
 
 ### Requirement: Row outcome set
-Every row result SHALL carry exactly one outcome from `verified`, `discrepancy`, `review`, `no_charge_stated`, plus an outcome reason, row confidence and the run id that produced it.
+Every row result SHALL carry exactly one outcome from `verified`, `discrepancy`, `review`, `no_charge_stated`, plus an outcome reason, row confidence and the run id that produced it. A `no_charge_stated` row SHALL count as Verified in every metric while `review.no_charge_stated_policy` is `verified` (scope section 3).
 
 #### Scenario: Unknown outcome rejected
 - **WHEN** a row result is built with outcome `approved`
 - **THEN** validation fails
+
+#### Scenario: No charge stated
+- **WHEN** a note states no charge and the policy is `verified`
+- **THEN** the row result has outcome `no_charge_stated` and is treated as Verified by the KPI Calculator
 
 ### Requirement: Evidence invariant
 The system MUST provide a validator that reports a violation when an item's `evidence_text` is not equal to `raw_note[evidence_start:evidence_end]` under `evidence.match_mode`, or when a `stated` amount does not appear in the evidence text, or when a `rate_x_quantity` amount does not equal the product of the numbers in its derivation spans.

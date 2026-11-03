@@ -1,21 +1,21 @@
 ## 1. Extraction
 
 - [ ] 1.1 Implement money/rate×qty/tax/already-paid extractor with lexicon loader
-- [ ] 1.2 Write lexicon v1 from sample abbreviations and misspellings (DEV only)
+- [ ] 1.2 Write lexicon v1 from sample abbreviations and misspellings (TRAIN only)
 
 ## 2. Model itemization
 
 - [ ] 2.0 Implement Itemization Agent Controller (loop, budgets, terminal tools, transcript cache key, trace telemetry)
 
-- [ ] 2.1 Implement Prompt Builder with versioned template, taxonomy definitions, few-shot set, hints
+- [ ] 2.1 Implement Prompt Builder with versioned template, taxonomy definitions, few-shot set from TRAIN, hints
 - [ ] 2.2 Implement Structured Response Parser
 - [ ] 2.3 Implement rules-only itemizer as baseline route
 
 ## 3. Checks
 
-- [ ] 3.1 Implement Evidence Verifier using raw-note offsets and mask offset map
+- [ ] 3.1 Implement Evidence Verifier using raw-note offsets
 - [ ] 3.2 Implement Category Mapper with `other_unmapped`
-- [ ] 3.3 Implement Decimal Amount Reconciler with tolerances and already-paid netting
+- [ ] 3.3 Implement Decimal Amount Reconciler with tolerances, already-paid netting and subtotal handling
 
 ## 4. Scoring and outcomes
 

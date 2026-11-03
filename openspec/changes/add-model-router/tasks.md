@@ -12,7 +12,7 @@
 ## 3. Policy and gate
 
 - [ ] 3.1 Implement routing policy with carrier/size overrides
-- [ ] 3.2 Implement confidentiality gate with approval checks and PII re-scan
+- [ ] 3.2 Implement confidentiality gate with dataset class and approval checks, and PII re-scan
 - [ ] 3.3 Implement fallback controller
 
 ## 4. Cache, cost, canary

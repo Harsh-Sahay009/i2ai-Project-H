@@ -1,10 +1,14 @@
 ## ADDED Requirements
 
 ### Requirement: Versioned taxonomy with definitions and examples
-The system SHALL store each taxonomy version with 12 to 20 categories, each having a code, name, definition, inclusion and exclusion notes and at least one real example, plus the catch-all category `other_unmapped`.
+The system SHALL store each taxonomy version with 12 to 20 categories, each having a code, name, definition, inclusion and exclusion notes and at least one real example, plus the catch-all category `other_unmapped`. Examples in Git SHALL be stored as note fingerprints and offsets, and quotes SHALL be resolved from the dataset only when rendered.
 
 #### Scenario: Category without example
 - **WHEN** a taxonomy version contains a category with no example
+- **THEN** taxonomy validation fails
+
+#### Scenario: Note text in Git
+- **WHEN** `taxonomy/categories.yaml` contains a quoted note instead of a fingerprint and offsets
 - **THEN** taxonomy validation fails
 
 ### Requirement: Client approval before production use

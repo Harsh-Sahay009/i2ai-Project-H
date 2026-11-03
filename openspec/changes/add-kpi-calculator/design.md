@@ -12,14 +12,16 @@ C4 container **KPI Calculator** (10 components). Full metric design: `architectu
 
 - **Pure function.** `snapshot = f(run_manifest, eval_set_version, metric_definitions_version, weights_version, price_table_version, code_sha)`. Inputs are fetched by hash only; "latest" lookups are forbidden in this package.
 - **Populations** never mixed; each metric definition lists valid populations; computing a metric on an invalid population is an error.
-- **TEST isolation.** Only this package holds the `kpi_calculator` role. For promotion requests it returns `{gate_status, point estimates, CI}` per metric, never per-row results; each TEST evaluation decrements `kpi.test_peek_budget_per_milestone` and is logged with candidate id.
+- **TEST isolation.** Only this package holds the `kpi_calculator` role. TEST is evaluated only for a Level gate at a milestone; each evaluation decrements `kpi.test_peek_budget_per_milestone` and is logged with the build id. TEST requests from the Training & Calibration Pipeline are refused; it receives VALIDATION scores as `{point estimates, CI}` per metric, never per-row results.
 - **Matching:** Hungarian assignment with costs 0/1/1/2 (doc §4.3), tolerance `kpi.amount_match_tolerance_usd`; matching rule version inside metric definitions.
 - **Units:** item, note, row, dollar. TEST results are computed per note, fanned out to rows by row frequency, then weighted by stratum shares `π_s` from the reference production snapshot (`weights@<hash>`).
-- **Intervals:** Wilson for unweighted proportions; stratified bootstrap (`kpi.bootstrap_resamples`, seeded) for weighted accuracy, AUC and ECE. Gate status: pass / fail / inconclusive.
+- **Intervals:** Wilson for unweighted proportions; stratified bootstrap (`kpi.bootstrap_resamples`, seeded) for weighted accuracy, AUC and ECE. Gate status: pass or fail on the point estimate, with the interval shown beside it.
 - **Error metrics a–g** and **success metrics a–e** exactly as in doc §4.4–4.5. Error (d) duplicates (c) in the brief; it is implemented as the reviewer-side "no fitting category" rate and flagged as an open question.
 - **AUC:** scikit-learn `roc_auc_score` on item confidence vs item-correct label; row-level likewise; returns `undefined` when a class is absent rather than a misleading number.
 - **Cost:** recomputed from per-call telemetry and the price table version (not from a stored total), so a price correction can be applied retroactively under a new price table version.
 - **Reproducibility (e):** compares predictions of runs sharing a manifest except `routing.cache_enabled`; reports row-level agreement and lists diffs.
+- **Coverage:** a row is covered when its outcome is `verified` or `discrepancy`, or `no_charge_stated` while `review.no_charge_stated_policy` is `verified` (scope §3).
+- **Per-carrier and cost-driver views** (doc §4.5): coverage per carrier on any scored run; accuracy per carrier on TEST and VALIDATION with n and interval; disputed dollars and item counts by carrier and category for Level 3.
 - **Loop health:** triage latency, share adjudicated, time to update, backlog, expired changes (doc §4.7).
 - **Snapshots** append-only rows `(kpi_snapshot_id, run_id, population, versions…, metric_key, stratum, value, ci_low, ci_high, n, gate_status)`, exported to CAS.
 

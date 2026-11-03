@@ -2,15 +2,16 @@
 
 ## 9.1 Protection of PPG data
 
+The project uses one file that the team confirms is free, open and public (ADR 0013). It may go to an external model, and this repo still does not hold it.
+
 | Control | Implementation |
 |---|---|
-| Storage | Encrypted volume on a team-controlled server; CAS refuses any other root |
-| Model access | Local model by default; external API only with written approval + masking + fail-closed gate |
-| Masking | Regex + pretrained NER; stable placeholders; reversal map kept separately |
+| Storage | Team-controlled server; data root ignored by Git, and the tool refuses any other |
+| Model access | External API for the `open_anonymized` dataset class with a recorded source; any other data needs written approval; the gate fails closed; local model as fallback |
+| Anonymization check | The Dataset Profiler scans notes for names, phones and emails before any text is sent; the Privacy Guard screens every model-bound payload |
 | Least privilege | Role map in Web UI and MCP; TEST labels readable only by the KPI Calculator |
 | No PII in telemetry | Fingerprints instead of text; pseudonymous reviewer ids |
 | Public artifacts | GitHub repo, poster, demos and slides use **synthetic data only**; a CI check rejects commits containing files that match real-export fingerprints or column signatures |
-| Retention | Client instruction at project end; deletion leaves logged tombstones |
 
 ## 9.2 Synthetic data generator
 
@@ -35,6 +36,6 @@ A synthetic set is published only if it passes all four checks. Results are stor
 | **Fidelity** | Jensen–Shannon distance between synthetic and real distributions (category mix, items per note, log-amount, note length, abbreviation rate); KS test on log-amounts | JSD ≤ 0.10 per marginal |
 | **Privacy** | Longest common substring and 8-gram overlap with every real note; no real names, phones or invoice ids; nearest-neighbour distance not smaller than real-to-real | No 8-gram shared with any real note except taxonomy vocabulary; zero real identifiers |
 | **Validity** | Rules-only itemizer re-derives the gold for every note; two team members spot-check 50 notes blind | 100% rule re-derivation; spot-check agreement ≥ 95% |
-| **Utility** | Rank correlation between per-category accuracy on SYNTH and on DEV for the same build; accuracy gap | Spearman ρ ≥ 0.6; gap reported, never hidden |
+| **Utility** | Rank correlation between per-category accuracy on SYNTH and on VALIDATION for the same build; accuracy gap | Spearman ρ ≥ 0.6; gap reported, never hidden |
 
-Synthetic results are always labelled **synthetic** and never mixed into the TEST, DEV or FRESH numbers that answer the client's accuracy target (Jordon et al., 2022).
+Synthetic results are always labelled **synthetic** and never mixed into the TEST, VALIDATION or FRESH numbers that answer the client's accuracy target (Jordon et al., 2022).

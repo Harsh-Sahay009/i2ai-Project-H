@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Four evidence channels
-A candidate SHALL be promoted only when operating evidence (DEV improvement and an aggregate TEST evaluation with no error-type regression beyond its interval and zero invariant violations), reliance evidence (audit disagreement not worse, when PROD data exist), control evidence (contract and confidentiality tests pass) and recovery evidence (rollback dry run succeeds) all hold.
+A candidate SHALL be promoted only when operating evidence (VALIDATION improvement with no error-type regression beyond its interval and zero invariant violations, without using TEST), reliance evidence (audit disagreement not worse, when PROD data exist), control evidence (contract and confidentiality tests pass) and recovery evidence (rollback dry run succeeds) all hold.
 
 #### Scenario: Rollback dry run fails
 - **WHEN** the rollback pointer cannot restore the previous config
@@ -29,7 +29,7 @@ The operator SHALL be able to roll back any published change to its rollback poi
 - **THEN** `itemizer promote --rollback <change_id>` restores the previous values and logs the rollback
 
 ### Requirement: Recertification
-The scheduler SHALL flag a published change for recertification when its validity horizon passes, when the model digest it was validated with changes, or when a silent-change event occurs, and SHALL re-evaluate it on FRESH or the newest labelled PROD sample.
+The scheduler SHALL flag a published change for recertification when its validity horizon passes, when the model digest it was validated with changes, or when a silent-change event occurs, and SHALL re-evaluate it on VALIDATION, or on FRESH if it exists.
 
 #### Scenario: Horizon passes
 - **WHEN** a threshold's 30-day horizon passes

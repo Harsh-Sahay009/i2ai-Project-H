@@ -7,49 +7,49 @@ graph LR
     subgraph 9 ["Freight Invoice Itemizer"]
       style 9 fill:#ffffff,stroke:#1b1c24,color:#1b1c24
 
-      10["<div style='font-weight: bold'>Web UI</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, Streamlit, OIDC login]</div><div style='font-size: 80%; margin-top:10px'>Browser interface for<br />uploading exports, launching<br />and monitoring runs,<br />exploring results with<br />evidence highlighted in the<br />note, reviewing errors,<br />reviewing and adjudicating<br />rows, blind labelling and<br />reading KPIs. Holds no<br />business logic: it calls the<br />Run Console, Human Review<br />System and stores.</div>"]
+      10["<div style='font-weight: bold'>Web UI</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, FastAPI, Jinja2, server-rendered HTML]</div><div style='font-size: 80%; margin-top:10px'>Browser interface for<br />uploading exports, launching<br />and monitoring runs,<br />exploring results with<br />evidence highlighted in the<br />note, reviewing errors,<br />reviewing and adjudicating<br />rows, blind labelling and<br />reading KPIs. Holds no<br />business logic: it calls the<br />Run Console, Human Review<br />System and stores.</div>"]
       style 10 fill:#e2e3fb,stroke:#343ced,color:#272834
-      107["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
-      style 107 fill:#d8f1f6,stroke:#ef601b,color:#272834
-      111[("<div style='font-weight: bold'>Version & Artifact Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: Filesystem CAS + DuckDB, Git tags]</div><div style='font-size: 80%; margin-top:10px'>Content-addressed store and<br />lineage index for every<br />versioned artifact: input<br />snapshots, taxonomy,<br />evaluation sets, prompts,<br />lexicon, calibration maps,<br />model identities, run<br />manifests, outputs, KPI<br />snapshots.</div>")]
-      style 111 fill:#e2e3fb,stroke:#ef601b,color:#272834
-      113[("<div style='font-weight: bold'>Telemetry & Episode Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: DuckDB]</div><div style='font-size: 80%; margin-top:10px'>Action telemetry (what<br />happened), decision telemetry<br />(why) and outcome telemetry<br />(what followed), linked by<br />case_id and tagged with the<br />run's version.</div>")]
-      style 113 fill:#e2e3fb,stroke:#343ced,color:#272834
-      22["<div style='font-weight: bold'>Run Console</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python 3.12, Typer CLI]</div><div style='font-size: 80%; margin-top:10px'>Command-line entry point and<br />the only pipeline<br />orchestrator: 'itemizer run<br /><export.xlsx>'. Resolves<br />configuration, opens a run<br />manifest, runs the stages,<br />and exposes evaluate / review<br />/ promote sub-commands. The<br />Web UI launches runs through<br />it.</div>"]
-      style 22 fill:#e2e3fb,stroke:#ef601b,color:#272834
-      26["<div style='font-weight: bold'>Data Transformation & Check</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Reads the TMS Excel export,<br />validates it against the<br />input contract, normalizes<br />fields, fingerprints and<br />de-duplicates notes, masks<br />names, and writes an<br />immutable input snapshot.</div>"]
-      style 26 fill:#e2e3fb,stroke:#343ced,color:#272834
-      33["<div style='font-weight: bold'>Model Router</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Decides which model handles<br />each note, enforces the<br />confidentiality gate, applies<br />fallback, caches responses by<br />content hash and meters<br />tokens and cost. The provider<br />interface is the exit path.</div>"]
-      style 33 fill:#e2e3fb,stroke:#ef601b,color:#272834
-      42["<div style='font-weight: bold'>Local Model Runtime</div><div style='font-size: 70%; margin-top: 0px'>[Container: Ollama]</div><div style='font-size: 80%; margin-top:10px'>Self-hosted open-weights<br />model used when external AI<br />is not approved, and as the<br />tested fallback.</div>"]
-      style 42 fill:#e2e3fb,stroke:#8b8c9c,color:#272834
-      43["<div style='font-weight: bold'>Itemization Classifier</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pydantic]</div><div style='font-size: 80%; margin-top:10px'>Turns one note into charge<br />items with category, amount<br />and exact evidence span using<br />a bounded tool-calling LLM<br />agent; checks evidence,<br />reconciles to the disputed<br />amount, scores confidence and<br />assigns the row outcome.<br />Never invents or edits an<br />amount.</div>"]
-      style 43 fill:#e2e3fb,stroke:#343ced,color:#272834
-      53["<div style='font-weight: bold'>Output Formatter</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Writes the Excel deliverable:<br />items sheet (one line per<br />charge with evidence), row<br />summary sheet (outcome,<br />totals, discrepancy) and a<br />run info sheet carrying the<br />manifest.</div>"]
-      style 53 fill:#e2e3fb,stroke:#343ced,color:#272834
-      61["<div style='font-weight: bold'>KPI Calculator</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, scikit-learn, SciPy]</div><div style='font-size: 80%; margin-top:10px'>Computes every success and<br />error metric from immutable,<br />versioned inputs only, per<br />population (TEST, DEV, FRESH,<br />PROD), with sample sizes,<br />weights and confidence<br />intervals, and evaluates the<br />Level 1/2/3 gates.</div>"]
-      style 61 fill:#e2e3fb,stroke:#343ced,color:#272834
+      110["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
+      style 110 fill:#d8f1f6,stroke:#ef601b,color:#272834
+      114[("<div style='font-weight: bold'>Version & Artifact Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: Filesystem CAS + DuckDB, Git tags]</div><div style='font-size: 80%; margin-top:10px'>Content-addressed store and<br />lineage index for every<br />versioned artifact: input<br />snapshots, taxonomy,<br />evaluation sets, prompts,<br />lexicon, calibration maps,<br />model identities, run<br />manifests, outputs, KPI<br />snapshots.</div>")]
+      style 114 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      122[("<div style='font-weight: bold'>Telemetry & Episode Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: DuckDB]</div><div style='font-size: 80%; margin-top:10px'>Action telemetry (what<br />happened), decision telemetry<br />(why) and outcome telemetry<br />(what followed), linked by<br />case_id and tagged with the<br />run's version.</div>")]
+      style 122 fill:#e2e3fb,stroke:#343ced,color:#272834
+      23["<div style='font-weight: bold'>Run Console</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python 3.12, Typer CLI]</div><div style='font-size: 80%; margin-top:10px'>Command-line entry point and<br />the only pipeline<br />orchestrator: 'itemizer run<br /><export.xlsx>'. Resolves<br />configuration, opens a run<br />manifest, runs the stages,<br />and exposes evaluate / review<br />/ promote sub-commands. The<br />Web UI launches runs through<br />it.</div>"]
+      style 23 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      28["<div style='font-weight: bold'>Data Transformation & Check</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Reads the TMS Excel export,<br />validates it against the<br />input contract, normalizes<br />fields, fingerprints and<br />de-duplicates notes, and<br />writes an immutable input<br />snapshot.</div>"]
+      style 28 fill:#e2e3fb,stroke:#343ced,color:#272834
+      34["<div style='font-weight: bold'>Model Router</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Decides which model handles<br />each note, enforces the<br />confidentiality gate, applies<br />fallback, caches responses by<br />content hash and meters<br />tokens and cost. The provider<br />interface is the exit path.</div>"]
+      style 34 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      44["<div style='font-weight: bold'>Itemization Classifier</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pydantic]</div><div style='font-size: 80%; margin-top:10px'>Turns one note into charge<br />items with category, amount<br />and exact evidence span using<br />a bounded tool-calling LLM<br />agent; checks evidence,<br />reconciles to the disputed<br />amount, scores confidence and<br />assigns the row outcome.<br />Never invents or edits an<br />amount.</div>"]
+      style 44 fill:#e2e3fb,stroke:#343ced,color:#272834
+      54["<div style='font-weight: bold'>Output Formatter</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Writes the Excel deliverable:<br />items sheet (one line per<br />charge with evidence), row<br />summary sheet (outcome,<br />totals, discrepancy) and a<br />run info sheet carrying the<br />manifest.</div>"]
+      style 54 fill:#e2e3fb,stroke:#343ced,color:#272834
+      62["<div style='font-weight: bold'>KPI Calculator</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, scikit-learn, SciPy]</div><div style='font-size: 80%; margin-top:10px'>Computes every success and<br />error metric from immutable,<br />versioned inputs only, per<br />population (TRAIN,<br />VALIDATION, TEST, FRESH,<br />PROD), with sample sizes,<br />weights and confidence<br />intervals, and evaluates the<br />Level 1/2/3 gates.</div>"]
+      style 62 fill:#e2e3fb,stroke:#343ced,color:#272834
     end
 
     1["<div style='font-weight: bold'>PPG Accountant</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Uploads the weekly export,<br />explores itemized results,<br />approves or edits rows in the<br />Review UI, downloads the<br />itemized workbook, and alone<br />decides what is paid.</div>"]
     style 1 fill:#343ced,stroke:#242aa5,color:#ffffff
+    6["<div style='font-weight: bold'>External LLM API Provider</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Hosted large language model<br />inference. Default route for<br />the anonymized open dataset<br />(ADR 0013); any other data<br />needs the client owner's<br />written approval.</div>"]
+    style 6 fill:#8b8c9c,stroke:#8b8c9c,color:#ffffff
 
     1-. "<div>1. Upload export.xlsx</div><div style='font-size: 70%'>[HTTPS]</div>" .->10
-    10-. "<div>2. Pre-check input contract</div><div style='font-size: 70%'></div>" .->26
-    10-. "<div>3. Register raw export</div><div style='font-size: 70%'></div>" .->111
-    10-. "<div>4. Launch itemizer run<br />(background job)</div><div style='font-size: 70%'></div>" .->22
-    22-. "<div>5. Resolve + hash effective<br />config</div><div style='font-size: 70%'></div>" .->107
-    22-. "<div>6. Open run manifest</div><div style='font-size: 70%'></div>" .->111
-    22-. "<div>7. Ingest</div><div style='font-size: 70%'></div>" .->26
-    26-. "<div>8. Write input snapshot</div><div style='font-size: 70%'></div>" .->111
-    26-. "<div>9. Distinct masked notes</div><div style='font-size: 70%'></div>" .->43
-    43-. "<div>10. Itemize note</div><div style='font-size: 70%'></div>" .->33
-    33-. "<div>11. Structured request<br />(default route)</div><div style='font-size: 70%'>[HTTP/JSON]</div>" .->42
-    43-. "<div>12. Decision telemetry</div><div style='font-size: 70%'></div>" .->113
-    43-. "<div>13. Items + outcomes</div><div style='font-size: 70%'></div>" .->53
-    53-. "<div>14. Register itemized<br />workbook</div><div style='font-size: 70%'></div>" .->111
-    22-. "<div>15. Score run</div><div style='font-size: 70%'></div>" .->61
-    61-. "<div>16. Write KPI snapshot</div><div style='font-size: 70%'></div>" .->111
-    10-. "<div>17. Show results, evidence<br />and KPIs; offer workbook<br />download</div><div style='font-size: 70%'></div>" .->111
+    10-. "<div>2. Pre-check input contract</div><div style='font-size: 70%'></div>" .->28
+    10-. "<div>3. Register raw export</div><div style='font-size: 70%'></div>" .->114
+    10-. "<div>4. Launch itemizer run<br />(background job)</div><div style='font-size: 70%'></div>" .->23
+    23-. "<div>5. Resolve + hash effective<br />config</div><div style='font-size: 70%'></div>" .->110
+    23-. "<div>6. Open run manifest</div><div style='font-size: 70%'></div>" .->114
+    23-. "<div>7. Ingest</div><div style='font-size: 70%'></div>" .->28
+    28-. "<div>8. Write input snapshot</div><div style='font-size: 70%'></div>" .->114
+    28-. "<div>9. Distinct notes</div><div style='font-size: 70%'></div>" .->44
+    44-. "<div>10. Itemize note</div><div style='font-size: 70%'></div>" .->34
+    34-. "<div>11. Structured request<br />(default route)</div><div style='font-size: 70%'>[HTTPS/JSON]</div>" .->6
+    44-. "<div>12. Decision telemetry</div><div style='font-size: 70%'></div>" .->122
+    44-. "<div>13. Items + outcomes</div><div style='font-size: 70%'></div>" .->54
+    54-. "<div>14. Register itemized<br />workbook</div><div style='font-size: 70%'></div>" .->114
+    23-. "<div>15. Score run</div><div style='font-size: 70%'></div>" .->62
+    62-. "<div>16. Write KPI snapshot</div><div style='font-size: 70%'></div>" .->114
+    10-. "<div>17. Show results, evidence<br />and KPIs; offer workbook<br />download</div><div style='font-size: 70%'></div>" .->114
 
   end

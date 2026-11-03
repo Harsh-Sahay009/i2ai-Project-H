@@ -15,7 +15,7 @@ C4 container **Agent Tool Library & MCP Server**. Architecture doc §8.3. Placem
 - **Docstring standard** (§8.3): purpose, Use when, Do not use when, Args, Returns, Errors (code + next action), Determinism, Example. `itemizer tools lint` fails CI on a missing section or on an example that does not run.
 - **Schemas** generated from pydantic type hints; the same schemas go to the LLM tool definitions and to MCP.
 - **Terminal tools** return `accepted` or a structured rejection; the controller ends the loop on acceptance.
-- **MCP server** over stdio, launched by Claude Code from `.mcp.json`; analyst tools are read-only, capped at `mcp.max_rows_per_response`, never return TEST rows, masking maps or raw PPG notes unless the caller runs on team storage with the operator role.
+- **MCP server** over stdio, launched by Claude Code from `.mcp.json`; analyst tools are read-only, capped at `mcp.max_rows_per_response`, never return TEST or VALIDATION rows, or raw notes unless the caller runs on team storage with the operator role.
 - **Telemetry:** every tool call (name, args hash, result code, latency) is decision telemetry keyed by case id.
 
 ## Risks / Trade-offs

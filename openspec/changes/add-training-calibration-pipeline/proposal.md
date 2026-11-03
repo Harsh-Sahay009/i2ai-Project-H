@@ -4,11 +4,11 @@ The slide's "Training Algorithm" closes the loop from KPIs and reviews back into
 
 ## What Changes
 
-- Closed Case Miner over eligible cases (AI wrong, context changed) from DEV and PROD.
+- Closed Case Miner over eligible cases (AI wrong, context changed) from TRAIN and PROD.
 - Candidate Change Generator for lexicon entries, few-shot swaps, prompt edits and taxonomy change requests.
-- Threshold Calibrator fitting the calibration map and Review thresholds on DEV.
-- Replay Runner comparing current vs candidate on replay packs and DEV.
-- Promotion Gate using one aggregate TEST evaluation within the peek budget and requiring operator approval.
+- Threshold Calibrator fitting the calibration map and Review thresholds on VALIDATION.
+- Replay Runner comparing current vs candidate on replay packs and VALIDATION.
+- Promotion Gate using VALIDATION scores, never TEST, and requiring operator approval.
 - Change Publisher and Recertification Scheduler.
 
 ## Capabilities
@@ -23,4 +23,4 @@ The slide's "Training Algorithm" closes the loop from KPIs and reviews back into
 ## Impact
 
 - New package `itemizer.improve`.
-- Depends on telemetry store, ground truth (DEV only), router, KPI Calculator, configuration registry, version registry.
+- Depends on telemetry store, ground truth (TRAIN and VALIDATION only), router, KPI Calculator, configuration registry, version registry.

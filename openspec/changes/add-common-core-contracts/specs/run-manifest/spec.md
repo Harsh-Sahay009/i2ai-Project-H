@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Run manifest content
-Before any stage executes, the system SHALL create a run manifest that records the input snapshot hash, taxonomy version, prompt template version, few-shot set version, lexicon version and carrier overrides, calibration map hash, effective config hash, route, model identities with digest or dated snapshot and decoding parameters, code Git SHA, lockfile hash, dirty flag, metric definitions version and price table version.
+Before any stage executes, the system SHALL create a run manifest that records the input snapshot hash, dataset class, split manifest hash, taxonomy version, prompt template version, few-shot set version, lexicon version and carrier overrides, calibration map hash, effective config hash, route, model identities with digest or dated snapshot and decoding parameters, code Git SHA, lockfile hash, dirty flag, metric definitions version and price table version.
 
 #### Scenario: Missing field
 - **WHEN** a manifest is built without a model digest for the active route

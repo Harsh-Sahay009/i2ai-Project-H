@@ -10,67 +10,66 @@ graph LR
     subgraph 9 ["Freight Invoice Itemizer"]
       style 9 fill:#ffffff,stroke:#1b1c24,color:#1b1c24
 
-      subgraph 75 ["Training & Calibration Pipeline"]
-        style 75 fill:#ffffff,stroke:#343ced,color:#343ced
+      subgraph 78 ["Training & Calibration Pipeline"]
+        style 78 fill:#ffffff,stroke:#343ced,color:#343ced
 
-        76["<div style='font-weight: bold'>Closed Case Miner</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Reads closed DEV/PROD cases,<br />groups them by adjudication<br />bucket; only 'AI wrong' and<br />'context changed' cases may<br />change behaviour.</div>"]
-        style 76 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        77["<div style='font-weight: bold'>Candidate Change Generator</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Proposes lexicon entries,<br />few-shot swaps, prompt edits<br />and taxonomy change requests<br />as a versioned change set.</div>"]
-        style 77 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        78["<div style='font-weight: bold'>Threshold Calibrator</div><div style='font-size: 70%; margin-top: 0px'>[Component: scikit-learn]</div><div style='font-size: 80%; margin-top:10px'>Fits the confidence<br />calibration map and review<br />thresholds on DEV to hit a<br />target precision for Verified<br />rows.</div>"]
-        style 78 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        79["<div style='font-weight: bold'>Replay Runner</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Replays the replay packs<br />against the current and the<br />candidate build and diffs<br />outputs row by row.</div>"]
+        79["<div style='font-weight: bold'>Closed Case Miner</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Reads closed TRAIN/PROD<br />cases, leaving out VALIDATION<br />and TEST notes, groups them<br />by adjudication bucket; only<br />'AI wrong' and 'context<br />changed' cases may change<br />behaviour.</div>"]
         style 79 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        80["<div style='font-weight: bold'>Promotion Gate</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Requests one aggregate TEST<br />evaluation per candidate<br />within the peek budget,<br />requires no regression on any<br />error type, then asks the<br />operator to publish.</div>"]
+        80["<div style='font-weight: bold'>Candidate Change Generator</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Proposes lexicon entries,<br />few-shot swaps, prompt edits<br />and taxonomy change requests<br />as a versioned change set.</div>"]
         style 80 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        81["<div style='font-weight: bold'>Change Publisher</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Publishes a change with<br />owner, evidence, version,<br />rollback pointer and validity<br />horizon to the configuration<br />and version registries.</div>"]
+        81["<div style='font-weight: bold'>Threshold Calibrator</div><div style='font-size: 70%; margin-top: 0px'>[Component: scikit-learn]</div><div style='font-size: 80%; margin-top:10px'>Fits the confidence<br />calibration map and review<br />thresholds on VALIDATION to<br />hit a target precision for<br />Verified rows.</div>"]
         style 81 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        82["<div style='font-weight: bold'>Recertification Scheduler</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Flags published changes whose<br />validity horizon has passed<br />or whose model/provider<br />version changed silently;<br />re-runs FRESH evaluation.</div>"]
+        82["<div style='font-weight: bold'>Replay Runner</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Replays the replay packs<br />against the current and the<br />candidate build and diffs<br />outputs row by row.</div>"]
         style 82 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        83["<div style='font-weight: bold'>Promotion Gate</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Compares the candidate with<br />the current build on<br />VALIDATION, requires no<br />regression on any error type,<br />then asks the operator to<br />publish. Never uses TEST.</div>"]
+        style 83 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        84["<div style='font-weight: bold'>Change Publisher</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Publishes a change with<br />owner, evidence, version,<br />rollback pointer and validity<br />horizon to the configuration<br />and version registries.</div>"]
+        style 84 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        85["<div style='font-weight: bold'>Recertification Scheduler</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Flags published changes whose<br />validity horizon has passed<br />or whose model/provider<br />version changed silently;<br />re-runs VALIDATION, or FRESH<br />if available.</div>"]
+        style 85 fill:#f4f4f6,stroke:#aaaaac,color:#272834
       end
 
-      107["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
-      style 107 fill:#d8f1f6,stroke:#ef601b,color:#272834
-      111[("<div style='font-weight: bold'>Version & Artifact Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: Filesystem CAS + DuckDB, Git tags]</div><div style='font-size: 80%; margin-top:10px'>Content-addressed store and<br />lineage index for every<br />versioned artifact: input<br />snapshots, taxonomy,<br />evaluation sets, prompts,<br />lexicon, calibration maps,<br />model identities, run<br />manifests, outputs, KPI<br />snapshots.</div>")]
-      style 111 fill:#e2e3fb,stroke:#ef601b,color:#272834
-      112[("<div style='font-weight: bold'>Ground Truth Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: Parquet + DuckDB, access-controlled folder]</div><div style='font-size: 80%; margin-top:10px'>Approved charge taxonomy<br />(D1), sealed locked test set<br />(D2), DEV set, FRESH set and<br />labelling records. Test<br />labels are readable only by<br />the KPI Calculator.</div>")]
-      style 112 fill:#e2e3fb,stroke:#343ced,color:#272834
-      113[("<div style='font-weight: bold'>Telemetry & Episode Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: DuckDB]</div><div style='font-size: 80%; margin-top:10px'>Action telemetry (what<br />happened), decision telemetry<br />(why) and outcome telemetry<br />(what followed), linked by<br />case_id and tagged with the<br />run's version.</div>")]
-      style 113 fill:#e2e3fb,stroke:#343ced,color:#272834
-      22["<div style='font-weight: bold'>Run Console</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python 3.12, Typer CLI]</div><div style='font-size: 80%; margin-top:10px'>Command-line entry point and<br />the only pipeline<br />orchestrator: 'itemizer run<br /><export.xlsx>'. Resolves<br />configuration, opens a run<br />manifest, runs the stages,<br />and exposes evaluate / review<br />/ promote sub-commands. The<br />Web UI launches runs through<br />it.</div>"]
-      style 22 fill:#e2e3fb,stroke:#ef601b,color:#272834
-      33["<div style='font-weight: bold'>Model Router</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Decides which model handles<br />each note, enforces the<br />confidentiality gate, applies<br />fallback, caches responses by<br />content hash and meters<br />tokens and cost. The provider<br />interface is the exit path.</div>"]
-      style 33 fill:#e2e3fb,stroke:#ef601b,color:#272834
-      61["<div style='font-weight: bold'>KPI Calculator</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, scikit-learn, SciPy]</div><div style='font-size: 80%; margin-top:10px'>Computes every success and<br />error metric from immutable,<br />versioned inputs only, per<br />population (TEST, DEV, FRESH,<br />PROD), with sample sizes,<br />weights and confidence<br />intervals, and evaluates the<br />Level 1/2/3 gates.</div>"]
-      style 61 fill:#e2e3fb,stroke:#343ced,color:#272834
+      110["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
+      style 110 fill:#d8f1f6,stroke:#ef601b,color:#272834
+      114[("<div style='font-weight: bold'>Version & Artifact Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: Filesystem CAS + DuckDB, Git tags]</div><div style='font-size: 80%; margin-top:10px'>Content-addressed store and<br />lineage index for every<br />versioned artifact: input<br />snapshots, taxonomy,<br />evaluation sets, prompts,<br />lexicon, calibration maps,<br />model identities, run<br />manifests, outputs, KPI<br />snapshots.</div>")]
+      style 114 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      115[("<div style='font-weight: bold'>Ground Truth Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: Parquet + DuckDB, access-controlled folder]</div><div style='font-size: 80%; margin-top:10px'>Approved charge taxonomy<br />(D1), sealed locked test set<br />(D2), TRAIN, VALIDATION and<br />FRESH sets, the split<br />manifest and labelling<br />records. Test labels are<br />readable only by the KPI<br />Calculator.</div>")]
+      style 115 fill:#e2e3fb,stroke:#343ced,color:#272834
+      122[("<div style='font-weight: bold'>Telemetry & Episode Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: DuckDB]</div><div style='font-size: 80%; margin-top:10px'>Action telemetry (what<br />happened), decision telemetry<br />(why) and outcome telemetry<br />(what followed), linked by<br />case_id and tagged with the<br />run's version.</div>")]
+      style 122 fill:#e2e3fb,stroke:#343ced,color:#272834
+      23["<div style='font-weight: bold'>Run Console</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python 3.12, Typer CLI]</div><div style='font-size: 80%; margin-top:10px'>Command-line entry point and<br />the only pipeline<br />orchestrator: 'itemizer run<br /><export.xlsx>'. Resolves<br />configuration, opens a run<br />manifest, runs the stages,<br />and exposes evaluate / review<br />/ promote sub-commands. The<br />Web UI launches runs through<br />it.</div>"]
+      style 23 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      34["<div style='font-weight: bold'>Model Router</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Decides which model handles<br />each note, enforces the<br />confidentiality gate, applies<br />fallback, caches responses by<br />content hash and meters<br />tokens and cost. The provider<br />interface is the exit path.</div>"]
+      style 34 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      62["<div style='font-weight: bold'>KPI Calculator</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, scikit-learn, SciPy]</div><div style='font-size: 80%; margin-top:10px'>Computes every success and<br />error metric from immutable,<br />versioned inputs only, per<br />population (TRAIN,<br />VALIDATION, TEST, FRESH,<br />PROD), with sample sizes,<br />weights and confidence<br />intervals, and evaluates the<br />Level 1/2/3 gates.</div>"]
+      style 62 fill:#e2e3fb,stroke:#343ced,color:#272834
     end
 
-    3-. "<div>Runs 'itemizer run',<br />'evaluate', 'promote'</div><div style='font-size: 70%'>[CLI]</div>" .->22
-    22-. "<div>Resolves and freezes the<br />effective config</div><div style='font-size: 70%'></div>" .->107
-    22-. "<div>Opens and closes the run<br />manifest</div><div style='font-size: 70%'></div>" .->111
-    22-. "<div>Starts scoring for the run</div><div style='font-size: 70%'></div>" .->61
-    33-. "<div>Reads routing policy,<br />approval flag, model ids,<br />budgets</div><div style='font-size: 70%'></div>" .->107
-    33-. "<div>Writes action telemetry:<br />route, latency, tokens, cost</div><div style='font-size: 70%'></div>" .->113
-    61-. "<div>Reads manifests and<br />predictions; writes KPI<br />snapshots</div><div style='font-size: 70%'></div>" .->111
-    61-. "<div>Reads sealed gold labels<br />(only reader of TEST labels)</div><div style='font-size: 70%'></div>" .->112
-    61-. "<div>Reads cost, review and loop<br />telemetry</div><div style='font-size: 70%'></div>" .->113
-    61-. "<div>Reads metric set, weights,<br />targets, price table versions</div><div style='font-size: 70%'></div>" .->107
-    61-. "<div>Aggregate TEST verdict</div><div style='font-size: 70%'></div>" .->80
-    22-. "<div>calibrate / promote</div><div style='font-size: 70%'></div>" .->76
-    76-. "<div>Reads closed cases</div><div style='font-size: 70%'></div>" .->113
-    76-. "<div>AI-wrong and context-changed<br />cases</div><div style='font-size: 70%'></div>" .->77
-    77-. "<div>Candidate build</div><div style='font-size: 70%'></div>" .->78
-    78-. "<div>Reads DEV labels only</div><div style='font-size: 70%'></div>" .->112
-    78-. "<div>Calibrated candidate</div><div style='font-size: 70%'></div>" .->79
-    79-. "<div>Replays notes</div><div style='font-size: 70%'></div>" .->33
-    79-. "<div>Replay diff + DEV scores</div><div style='font-size: 70%'></div>" .->80
-    80-. "<div>One aggregate TEST evaluation</div><div style='font-size: 70%'></div>" .->61
-    80-. "<div>Approved candidate</div><div style='font-size: 70%'></div>" .->81
-    3-. "<div>Approves publication</div><div style='font-size: 70%'>[CLI]</div>" .->80
-    81-. "<div>Publishes parameter change</div><div style='font-size: 70%'></div>" .->107
-    81-. "<div>Tags published version +<br />rollback pointer</div><div style='font-size: 70%'></div>" .->111
-    82-. "<div>Reads validity horizons</div><div style='font-size: 70%'></div>" .->107
-    82-. "<div>Requests FRESH re-evaluation</div><div style='font-size: 70%'></div>" .->61
-    3-. "<div>Proposes parameter changes<br />via pull request</div><div style='font-size: 70%'></div>" .->107
+    3-. "<div>Runs 'itemizer run',<br />'evaluate', 'promote'</div><div style='font-size: 70%'>[CLI]</div>" .->23
+    23-. "<div>Resolves and freezes the<br />effective config</div><div style='font-size: 70%'></div>" .->110
+    23-. "<div>Opens and closes the run<br />manifest</div><div style='font-size: 70%'></div>" .->114
+    23-. "<div>Starts scoring for the run</div><div style='font-size: 70%'></div>" .->62
+    34-. "<div>Reads routing policy,<br />approval flag, model ids,<br />budgets</div><div style='font-size: 70%'></div>" .->110
+    34-. "<div>Writes action telemetry:<br />route, latency, tokens, cost</div><div style='font-size: 70%'></div>" .->122
+    62-. "<div>Reads manifests and<br />predictions; writes KPI<br />snapshots</div><div style='font-size: 70%'></div>" .->114
+    62-. "<div>Reads sealed gold labels<br />(only reader of TEST labels)</div><div style='font-size: 70%'></div>" .->115
+    62-. "<div>Reads cost, review and loop<br />telemetry</div><div style='font-size: 70%'></div>" .->122
+    62-. "<div>Reads metric set, weights,<br />targets, price table versions</div><div style='font-size: 70%'></div>" .->110
+    23-. "<div>calibrate / promote</div><div style='font-size: 70%'></div>" .->79
+    79-. "<div>Reads closed cases</div><div style='font-size: 70%'></div>" .->122
+    79-. "<div>AI-wrong and context-changed<br />cases</div><div style='font-size: 70%'></div>" .->80
+    80-. "<div>Candidate build</div><div style='font-size: 70%'></div>" .->81
+    81-. "<div>Reads VALIDATION labels only</div><div style='font-size: 70%'></div>" .->115
+    81-. "<div>Calibrated candidate</div><div style='font-size: 70%'></div>" .->82
+    82-. "<div>Replays notes</div><div style='font-size: 70%'></div>" .->34
+    82-. "<div>Replay diff + VALIDATION<br />scores</div><div style='font-size: 70%'></div>" .->83
+    83-. "<div>VALIDATION scores (TEST<br />refused)</div><div style='font-size: 70%'></div>" .->62
+    83-. "<div>Approved candidate</div><div style='font-size: 70%'></div>" .->84
+    3-. "<div>Approves publication</div><div style='font-size: 70%'>[CLI]</div>" .->83
+    84-. "<div>Publishes parameter change</div><div style='font-size: 70%'></div>" .->110
+    84-. "<div>Tags published version +<br />rollback pointer</div><div style='font-size: 70%'></div>" .->114
+    85-. "<div>Reads validity horizons</div><div style='font-size: 70%'></div>" .->110
+    85-. "<div>Requests VALIDATION or FRESH<br />re-evaluation</div><div style='font-size: 70%'></div>" .->62
+    3-. "<div>Proposes parameter changes<br />via pull request</div><div style='font-size: 70%'></div>" .->110
 
   end

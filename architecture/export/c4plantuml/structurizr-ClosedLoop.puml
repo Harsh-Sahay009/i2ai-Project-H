@@ -16,13 +16,13 @@ left to right direction
 !include <C4/C4_Container>
 
 System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
-  Container(FreightInvoiceItemizer.WebUI, "Web UI", $techn="Python, Streamlit, OIDC login", $descr="Browser interface for uploading exports, launching and monitoring runs, exploring results with evidence highlighted in the note, reviewing errors, reviewing and adjudicating rows, blind labelling and reading KPIs. Holds no business logic: it calls the Run Console, Human Review System and stores.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.WebUI, "Web UI", $techn="Python, FastAPI, Jinja2, server-rendered HTML", $descr="Browser interface for uploading exports, launching and monitoring runs, exploring results with evidence highlighted in the note, reviewing errors, reviewing and adjudicating rows, blind labelling and reading KPIs. Holds no business logic: it calls the Run Console, Human Review System and stores.", $tags="", $link="")
   Container(FreightInvoiceItemizer.ConfigurationRegistry, "Configuration Registry", $techn="YAML in Git, JSON Schema, pydantic", $descr="The configurable layer. Typed parameters with limits, owner, change log and validity horizon; layered resolution core -> environment -> carrier override; every resolved config is hashed into the run manifest.", $tags="", $link="")
   ContainerDb(FreightInvoiceItemizer.TelemetryEpisodeStore, "Telemetry & Episode Store", $techn="DuckDB", $descr="Action telemetry (what happened), decision telemetry (why) and outcome telemetry (what followed), linked by case_id and tagged with the run's version.", $tags="", $link="")
   Container(FreightInvoiceItemizer.ModelRouter, "Model Router", $techn="Python", $descr="Decides which model handles each note, enforces the confidentiality gate, applies fallback, caches responses by content hash and meters tokens and cost. The provider interface is the exit path.", $tags="", $link="")
   Container(FreightInvoiceItemizer.HumanReviewSystem, "Human Review System", $techn="Python, openpyxl", $descr="Review service behind the Web UI: builds the review queue within reviewer capacity, validates and records approvals, edits and adjudications, runs blind labelling for the test set, and closes cases. An Excel review workbook remains as an offline fallback.", $tags="", $link="")
-  Container(FreightInvoiceItemizer.KPICalculator, "KPI Calculator", $techn="Python, pandas, scikit-learn, SciPy", $descr="Computes every success and error metric from immutable, versioned inputs only, per population (TEST, DEV, FRESH, PROD), with sample sizes, weights and confidence intervals, and evaluates the Level 1/2/3 gates.", $tags="", $link="")
-  Container(FreightInvoiceItemizer.TrainingCalibrationPipeline, "Training & Calibration Pipeline", $techn="Python, scikit-learn", $descr="Turns closed cases into candidate changes (prompt, few-shot set, lexicon, thresholds, calibration map), replays them on DEV, and submits them to the promotion gate. Has no read access to locked test labels.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.KPICalculator, "KPI Calculator", $techn="Python, pandas, scikit-learn, SciPy", $descr="Computes every success and error metric from immutable, versioned inputs only, per population (TRAIN, VALIDATION, TEST, FRESH, PROD), with sample sizes, weights and confidence intervals, and evaluates the Level 1/2/3 gates.", $tags="", $link="")
+  Container(FreightInvoiceItemizer.TrainingCalibrationPipeline, "Training & Calibration Pipeline", $techn="Python, scikit-learn", $descr="Turns closed cases into candidate changes (prompt, few-shot set, lexicon, thresholds, calibration map), replays them on VALIDATION, and submits them to the promotion gate. Has no read access to locked test labels.", $tags="", $link="")
 }
 
 Person(PPGAccountant, "PPG Accountant", $descr="Uploads the weekly export, explores itemized results, approves or edits rows in the Review UI, downloads the itemized workbook, and alone decides what is paid.", $tags="", $link="")
@@ -35,8 +35,8 @@ Rel(FreightInvoiceItemizer.WebUI, FreightInvoiceItemizer.HumanReviewSystem, "4: 
 Rel(FreightInvoiceItemizer.HumanReviewSystem, FreightInvoiceItemizer.TelemetryEpisodeStore, "5: Closed cases", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.TelemetryEpisodeStore, "6: Mine AI-wrong / context-changed cases", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.ModelRouter, "7: Replay current vs candidate", $techn="", $tags="", $link="")
-Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.KPICalculator, "8: DEV score, then one aggregate TEST evaluation", $techn="", $tags="", $link="")
-Rel(FreightInvoiceItemizer.KPICalculator, FreightInvoiceItemizer.TrainingCalibrationPipeline, "9: Gate verdict", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.KPICalculator, "8: Request VALIDATION score", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.KPICalculator, FreightInvoiceItemizer.TrainingCalibrationPipeline, "9: VALIDATION scores", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.TrainingCalibrationPipeline, FreightInvoiceItemizer.ConfigurationRegistry, "10: Publish change with owner, evidence, version, rollback, horizon", $techn="", $tags="", $link="")
 
 SHOW_LEGEND(true)

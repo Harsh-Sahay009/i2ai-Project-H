@@ -34,10 +34,3 @@ Given identical predictions and manifest, the formatter SHALL produce byte-ident
 #### Scenario: Rerun output
 - **WHEN** a run is rerun with cache on
 - **THEN** the output workbook hash is unchanged
-
-### Requirement: No masked or confidential map content
-The workbook MUST NOT contain masking placeholders or the masking map.
-
-#### Scenario: Masked route
-- **WHEN** the run used masked text for an external model
-- **THEN** evidence in the workbook is the raw-note text, not placeholders

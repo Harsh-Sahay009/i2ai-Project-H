@@ -8,10 +8,10 @@ The MCP server SHALL expose `get_run_summary`, `explain_row`, `list_error_cases`
 - **THEN** it receives the outcome, the rule that fired, the tool-call trace summary and evidence spans
 
 ### Requirement: Data restrictions
-MCP tools MUST NOT return TEST-set rows, masking maps or person names, and SHALL cap list results at `mcp.max_rows_per_response`.
+MCP tools MUST NOT return TEST or VALIDATION rows or person names, and SHALL cap list results at `mcp.max_rows_per_response`.
 
 #### Scenario: Errors on TEST
-- **WHEN** `list_error_cases` is called for a TEST evaluation
+- **WHEN** `list_error_cases` is called for a TEST or VALIDATION evaluation
 - **THEN** the tool returns aggregates only
 
 ### Requirement: Drafts, not changes

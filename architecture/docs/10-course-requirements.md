@@ -5,11 +5,11 @@
 | # | Requirement | Architecture elements | OpenSpec change(s) | Evidence for judges |
 |---|---|---|---|---|
 | 1 | Agentic workflow (team) and for the client | Itemization Agent; Claude Code + OpenSpec + Structurizr dev loop; MCP analyst tools + client skill | add-itemization-classifier, add-agent-tools, add-skill-folder | §8.5–8.6; OpenSpec history; agent trace in the UI |
-| 2 | Pretrained model incorporated | Open-weights LLM (Ollama) as agent engine; optional hosted LLM; pretrained NER | add-model-router, add-itemization-classifier | §8.1; run manifest shows model digest |
+| 2 | Pretrained model incorporated | Hosted LLM as agent engine; open-weights LLM (Ollama) as fallback; pretrained NER | add-model-router, add-itemization-classifier | §8.1; run manifest shows the model identity |
 | 3 | ≥ 5 custom agentic tools with LLM-oriented docstrings that make behaviour more deterministic | 8 pipeline tools + 5 MCP analyst tools; docstring linter | add-agent-tools | §8.3; `itemizer tools lint`; tool reference page |
 | 4 | Skill folder with `SKILL.md` and templates | `skills/itemizer-weekly-review/`, `skills/itemizer-analyst/`, `skills/itemizer-dev/` | add-skill-folder | Folder in repo; demoed with Claude Code |
 | 5 | Evaluation methods | KPI Calculator: errors a–g, success a–e, intervals, weighting, level gates, agent metrics, guardrail ablation | add-kpi-calculator, add-guardrail-evaluation | §4; dashboard |
-| 6 | Client data protection / simulated data with quality assurance | Masking, local model, gate, encrypted CAS, role checks; Synthetic Data Generator with fidelity / privacy / validity / utility checks | add-data-transformation-check, add-model-router, add-synthetic-data-generator | §9 |
+| 6 | Client data protection / simulated data with quality assurance | Anonymized dataset with a scan before any send, fail-closed gate, Privacy Guard, role checks, no publication; Synthetic Data Generator with fidelity / privacy / validity / utility checks. To confirm with the course (ADR 0013) | add-ground-truth-bootstrap, add-model-router, add-guardrails, add-synthetic-data-generator | §9 |
 | 7 | Safety guardrails | Guardrail Layer (input, tool-call, output, action, privacy) + invariants + blind audit | add-guardrails | §8.4 |
 | 7a | With vs without guardrails | Guardrail Ablation Evaluator on SYNTH + ADV | add-guardrail-evaluation | §8.4a table + trace pairs |
 
@@ -34,7 +34,7 @@ Non-technical framing: "The AI reads the note like a clerk would, but it has to 
 | Website demo: creative use of vibe coding | Web UI built with Claude Code from OpenSpec specs; the Agent Trace Viewer is the creative centrepiece |
 | Poster | Sections: problem, approach (C4 container diagram), agent loop, tools, guardrails with/without table, evaluation results with intervals, data protection, business value, references |
 | GitHub repo organized | Layout in §10.4; README links architecture, specs, skills, demo |
-| Kanban board | One card per OpenSpec change (20), columns Backlog / Spec / In progress / Verify / Done, labels by deliverable D1–D5 |
+| Kanban board | One card per OpenSpec change (22), columns Backlog / Spec / In progress / Verify / Done, labels by deliverable D1–D5 |
 | Research paper | Dedicated poster panel: claim, method, how it shaped one design decision |
 | References cited properly | `REFERENCES.md` in APA 7 (below) |
 | Problem, rationale, approach | §1 and the control architecture |

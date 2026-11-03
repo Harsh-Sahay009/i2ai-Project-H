@@ -19,6 +19,8 @@
 | Accountant minutes per dispute | Web UI review timestamps | KPI: Metric Engine | add-web-ui, add-kpi-calculator |
 | Coverage ($, rows) | Outcome Assigner | KPI: Metric Engine, Level Gate | add-kpi-calculator |
 | Loop health | Review System, Training pipeline | KPI: Loop Health Meter | add-human-review-system, add-training-calibration-pipeline |
+| Per-carrier coverage and accuracy | Outcome Assigner, Ground Truth | KPI: Metric Engine | add-kpi-calculator, add-kpi-dashboard |
+| Cost-driver summary (Level 3) | Classifier items | KPI: Metric Engine | add-kpi-calculator, add-kpi-dashboard |
 
 ## 7.2 Containers → OpenSpec changes
 
@@ -28,12 +30,14 @@
 | Configuration Registry | add-configuration-registry | configuration-registry |
 | Version & Artifact Registry | add-version-artifact-registry | version-registry |
 | Ground Truth Store | add-ground-truth-store | charge-taxonomy, evaluation-sets |
+| Ground Truth Bootstrap | add-ground-truth-bootstrap | dataset-profile-split, taxonomy-drafting, test-set-preparation |
+| Run Console (Acceptance Runner), KPI Dashboard (Methodology Report Builder) | add-delivery-acceptance | deliverable-acceptance, methodology-report |
 | Agent Tool Library & MCP Server | add-agent-tools | agent-tools, mcp-analyst-tools |
 | Guardrail Layer | add-guardrails | guardrails |
 | Synthetic Data Generator | add-synthetic-data-generator | synthetic-data |
 | KPI Calculator (ablation + agent metrics) | add-guardrail-evaluation | guardrail-evaluation |
 | *(repo)* skill folder | add-skill-folder | skill-folder |
-| Web UI | add-web-ui | ui-access-control, export-upload, results-explorer, error-review, review-workbench |
+| Web UI | add-web-ui | ui-access-control, export-upload, results-explorer, error-review, review-workbench, agent-trace-viewer, kpi-view |
 | Run Console | add-run-console | run-console |
 | Data Transformation & Check | add-data-transformation-check | data-ingestion |
 | Model Router (+ Local Model Runtime) | add-model-router | model-routing |
@@ -47,10 +51,21 @@
 
 ## 7.3 Build order
 
+0. **Bootstrap (D1, D2), first and standalone:** add-ground-truth-bootstrap. It depends on no other change, because D1 and D2 are late and D3 is measured on them.
 1. **Foundation:** add-common-core-contracts → add-configuration-registry → add-version-artifact-registry → add-telemetry-episode-store → add-synthetic-data-generator (so every later change tests on synthetic data)
-2. **Ground truth (D1, D2):** add-ground-truth-store, labelling part of add-human-review-system
-3. **Prototype path (D3, Level 1):** add-data-transformation-check → add-model-router → add-agent-tools → add-guardrails → add-itemization-classifier → add-output-formatter → add-run-console → add-kpi-calculator → add-kpi-dashboard → add-web-ui (access control, upload, run monitor, results explorer)
-4. **Final (D4, Level 2):** add-human-review-system → add-web-ui (review, adjudication, labelling, error workbench, KPI view) → add-training-calibration-pipeline
+2. **Ground truth store:** add-ground-truth-store, which registers what the bootstrap produced
+3. **Prototype path (D3, Level 1):** add-data-transformation-check → add-model-router → add-agent-tools → add-guardrails → add-itemization-classifier → add-output-formatter → add-run-console → add-kpi-calculator → add-kpi-dashboard → add-delivery-acceptance (D3 check) → add-web-ui (access control, upload, run monitor, results explorer)
+4. **Final (D4, Level 2):** add-human-review-system → add-web-ui (review, adjudication, labelling, error workbench, agent trace, KPI view) → add-training-calibration-pipeline → add-delivery-acceptance (D4 check, D5 report)
 5. **Course deliverables (TP3):** add-guardrail-evaluation → add-skill-folder → poster, demos (docs/10)
 
-Blind labelling for D2 (due 22 Oct) is already past, so the fallback labelling workbook remains the D2 path; the UI labelling page serves DEV and FRESH labelling.
+D2's labelling uses Excel workbooks from add-ground-truth-bootstrap, because the UI will not exist in time. The UI labelling page serves later TRAIN, VALIDATION and FRESH labelling.
+
+## 7.4 Deliverables → OpenSpec changes
+
+| Deliverable | Tooling | Work done by people |
+|---|---|---|
+| D1 Charge category list | add-ground-truth-bootstrap, add-ground-truth-store | Team edits the draft; Jake approves in writing |
+| D2 Locked test set | add-ground-truth-bootstrap, add-ground-truth-store | Team labels 200 notes; Jake or a PPG accountant reviews 50 |
+| D3 Prototype | add-delivery-acceptance plus the prototype path | Jake sees the prototype |
+| D4 Final tool | add-delivery-acceptance plus all containers | Team runs the acceptance check |
+| D5 Methodology report | add-delivery-acceptance | Team writes the prose; an outside reader tries the rerun |

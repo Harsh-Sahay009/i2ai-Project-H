@@ -19,8 +19,8 @@ Intervention (accountant edits/rejects, or audit disagreement)
   → Adjudication: AI wrong | human wrong | context changed | genuine exception (+ reason code)
   → Replay pack (note, manifest, prediction, decision)
   → Candidate change (lexicon, few-shot, prompt, threshold, taxonomy request)
-  → Replay on DEV: current vs candidate
-  → Promotion gate: one aggregate TEST evaluation, no regression on any error type
+  → Replay on VALIDATION: current vs candidate
+  → Promotion gate: VALIDATION scores, no regression on any error type (never TEST)
   → Published change under a version tag (owner, evidence, version, rollback, validity horizon)
 ```
 
@@ -45,4 +45,4 @@ The binding constraint is reviewer time (the scope budgets ~3 hours of PPG time)
 
 ## 6.4 Validity horizons and recertification
 
-Every published change carries a horizon (defaults in the parameter catalog). The Recertification Scheduler re-runs FRESH (or the latest labelled PROD sample) when a horizon passes, when the model digest changes, or when a canary set's response fingerprints drift (silent upstream change). Failure sends the change back for narrowing or rollback.
+Every published change carries a horizon (defaults in the parameter catalog). The Recertification Scheduler re-runs VALIDATION (or FRESH, if a fresh month ever arrives) when a horizon passes, when the model digest changes, or when a canary set's response fingerprints drift (silent upstream change). Failure sends the change back for narrowing or rollback.

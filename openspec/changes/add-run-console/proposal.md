@@ -4,7 +4,7 @@ D4 requires the tool to run on a new export with one command. The Web UI (ADR 00
 
 ## What Changes
 
-- Add the `itemizer` CLI: `run`, `rerun`, `evaluate`, `review export|import`, `calibrate`, `replay`, `promote`, `recertify`, `report`, `config …`, `lineage`.
+- Add the `itemizer` CLI: `run`, `rerun`, `evaluate`, `review export|import`, `calibrate`, `replay`, `promote`, `recertify`, `report`, `acceptance`, `config …`, `lineage`. The `acceptance` commands are specified in add-delivery-acceptance.
 - Add the Pipeline Orchestrator: ingest → route/itemize → format → score, with checkpoints and resume by run id.
 - Add the Run Manifest Builder invocation before stage 1.
 - Accept `--snapshot <id>` so the Web UI can launch runs on an already-registered upload as a background job, and report job status via telemetry.
