@@ -630,3 +630,69 @@ def test_a_commit_changing_nothing_keeps_the_run_and_the_workbook(d3):
     second = pipeline.run(d3.tmp, set_name="train", limit=3)
     assert second.run_id == first.run_id and hash_of(second.workbook) == digest
     assert second.manifest.code_commit != first.manifest.code_commit
+
+
+# ---- what is kept back stays back
+def _add_model(d3, name: str, **entry) -> None:
+    registry = yaml.safe_load((d3.tmp / pipeline.MODELS).read_text(encoding="utf-8"))
+    registry["models"][name] = {"refusal_fallback": False, "input_usd_per_mtok": "0", "output_usd_per_mtok": "0", "cache_read_usd_per_mtok": "0",
+                                "cache_write_usd_per_mtok": "0", **entry}
+    (d3.tmp / pipeline.MODELS).write_text(yaml.safe_dump(registry), encoding="utf-8")
+
+
+def _not_cleared(d3) -> None:
+    text = (d3.tmp / pipeline.CONFIG).read_text(encoding="utf-8").replace("open_anonymized", "client_confidential")
+    (d3.tmp / pipeline.CONFIG).write_text(text, encoding="utf-8")
+
+
+def test_a_remote_server_under_a_local_providers_name_is_external(d3):
+    _add_model(d3, "not-local", provider="ollama", model="m", base_url="http://models.example.com:11434")
+    _not_cleared(d3)
+    with pytest.raises(ContractError, match="client_confidential"):
+        pipeline.run(d3.tmp, model_name="not-local", set_name="train", limit=2)
+    assert d3.calls == []
+
+
+@pytest.mark.parametrize("provider, url", [("ollama", "http://localhost:11434"), ("openai_compatible", "http://127.0.0.1:8000/v1")])
+def test_a_server_on_this_machine_is_local_under_any_provider_name(d3, provider, url):
+    _add_model(d3, "here", provider=provider, model="m", base_url=url)
+    _not_cleared(d3)
+    assert pipeline.run(d3.tmp, model_name="here", set_name="train", limit=2).notes == 2
+
+
+def test_a_worked_example_the_scan_keeps_back_stops_the_run(d3):
+    flagged = next(fp for fp, note in d3.notes.items() if note.text == EMAIL_NOTE)
+    manifest = d3.ws.read_json("split_manifest.json")
+    next(entry for entry in manifest["notes"] if entry["fingerprint"] == flagged)["set"] = "TRAIN"
+    d3.ws.write_json("split_manifest.json", manifest)
+    d3.ws.write_json("scan_decision.json", {"decision": "exclude_flagged"})
+    _write_fewshots(d3, [flagged])
+    with pytest.raises(ContractError, match=d3.notes[flagged].note_id):
+        pipeline.run(d3.tmp, set_name="train", limit=2)
+    assert d3.calls == []
+
+
+def test_a_scan_that_does_not_match_the_dataset_stops_an_external_send(d3):
+    d3.ws.write_json("scan_report.json", {"counts": {}, "notes_flagged": 0, "findings": []})
+    with pytest.raises(ContractError, match="does not match the dataset"):
+        pipeline.run(d3.tmp, set_name="train", limit=2)
+    assert d3.calls == []
+
+
+# ---- a new split, and the role on a review
+def test_a_new_split_keeps_notes_with_tool_output_out_of_test_and_reserve(d3):
+    outcome = pipeline.run(d3.tmp, set_name="train")
+    text = (d3.tmp / pipeline.CONFIG).read_text(encoding="utf-8").replace("split:\n", "split:\n  seed: 99\n")
+    (d3.tmp / pipeline.CONFIG).write_text(text, encoding="utf-8")
+    result = runner.invoke(app, ["gt", "split", "--force"])
+    assert result.exit_code == 0, result.stderr
+    manifest = d3.ws.read_json("split_manifest.json")
+    held_back = set(sp.notes_in_set(manifest, "TEST") + sp.notes_in_set(manifest, "RESERVE"))
+    assert held_back and not held_back & set(outcome.note_results)
+
+
+def test_a_review_import_needs_a_stated_role(d3):
+    freeze(d3)
+    before = d3.ws.path("client_review.json").read_bytes()
+    result = runner.invoke(app, ["gt", "import-client", str(fill_review(d3)), "--date", "2026-11-05"])
+    assert result.exit_code != 0 and d3.ws.path("client_review.json").read_bytes() == before

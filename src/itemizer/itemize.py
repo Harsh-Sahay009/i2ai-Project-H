@@ -183,8 +183,9 @@ class _Usage:
 
 
 def _cache_key(spec: ModelSpec, system: str, user: str, schema: dict) -> str:
-    """`spec.model` is included too, so repointing a registry name at another model cannot replay the old one's answers."""
-    payload = json.dumps([spec.name, spec.model, spec.effort, system, user, schema], sort_keys=True, separators=(",", ":"))
+    """Everything that can change a reply, so a new model id, server, limit or fallback setting cannot replay an old answer."""
+    payload = json.dumps([spec.name, spec.model, spec.effort, spec.base_url, spec.max_tokens, spec.refusal_fallback, system, user, schema],
+                         sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("ascii")).hexdigest()
 
 

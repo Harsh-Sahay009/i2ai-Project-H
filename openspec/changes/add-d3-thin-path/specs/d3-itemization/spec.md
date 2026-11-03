@@ -26,7 +26,7 @@ A refusal, a provider failure, a spent budget or an unsure answer SHALL send the
 - **THEN** notes not yet started are Review with reason `budget_exhausted`, and the run still writes its workbook
 
 ### Requirement: Reproducible answers
-Answers SHALL be cached by model, effort, prompts and schema, and a repeat run SHALL make no new calls and produce the same results.
+Answers SHALL be cached by model, effort, server, token limit, fallback setting, prompts and schema, and a repeat run SHALL make no new calls and produce the same results.
 
 #### Scenario: Rerun
 - **WHEN** a run is repeated with the same inputs
@@ -49,6 +49,21 @@ An export other than the cleared dataset file MUST NOT go to an external model i
 #### Scenario: Flagged export
 - **WHEN** the scan flags a note in another export and the model is external
 - **THEN** the run stops before any call, with counts only, and a local model is still allowed
+
+### Requirement: What is kept back stays back
+A model counts as local only when its server's address is this machine. A worked example MUST NOT be a note the scan decision keeps back, and an external send MUST stop when the stored scan does not match the dataset file.
+
+#### Scenario: A remote server under a local provider's name
+- **WHEN** an entry says `provider: ollama` with a remote `base_url`, and the dataset is not cleared
+- **THEN** the run stops before any call
+
+#### Scenario: A worked example that is kept back
+- **WHEN** the scan decision is `exclude_flagged` and a worked example is a flagged note
+- **THEN** the run stops before any call and names the note id
+
+#### Scenario: A stale scan
+- **WHEN** `scan_report.json` does not match a fresh scan of the dataset file
+- **THEN** the run stops before any call and asks for a new scan and decision
 
 ### Requirement: Few-shot examples from TRAIN
 Worked examples in the prompt MUST come from TRAIN, and the prompt files MUST hold no note text.

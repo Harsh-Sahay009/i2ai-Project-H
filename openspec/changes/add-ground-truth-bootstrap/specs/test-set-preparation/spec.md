@@ -50,6 +50,13 @@ The system SHALL generate a review workbook with all 50 double-labelled notes an
 - **WHEN** both labellers agree on a category and the reviewer changes it
 - **THEN** the reviewer's category becomes gold and the change is recorded
 
+### Requirement: The reviewer's role is stated
+Importing a review MUST name the reviewer's role, because the role decides whether TEST can be sealed.
+
+#### Scenario: Role left out
+- **WHEN** an operator imports a review without `--role`
+- **THEN** the command refuses, and the stored review is unchanged
+
 ### Requirement: Sealing conditions
 TEST SHALL be sealed only when it has 200 distinct notes, the mix is within `split.max_stratum_gap_notes`, every label passes validation, the client review is complete, every disagreement is resolved and the taxonomy is approved or mapped to the approved version. Sealing SHALL record the hash.
 

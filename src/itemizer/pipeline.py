@@ -11,6 +11,7 @@ import time
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
 
@@ -35,6 +36,7 @@ APPROVAL = Path("taxonomy/approval.yaml")
 PROMPT = Path("prompts/itemize_v1.md")
 FEWSHOTS = Path("prompts/fewshot_v1.yaml")
 SETS = {"train": "TRAIN", "validation": "VALIDATION"}
+_THIS_MACHINE = ("localhost", "127.0.0.1", "::1")
 _RUN_ID = re.compile(r"run_[0-9a-f]{16}")
 
 
@@ -140,10 +142,16 @@ def _select(project: Project, rows: list[DisputeRow], notes: dict[str, Note], is
 
 
 def _left_out_of_send(project: Project, spec: ModelSpec, notes: dict[str, Note], is_dataset: bool) -> set[str]:
-    """Notes that may not leave this machine. A local model sends nothing out, so nothing is left out for it."""
-    if spec.provider == "ollama":
+    """Notes that may not leave this machine. A model on this machine sends nothing out, so nothing is left out for it.
+
+    Local is decided by the server's address, because any provider name can point at a remote server.
+    """
+    if spec.base_url and urlparse(spec.base_url).hostname in _THIS_MACHINE:
         return set()
     left_out = sp.check_external_send(project.ws)
+    if project.ws.read_json("scan_report.json")["findings"] != sp.scan(project.notes)["findings"]:
+        raise ContractError("scan_report.json does not match the dataset file, so the decision on it does not apply. Nothing was "
+                            "sent. Run `itemizer gt scan` and record a decision again")
     if not is_dataset:  # the recorded scan and decision cover the dataset file, and not this one
         flagged = sp.scan(notes)["notes_flagged"]
         if flagged:
@@ -236,6 +244,10 @@ def run(root: Path, model_name: str | None = None, set_name: str | None = None, 
     fewshots = load_fewshots(root / FEWSHOTS, project.notes, project.split, codes)
     system = build_system_prompt(categories, fewshots, root / PROMPT)
     left_out = _left_out_of_send(project, spec, notes, is_dataset)
+    kept_back = sorted(shot.note.note_id for shot in fewshots if shot.note.fingerprint in left_out)
+    if kept_back:  # the prompt goes out with every call, so these would be sent whatever happens to the notes themselves
+        raise ContractError(f"worked examples {', '.join(kept_back)} are notes the scan decision keeps back. Nothing was sent. "
+                            "Choose other examples, or use a local model")
     manifest = _manifest(project, spec, path, set_name, limit, system, left_out)
     folder = project.data_root / "runs" / manifest.run_id
     folder.mkdir(parents=True, exist_ok=True)
