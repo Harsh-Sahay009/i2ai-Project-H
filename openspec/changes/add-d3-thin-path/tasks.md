@@ -32,7 +32,7 @@
 
 - [x] 6.1 Implement `itemizer run` with the manifest and run folder
 - [x] 6.2 Implement `itemizer evaluate`
-- [ ] 6.3 Implement `itemizer acceptance d3` and `record-review`, and create `deliverables/requests.yaml`
+- [x] 6.3 Implement `itemizer acceptance d3` and `record-review`, and create `deliverables/requests.yaml`
 
 ## 7. Live check and people
 

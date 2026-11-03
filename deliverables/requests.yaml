@@ -1,0 +1,42 @@
+# Requests to PPG for the Freight Invoice Itemization project. Tracks status only; no data goes here.
+requests:
+  - item: Current accountant minutes per dispute
+    why: The second factor in the scope, to estimate the saving
+    owner: team
+    asked: null
+    status: open
+  - item: Monthly dispute volume
+    why: To estimate the saving
+    owner: team
+    asked: null
+    status: open
+  - item: Confirmation that the dataset may go to an external AI service
+    why: The scope requires written approval
+    owner: client_owner
+    asked: null
+    status: open
+  - item: Written agreement to presenting D1, D2 and D3 together, and to the Web UI and output changes
+    why: The scope says changes after approval are agreed in writing
+    owner: client_owner
+    asked: null
+    status: open
+  - item: Confirmation that a level is met when the measured value reaches the target, with its range shown beside it
+    why: The scope gives a target and a precision, but not this rule
+    owner: client_owner
+    asked: null
+    status: open
+  - item: Whether Level dollar targets count repeated invoices
+    why: Repeated-invoice rows hold 48% of the disputed dollars
+    owner: client_owner
+    asked: null
+    status: open
+  - item: How to treat a balance due written beside listed charges
+    why: 51 notes follow this pattern, and the rule decides whether those rows are flagged
+    owner: client_owner
+    asked: null
+    status: open
+  - item: The currency of rows that mention Canadian taxes
+    why: The US/CAN column says US on every row, and no note states a currency
+    owner: client_owner
+    asked: null
+    status: open
