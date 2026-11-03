@@ -1,16 +1,16 @@
 ## 1. Setup
 
-- [ ] 1.1 Create `pyproject.toml` if missing and the `itemizer.bootstrap` package with the standalone `itemizer gt` CLI and JSONL command log
+- [x] 1.1 Create `pyproject.toml` if missing and the `itemizer.bootstrap` package with the standalone `itemizer gt` CLI and JSONL command log
 - [ ] 1.2 (People) Add the file's public link and Jake's confirmation to `data.source_ref`
 - [ ] 1.3 (People) Name the two labellers and the client reviewer
 
 ## 2. Profile and split
 
-- [ ] 2.1 Implement `gt profile`: rows, distinct notes, formats, carriers, date range, disputed dollars, repeated-invoice rows, catch-all reason share, compared with the scope's figures
-- [ ] 2.2 Implement the anonymization scan for phone numbers, emails and person names, with the operator's recorded decision
-- [ ] 2.3 Implement note fingerprints, format keys, repeat bands and provisional strata
-- [ ] 2.4 Implement `gt split`: example-sheet notes to TRAIN, TEST (100 / 50 / 50) and reserve first, then TRAIN and VALIDATION, with seed, disjointness check and split manifest
-- [ ] 2.5 Record for each TEST note whether its format appears in TRAIN
+- [x] 2.1 Implement `gt profile`: rows, distinct notes, formats, carriers, date range, disputed dollars, repeated-invoice rows, catch-all reason share, compared with the scope's figures
+- [x] 2.2 Implement the anonymization scan for phone numbers, emails and person names, with the operator's recorded decision
+- [x] 2.3 Implement note fingerprints, format keys, repeat bands and provisional strata
+- [x] 2.4 Implement `gt split`: example-sheet notes to TRAIN, TEST (100 / 50 / 50) and reserve first, then TRAIN and VALIDATION, with seed, disjointness check and split manifest
+- [x] 2.5 Record for each TEST note whether its format appears in TRAIN
 
 ## 3. D1 charge category list
 
