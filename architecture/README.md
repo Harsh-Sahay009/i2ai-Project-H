@@ -1,6 +1,6 @@
 # Freight Invoice Itemizer — Architecture
 
-C4 model as code (Structurizr DSL) plus design documentation and ADRs. Implementation is specified as OpenSpec changes in `../openspec/changes/`, one per platform component; their tasks are **not yet implemented**.
+C4 model as code (Structurizr DSL) plus design documentation and ADRs. Implementation is specified as OpenSpec changes in `../openspec/changes/`, one per platform component. `add-ground-truth-bootstrap` (D1, D2) and `add-d3-thin-path` (D3) are implemented; the people's tasks in them and all the other changes are still open.
 
 | Path | Content |
 |---|---|
@@ -15,7 +15,8 @@ C4 model as code (Structurizr DSL) plus design documentation and ADRs. Implement
 | `docs/08-agentic-design.md` | Agent loop, custom tools and docstring standard, guardrails, with/without evaluation, agentic workflows |
 | `docs/09-data-protection-synthetic-data.md` | Client data protection; synthetic data generation and quality checks |
 | `docs/10-course-requirements.md` | Course requirements, presentation plan, rubric coverage, repo layout, references |
-| `adrs/` | Architecture decision records 0001–0013 (0002 superseded by 0007; 0007 amended by 0011–0013) |
+| `docs/11-data-contracts.md` | Input, note, label, answer grammar, row, output and KPI contracts; how to test another model |
+| `adrs/` | Architecture decision records 0001–0014 (0002 superseded by 0007; 0007 amended by 0011–0013) |
 | `export/` | Generated Mermaid, C4-PlantUML and JSON views (regenerate after editing the DSL) |
 
 ## Render and validate
@@ -33,7 +34,7 @@ docker run --rm -v "$PWD/architecture":/w structurizr/structurizr export -w /w/w
 ## OpenSpec
 
 ```bash
-openspec list                 # 22 changes, 0 tasks done
+openspec list                 # 23 changes
 openspec validate --all --strict
 openspec show add-kpi-calculator
 ```

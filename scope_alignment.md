@@ -198,11 +198,9 @@ Tasks such as "OIDC login, domain allowlist, role map and session timeout" or "H
 
 ## 4. "Meets Level 1 / Level 2" is not defined the same way
 
-The scope sets accuracy at 95% or higher and accepts about ±3 points of precision. `level-gates` reports **inconclusive** whenever the interval contains the target, and its own example gives 0.96 (interval 0.93-0.98) as inconclusive for accuracy.
+**Resolved by the team on 2 Nov (Option A), pending Jake's confirmation.** A level passes when each measured value reaches its target and invariant violations are 0, and the interval and n are shown beside each value. The earlier "inconclusive" result is gone.
 
-With a Wilson interval, a clean pass needs **197 of 200 (98.5%)**. At 100 covered notes it needs 100 of 100. Accuracy is measured on covered rows only, and weighting widens the interval further, so the real requirement is stricter than these figures.
-
-The plan does not say whether "inconclusive" counts as meeting the level. As written, D3 and D4 may have no reachable pass on accuracy. Agree the rule with Jake before results exist.
+The earlier rule was the problem. The scope sets accuracy at 95% or higher and accepts about ±3 points of precision, but a clean pass with a Wilson interval would have needed 197 of 200 (98.5%). At 100 covered notes it would have needed 100 of 100.
 
 ## 5. Scope items with no task
 
@@ -274,7 +272,7 @@ The fix pass below is done; the changes are uncommitted. A Goldfish review of th
 **Not fixable by editing documents; the team and client must decide:**
 
 1. Which tasks are cut, reduced or moved after 3 Dec, given that D3 is 3 days away.
-2. What "meets Level N" means when the interval contains 95%.
+2. ~~What "meets Level N" means when the interval contains 95%.~~ Resolved: Option A, in section 4. Jake still has to confirm it (`deliverables/requests.yaml`).
 3. Where the PPG reviewer hours come from, or how far the review queue shrinks.
 4. Whether the skill folder and MCP tools are really handed to PPG.
 5. Which output table to use, and whether Level dollars keep counting repeated-invoice rows.

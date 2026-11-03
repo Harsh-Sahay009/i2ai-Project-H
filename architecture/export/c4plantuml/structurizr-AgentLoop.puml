@@ -20,7 +20,7 @@ System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $
   Container_Boundary("FreightInvoiceItemizer.ItemizationClassifier_boundary", "Itemization Classifier", $tags="") {
     Component(FreightInvoiceItemizer.ItemizationClassifier.PromptBuilder, "Prompt Builder", $techn="Jinja2", $descr="Builds the agent's system prompt and task message from the versioned template, taxonomy definitions, few-shot set (drawn from TRAIN only) and extractor hints; wraps note text as untrusted data.", $tags="", $link="")
     Component(FreightInvoiceItemizer.ItemizationClassifier.ItemizationAgentController, "Itemization Agent Controller", $techn="Python", $descr="Bounded ReAct-style loop: the pretrained LLM (via the router) chooses tool calls; deterministic tools do all arithmetic, lookup and verification; the loop ends only through submit_itemization or escalate_to_review, within step and call budgets.", $tags="", $link="")
-    Component(FreightInvoiceItemizer.ItemizationClassifier.StructuredResponseParser, "Structured Response Parser", $techn="pydantic", $descr="Validates the model output against the item schema; malformed output is a failure, not something to repair by guessing.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.ItemizationClassifier.StructuredResponseParser, "Structured Response Parser", $techn="pydantic", $descr="Checks every answer against the controlled grammar, whichever model wrote it: one JSON object, closed value lists, no free prose. A rejected answer is retried once with its violation codes and then goes to Review. It is never repaired.", $tags="", $link="")
   }
 
   Container_Boundary("FreightInvoiceItemizer.AgentToolLibraryMCPServer_boundary", "Agent Tool Library & MCP Server", $tags="") {
@@ -32,9 +32,9 @@ System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $
   }
 
   Container_Boundary("FreightInvoiceItemizer.GuardrailLayer_boundary", "Guardrail Layer", $tags="") {
-    Component(FreightInvoiceItemizer.GuardrailLayer.OutputGuard, "Output Guard", $techn="Python", $descr="Schema validation, evidence verbatim check, no-edit check, category in taxonomy; a failing submission goes back to the agent once, then to Review.", $tags="", $link="")
     Component(FreightInvoiceItemizer.GuardrailLayer.InputGuarduntrustednotetext, "Input Guard (untrusted note text)", $techn="Python, regex + classifier", $descr="Delimits note text as data, strips control sequences, detects instruction-like content (prompt injection) and quarantines it as a Review reason.", $tags="", $link="")
     Component(FreightInvoiceItemizer.GuardrailLayer.ToolCallGuard, "Tool-Call Guard", $techn="Python", $descr="Allowlist per agent, argument schema validation, step budget, call budget, duplicate-call detection, terminal-tool requirement.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.GuardrailLayer.OutputGuard, "Output Guard", $techn="Python", $descr="Schema validation, evidence verbatim check, no-edit check, category in taxonomy; a failing submission goes back to the agent once, then to Review.", $tags="", $link="")
   }
 
   Container(FreightInvoiceItemizer.ModelRouter, "Model Router", $techn="Python", $descr="Decides which model handles each note, enforces the confidentiality gate, applies fallback, caches responses by content hash and meters tokens and cost. The provider interface is the exit path.", $tags="", $link="")

@@ -20,7 +20,8 @@ Person(ItemizerOperator, "Itemizer Operator", $descr="Project team member who up
 
 System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
   Container_Boundary("FreightInvoiceItemizer.RunConsole_boundary", "Run Console", $tags="") {
-    Component(FreightInvoiceItemizer.RunConsole.CLICommands, "CLI Commands", $techn="Typer", $descr="run, evaluate, review export/import, promote, recertify, replay, report, acceptance.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.RunConsole.CLICommands, "CLI Commands", $techn="Typer", $descr="run, evaluate, models, compare-models, review export/import, promote, recertify, replay, report, acceptance.", $tags="", $link="")
+    Component(FreightInvoiceItemizer.RunConsole.ModelComparisonRunner, "Model Comparison Runner", $techn="Python", $descr="Runs several models on the same TRAIN or VALIDATION notes with the same prompt and reports them on the same measures, as aggregates. Refuses TEST, which never chooses between candidates.", $tags="", $link="")
     Component(FreightInvoiceItemizer.RunConsole.PipelineOrchestrator, "Pipeline Orchestrator", $techn="Python", $descr="Executes the stage graph ingest -> route -> itemize -> format -> score, with resumable checkpoints keyed by run_id.", $tags="", $link="")
     Component(FreightInvoiceItemizer.RunConsole.RunManifestBuilder, "Run Manifest Builder", $techn="Python, pydantic", $descr="Freezes every input to a run (snapshot hash, dataset class, split manifest, config version, taxonomy, prompt, lexicon, model id, code SHA, seed) before any stage executes.", $tags="", $link="")
     Component(FreightInvoiceItemizer.RunConsole.AcceptanceRunner, "Acceptance Runner", $techn="Python", $descr="Runs the D3 and D4 checks in one command, reports the Level gate result as the KPI Calculator wrote it, and records client review evidence.", $tags="", $link="")
@@ -69,6 +70,8 @@ Rel(FreightInvoiceItemizer.RunConsole.PipelineOrchestrator, FreightInvoiceItemiz
 Rel(FreightInvoiceItemizer.RunConsole.CLICommands, FreightInvoiceItemizer.HumanReviewSystem, "review export / import", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.RunConsole.CLICommands, FreightInvoiceItemizer.TrainingCalibrationPipeline, "calibrate / replay / promote / recertify", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.RunConsole.CLICommands, FreightInvoiceItemizer.RunConsole.AcceptanceRunner, "acceptance d3 / d4", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole.CLICommands, FreightInvoiceItemizer.RunConsole.ModelComparisonRunner, "compare-models", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.RunConsole.ModelComparisonRunner, FreightInvoiceItemizer.RunConsole.PipelineOrchestrator, "One run per model, on the same notes", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.RunConsole.AcceptanceRunner, FreightInvoiceItemizer.RunConsole.PipelineOrchestrator, "Runs the pipeline on the export", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.RunConsole.AcceptanceRunner, FreightInvoiceItemizer.VersionArtifactRegistry, "Reads gate results; writes acceptance evidence", $techn="", $tags="", $link="")
 Rel(ItemizerOperator, FreightInvoiceItemizer.TrainingCalibrationPipeline, "Approves publication", $techn="CLI", $tags="", $link="")

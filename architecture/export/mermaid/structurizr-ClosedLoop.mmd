@@ -9,18 +9,18 @@ graph LR
 
       10["<div style='font-weight: bold'>Web UI</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, FastAPI, Jinja2, server-rendered HTML]</div><div style='font-size: 80%; margin-top:10px'>Browser interface for<br />uploading exports, launching<br />and monitoring runs,<br />exploring results with<br />evidence highlighted in the<br />note, reviewing errors,<br />reviewing and adjudicating<br />rows, blind labelling and<br />reading KPIs. Holds no<br />business logic: it calls the<br />Run Console, Human Review<br />System and stores.</div>"]
       style 10 fill:#e2e3fb,stroke:#343ced,color:#272834
-      110["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
-      style 110 fill:#d8f1f6,stroke:#ef601b,color:#272834
-      122[("<div style='font-weight: bold'>Telemetry & Episode Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: DuckDB]</div><div style='font-size: 80%; margin-top:10px'>Action telemetry (what<br />happened), decision telemetry<br />(why) and outcome telemetry<br />(what followed), linked by<br />case_id and tagged with the<br />run's version.</div>")]
-      style 122 fill:#e2e3fb,stroke:#343ced,color:#272834
-      34["<div style='font-weight: bold'>Model Router</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Decides which model handles<br />each note, enforces the<br />confidentiality gate, applies<br />fallback, caches responses by<br />content hash and meters<br />tokens and cost. The provider<br />interface is the exit path.</div>"]
-      style 34 fill:#e2e3fb,stroke:#ef601b,color:#272834
-      55["<div style='font-weight: bold'>Human Review System</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Review service behind the Web<br />UI: builds the review queue<br />within reviewer capacity,<br />validates and records<br />approvals, edits and<br />adjudications, runs blind<br />labelling for the test set,<br />and closes cases. An Excel<br />review workbook remains as an<br />offline fallback.</div>"]
-      style 55 fill:#e2e3fb,stroke:#343ced,color:#272834
-      62["<div style='font-weight: bold'>KPI Calculator</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, scikit-learn, SciPy]</div><div style='font-size: 80%; margin-top:10px'>Computes every success and<br />error metric from immutable,<br />versioned inputs only, per<br />population (TRAIN,<br />VALIDATION, TEST, FRESH,<br />PROD), with sample sizes,<br />weights and confidence<br />intervals, and evaluates the<br />Level 1/2/3 gates.</div>"]
-      style 62 fill:#e2e3fb,stroke:#343ced,color:#272834
-      78["<div style='font-weight: bold'>Training & Calibration Pipeline</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, scikit-learn]</div><div style='font-size: 80%; margin-top:10px'>Turns closed cases into<br />candidate changes (prompt,<br />few-shot set, lexicon,<br />thresholds, calibration map),<br />replays them on VALIDATION,<br />and submits them to the<br />promotion gate. Has no read<br />access to locked test labels.</div>"]
-      style 78 fill:#d8f1f6,stroke:#343ced,color:#272834
+      112["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
+      style 112 fill:#d8f1f6,stroke:#ef601b,color:#272834
+      124[("<div style='font-weight: bold'>Telemetry & Episode Store</div><div style='font-size: 70%; margin-top: 0px'>[Container: DuckDB]</div><div style='font-size: 80%; margin-top:10px'>Action telemetry (what<br />happened), decision telemetry<br />(why) and outcome telemetry<br />(what followed), linked by<br />case_id and tagged with the<br />run's version.</div>")]
+      style 124 fill:#e2e3fb,stroke:#343ced,color:#272834
+      35["<div style='font-weight: bold'>Model Router</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Decides which model handles<br />each note, enforces the<br />confidentiality gate, applies<br />fallback, caches responses by<br />content hash and meters<br />tokens and cost. The provider<br />interface is the exit path.</div>"]
+      style 35 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      57["<div style='font-weight: bold'>Human Review System</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Review service behind the Web<br />UI: builds the review queue<br />within reviewer capacity,<br />validates and records<br />approvals, edits and<br />adjudications, runs blind<br />labelling for the test set,<br />and closes cases. An Excel<br />review workbook remains as an<br />offline fallback.</div>"]
+      style 57 fill:#e2e3fb,stroke:#343ced,color:#272834
+      64["<div style='font-weight: bold'>KPI Calculator</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, scikit-learn, SciPy]</div><div style='font-size: 80%; margin-top:10px'>Computes every success and<br />error metric from immutable,<br />versioned inputs only, per<br />population (TRAIN,<br />VALIDATION, TEST, FRESH,<br />PROD), with sample sizes,<br />weights and confidence<br />intervals, and evaluates the<br />Level 1/2/3 gates.</div>"]
+      style 64 fill:#e2e3fb,stroke:#343ced,color:#272834
+      80["<div style='font-weight: bold'>Training & Calibration Pipeline</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, scikit-learn]</div><div style='font-size: 80%; margin-top:10px'>Turns closed cases into<br />candidate changes (prompt,<br />few-shot set, lexicon,<br />thresholds, calibration map),<br />replays them on VALIDATION,<br />and submits them to the<br />promotion gate. Has no read<br />access to locked test labels.</div>"]
+      style 80 fill:#d8f1f6,stroke:#343ced,color:#272834
     end
 
     1["<div style='font-weight: bold'>PPG Accountant</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Uploads the weekly export,<br />explores itemized results,<br />approves or edits rows in the<br />Review UI, downloads the<br />itemized workbook, and alone<br />decides what is paid.</div>"]
@@ -29,14 +29,14 @@ graph LR
     style 4 fill:#343ced,stroke:#242aa5,color:#ffffff
 
     1-. "<div>1. Open review queue</div><div style='font-size: 70%'>[HTTPS]</div>" .->10
-    10-. "<div>2. Fetch queue within<br />capacity; submit decisions +<br />reason codes</div><div style='font-size: 70%'></div>" .->55
+    10-. "<div>2. Fetch queue within<br />capacity; submit decisions +<br />reason codes</div><div style='font-size: 70%'></div>" .->57
     4-. "<div>3. Adjudicate overrides into<br />four buckets</div><div style='font-size: 70%'>[HTTPS]</div>" .->10
-    10-. "<div>4. Submit adjudications</div><div style='font-size: 70%'></div>" .->55
-    55-. "<div>5. Closed cases</div><div style='font-size: 70%'></div>" .->122
-    78-. "<div>6. Mine AI-wrong /<br />context-changed cases</div><div style='font-size: 70%'></div>" .->122
-    78-. "<div>7. Replay current vs<br />candidate</div><div style='font-size: 70%'></div>" .->34
-    78-. "<div>8. Request VALIDATION score</div><div style='font-size: 70%'></div>" .->62
-    62-. "<div>9. VALIDATION scores</div><div style='font-size: 70%'></div>" .->78
-    78-. "<div>10. Publish change with<br />owner, evidence, version,<br />rollback, horizon</div><div style='font-size: 70%'></div>" .->110
+    10-. "<div>4. Submit adjudications</div><div style='font-size: 70%'></div>" .->57
+    57-. "<div>5. Closed cases</div><div style='font-size: 70%'></div>" .->124
+    80-. "<div>6. Mine AI-wrong /<br />context-changed cases</div><div style='font-size: 70%'></div>" .->124
+    80-. "<div>7. Replay current vs<br />candidate</div><div style='font-size: 70%'></div>" .->35
+    80-. "<div>8. Request VALIDATION score</div><div style='font-size: 70%'></div>" .->64
+    64-. "<div>9. VALIDATION scores</div><div style='font-size: 70%'></div>" .->80
+    80-. "<div>10. Publish change with<br />owner, evidence, version,<br />rollback, horizon</div><div style='font-size: 70%'></div>" .->112
 
   end

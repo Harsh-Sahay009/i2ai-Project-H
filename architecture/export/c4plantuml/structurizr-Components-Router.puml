@@ -20,6 +20,7 @@ System(ExternalLLMAPIProvider, "External LLM API Provider", $descr="Hosted large
 
 System_Boundary("FreightInvoiceItemizer_boundary", "Freight Invoice Itemizer", $tags="") {
   Container_Boundary("FreightInvoiceItemizer.ModelRouter_boundary", "Model Router", $tags="") {
+    Component(FreightInvoiceItemizer.ModelRouter.ModelRegistry, "Model Registry", $techn="YAML, pydantic", $descr="Lists models in config/models.yaml with provider, model id, settings and prices. A model on a known API takes one entry; a new API family takes one adapter and one line. Names the variable holding a key and never holds the key.", $tags="", $link="")
     Component(FreightInvoiceItemizer.ModelRouter.RoutingPolicyEngine, "Routing Policy Engine", $techn="Python", $descr="Applies the configured route: rules-only, local model, or external API, with per-carrier and per-size overrides.", $tags="", $link="")
     Component(FreightInvoiceItemizer.ModelRouter.ConfidentialityGate, "Confidentiality Gate", $techn="Python", $descr="Blocks any external call unless the dataset class is open_anonymized with a recorded source, or 'external_ai_approved' is true with an approval reference. Fails closed.", $tags="", $link="")
     Component(FreightInvoiceItemizer.ModelRouter.ProviderInterface, "Provider Interface", $techn="Python Protocol", $descr="Stable contract: complete(prompt, schema, params) -> structured response + usage. Every adapter must pass the same contract tests.", $tags="", $link="")
@@ -46,6 +47,8 @@ Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.ItemizationCla
 Rel(FreightInvoiceItemizer.GuardrailLayer, FreightInvoiceItemizer.ModelRouter.ConfidentialityGate, "Pre-checks model-bound payloads", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.ItemizationClassifier, FreightInvoiceItemizer.ModelRouter.RoutingPolicyEngine, "Itemization request", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.ModelRouter.RoutingPolicyEngine, FreightInvoiceItemizer.ConfigurationRegistry, "Reads route, model ids, budget", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ModelRouter.RoutingPolicyEngine, FreightInvoiceItemizer.ModelRouter.ModelRegistry, "Reads the chosen model's entry", $techn="", $tags="", $link="")
+Rel(FreightInvoiceItemizer.ModelRouter.ModelRegistry, FreightInvoiceItemizer.ModelRouter.ProviderInterface, "Selects the adapter for the entry", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.ModelRouter.RoutingPolicyEngine, FreightInvoiceItemizer.ModelRouter.ResponseCache, "Looks up cached response", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.ModelRouter.RoutingPolicyEngine, FreightInvoiceItemizer.ModelRouter.ConfidentialityGate, "Candidate external call", $techn="", $tags="", $link="")
 Rel(FreightInvoiceItemizer.ModelRouter.ConfidentialityGate, FreightInvoiceItemizer.ModelRouter.ProviderInterface, "Allowed call", $techn="", $tags="", $link="")

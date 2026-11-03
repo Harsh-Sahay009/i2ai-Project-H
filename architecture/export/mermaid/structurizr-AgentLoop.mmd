@@ -7,63 +7,63 @@ graph LR
     subgraph 9 ["Freight Invoice Itemizer"]
       style 9 fill:#ffffff,stroke:#1b1c24,color:#1b1c24
 
-      subgraph 44 ["Itemization Classifier"]
-        style 44 fill:#ffffff,stroke:#343ced,color:#343ced
+      subgraph 46 ["Itemization Classifier"]
+        style 46 fill:#ffffff,stroke:#343ced,color:#343ced
 
-        46["<div style='font-weight: bold'>Prompt Builder</div><div style='font-size: 70%; margin-top: 0px'>[Component: Jinja2]</div><div style='font-size: 80%; margin-top:10px'>Builds the agent's system<br />prompt and task message from<br />the versioned template,<br />taxonomy definitions,<br />few-shot set (drawn from<br />TRAIN only) and extractor<br />hints; wraps note text as<br />untrusted data.</div>"]
-        style 46 fill:#d8f1f6,stroke:#ef601b,color:#272834
-        47["<div style='font-weight: bold'>Itemization Agent Controller</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Bounded ReAct-style loop: the<br />pretrained LLM (via the<br />router) chooses tool calls;<br />deterministic tools do all<br />arithmetic, lookup and<br />verification; the loop ends<br />only through<br />submit_itemization or<br />escalate_to_review, within<br />step and call budgets.</div>"]
-        style 47 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        48["<div style='font-weight: bold'>Structured Response Parser</div><div style='font-size: 70%; margin-top: 0px'>[Component: pydantic]</div><div style='font-size: 80%; margin-top:10px'>Validates the model output<br />against the item schema;<br />malformed output is a<br />failure, not something to<br />repair by guessing.</div>"]
-        style 48 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        48["<div style='font-weight: bold'>Prompt Builder</div><div style='font-size: 70%; margin-top: 0px'>[Component: Jinja2]</div><div style='font-size: 80%; margin-top:10px'>Builds the agent's system<br />prompt and task message from<br />the versioned template,<br />taxonomy definitions,<br />few-shot set (drawn from<br />TRAIN only) and extractor<br />hints; wraps note text as<br />untrusted data.</div>"]
+        style 48 fill:#d8f1f6,stroke:#ef601b,color:#272834
+        49["<div style='font-weight: bold'>Itemization Agent Controller</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Bounded ReAct-style loop: the<br />pretrained LLM (via the<br />router) chooses tool calls;<br />deterministic tools do all<br />arithmetic, lookup and<br />verification; the loop ends<br />only through<br />submit_itemization or<br />escalate_to_review, within<br />step and call budgets.</div>"]
+        style 49 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        50["<div style='font-weight: bold'>Structured Response Parser</div><div style='font-size: 70%; margin-top: 0px'>[Component: pydantic]</div><div style='font-size: 80%; margin-top:10px'>Checks every answer against<br />the controlled grammar,<br />whichever model wrote it: one<br />JSON object, closed value<br />lists, no free prose. A<br />rejected answer is retried<br />once with its violation codes<br />and then goes to Review. It<br />is never repaired.</div>"]
+        style 50 fill:#f4f4f6,stroke:#aaaaac,color:#272834
       end
 
-      subgraph 86 ["Agent Tool Library & MCP Server"]
-        style 86 fill:#ffffff,stroke:#343ced,color:#343ced
+      subgraph 88 ["Agent Tool Library & MCP Server"]
+        style 88 fill:#ffffff,stroke:#343ced,color:#343ced
 
-        87["<div style='font-weight: bold'>extract_money_spans</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Returns every money token,<br />quantity, rate, tax and<br />already-paid phrase in a note<br />with exact character offsets.</div>"]
-        style 87 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        90["<div style='font-weight: bold'>compute_rate_times_quantity</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Multiplies two numeric spans<br />from the note in Decimal and<br />returns the product with both<br />spans as derivation evidence.</div>"]
-        style 90 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        91["<div style='font-weight: bold'>verify_evidence_span</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Checks that a quoted text is<br />verbatim in the raw note at<br />the given offsets and<br />contains the claimed amount<br />or derivation.</div>"]
-        style 91 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        92["<div style='font-weight: bold'>reconcile_row</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Computes items total,<br />already-paid net and delta<br />against the row's disputed<br />amount with the configured<br />tolerance; never changes<br />amounts.</div>"]
+        89["<div style='font-weight: bold'>extract_money_spans</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Returns every money token,<br />quantity, rate, tax and<br />already-paid phrase in a note<br />with exact character offsets.</div>"]
+        style 89 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        92["<div style='font-weight: bold'>compute_rate_times_quantity</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Multiplies two numeric spans<br />from the note in Decimal and<br />returns the product with both<br />spans as derivation evidence.</div>"]
         style 92 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        93["<div style='font-weight: bold'>submit_itemization</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Terminal tool. Accepts items<br />only in the ChargeItem schema<br />with verified evidence;<br />anything else is rejected<br />with a reason the agent can<br />act on.</div>"]
+        93["<div style='font-weight: bold'>verify_evidence_span</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Checks that a quoted text is<br />verbatim in the raw note at<br />the given offsets and<br />contains the claimed amount<br />or derivation.</div>"]
         style 93 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        94["<div style='font-weight: bold'>reconcile_row</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Computes items total,<br />already-paid net and delta<br />against the row's disputed<br />amount with the configured<br />tolerance; never changes<br />amounts.</div>"]
+        style 94 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        95["<div style='font-weight: bold'>submit_itemization</div><div style='font-size: 70%; margin-top: 0px'>[Component: Tool]</div><div style='font-size: 80%; margin-top:10px'>Terminal tool. Accepts items<br />only in the ChargeItem schema<br />with verified evidence;<br />anything else is rejected<br />with a reason the agent can<br />act on.</div>"]
+        style 95 fill:#f4f4f6,stroke:#aaaaac,color:#272834
       end
 
-      subgraph 97 ["Guardrail Layer"]
-        style 97 fill:#ffffff,stroke:#ef601b,color:#ef601b
+      subgraph 99 ["Guardrail Layer"]
+        style 99 fill:#ffffff,stroke:#ef601b,color:#ef601b
 
-        100["<div style='font-weight: bold'>Output Guard</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Schema validation, evidence<br />verbatim check, no-edit<br />check, category in taxonomy;<br />a failing submission goes<br />back to the agent once, then<br />to Review.</div>"]
+        100["<div style='font-weight: bold'>Input Guard (untrusted note text)</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python, regex + classifier]</div><div style='font-size: 80%; margin-top:10px'>Delimits note text as data,<br />strips control sequences,<br />detects instruction-like<br />content (prompt injection)<br />and quarantines it as a<br />Review reason.</div>"]
         style 100 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        98["<div style='font-weight: bold'>Input Guard (untrusted note text)</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python, regex + classifier]</div><div style='font-size: 80%; margin-top:10px'>Delimits note text as data,<br />strips control sequences,<br />detects instruction-like<br />content (prompt injection)<br />and quarantines it as a<br />Review reason.</div>"]
-        style 98 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        99["<div style='font-weight: bold'>Tool-Call Guard</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Allowlist per agent, argument<br />schema validation, step<br />budget, call budget,<br />duplicate-call detection,<br />terminal-tool requirement.</div>"]
-        style 99 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        101["<div style='font-weight: bold'>Tool-Call Guard</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Allowlist per agent, argument<br />schema validation, step<br />budget, call budget,<br />duplicate-call detection,<br />terminal-tool requirement.</div>"]
+        style 101 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        102["<div style='font-weight: bold'>Output Guard</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Schema validation, evidence<br />verbatim check, no-edit<br />check, category in taxonomy;<br />a failing submission goes<br />back to the agent once, then<br />to Review.</div>"]
+        style 102 fill:#f4f4f6,stroke:#aaaaac,color:#272834
       end
 
-      34["<div style='font-weight: bold'>Model Router</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Decides which model handles<br />each note, enforces the<br />confidentiality gate, applies<br />fallback, caches responses by<br />content hash and meters<br />tokens and cost. The provider<br />interface is the exit path.</div>"]
-      style 34 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      35["<div style='font-weight: bold'>Model Router</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Decides which model handles<br />each note, enforces the<br />confidentiality gate, applies<br />fallback, caches responses by<br />content hash and meters<br />tokens and cost. The provider<br />interface is the exit path.</div>"]
+      style 35 fill:#e2e3fb,stroke:#ef601b,color:#272834
     end
 
-    34["<div style='font-weight: bold'>Model Router</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Decides which model handles<br />each note, enforces the<br />confidentiality gate, applies<br />fallback, caches responses by<br />content hash and meters<br />tokens and cost. The provider<br />interface is the exit path.</div>"]
-    style 34 fill:#e2e3fb,stroke:#ef601b,color:#272834
+    35["<div style='font-weight: bold'>Model Router</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python]</div><div style='font-size: 80%; margin-top:10px'>Decides which model handles<br />each note, enforces the<br />confidentiality gate, applies<br />fallback, caches responses by<br />content hash and meters<br />tokens and cost. The provider<br />interface is the exit path.</div>"]
+    style 35 fill:#e2e3fb,stroke:#ef601b,color:#272834
 
-    46-. "<div>1. System prompt, task, tool<br />list</div><div style='font-size: 70%'></div>" .->47
-    47-. "<div>2. Wrap note as untrusted<br />data</div><div style='font-size: 70%'></div>" .->98
-    47-. "<div>3. LLM turn</div><div style='font-size: 70%'></div>" .->34
-    34-. "<div>4. Tool call:<br />extract_money_spans</div><div style='font-size: 70%'></div>" .->47
-    47-. "<div>5. Validate call</div><div style='font-size: 70%'></div>" .->99
-    99-. "<div>6. Run tool</div><div style='font-size: 70%'></div>" .->87
-    47-. "<div>7. LLM turn with tool result</div><div style='font-size: 70%'></div>" .->34
-    34-. "<div>8. Tool call:<br />compute_rate_times_quantity</div><div style='font-size: 70%'></div>" .->47
-    99-. "<div>9. Run tool</div><div style='font-size: 70%'></div>" .->90
-    99-. "<div>10. verify_evidence_span</div><div style='font-size: 70%'></div>" .->91
-    99-. "<div>11. reconcile_row</div><div style='font-size: 70%'></div>" .->92
-    99-. "<div>12. submit_itemization</div><div style='font-size: 70%'></div>" .->93
-    93-. "<div>13. Check schema, evidence,<br />no-edit</div><div style='font-size: 70%'></div>" .->100
-    100-. "<div>14. Accepted</div><div style='font-size: 70%'></div>" .->48
+    48-. "<div>1. System prompt, task, tool<br />list</div><div style='font-size: 70%'></div>" .->49
+    49-. "<div>2. Wrap note as untrusted<br />data</div><div style='font-size: 70%'></div>" .->100
+    49-. "<div>3. LLM turn</div><div style='font-size: 70%'></div>" .->35
+    35-. "<div>4. Tool call:<br />extract_money_spans</div><div style='font-size: 70%'></div>" .->49
+    49-. "<div>5. Validate call</div><div style='font-size: 70%'></div>" .->101
+    101-. "<div>6. Run tool</div><div style='font-size: 70%'></div>" .->89
+    49-. "<div>7. LLM turn with tool result</div><div style='font-size: 70%'></div>" .->35
+    35-. "<div>8. Tool call:<br />compute_rate_times_quantity</div><div style='font-size: 70%'></div>" .->49
+    101-. "<div>9. Run tool</div><div style='font-size: 70%'></div>" .->92
+    101-. "<div>10. verify_evidence_span</div><div style='font-size: 70%'></div>" .->93
+    101-. "<div>11. reconcile_row</div><div style='font-size: 70%'></div>" .->94
+    101-. "<div>12. submit_itemization</div><div style='font-size: 70%'></div>" .->95
+    95-. "<div>13. Check schema, evidence,<br />no-edit</div><div style='font-size: 70%'></div>" .->102
+    102-. "<div>14. Accepted</div><div style='font-size: 70%'></div>" .->50
 
   end
