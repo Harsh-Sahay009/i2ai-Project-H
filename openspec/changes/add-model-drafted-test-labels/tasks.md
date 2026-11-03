@@ -5,8 +5,8 @@
 
 ## 2. Settings
 
-- [ ] 2.1 Set `budget.max_usd_per_run` to 20.00
-- [ ] 2.2 Mark the worked examples as confirmed (`add-d3-thin-path` task 7.3)
+- [x] 2.1 Set `budget.max_usd_per_run` to 20.00
+- [x] 2.2 Mark the worked examples as confirmed (`add-d3-thin-path` task 7.3)
 
 ## 3. Model-drafted labels
 
