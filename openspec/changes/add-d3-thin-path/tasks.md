@@ -39,8 +39,8 @@
 - [x] 7.1 Run on a small TRAIN sample with the real API and record cost and timing (see `live-check.md`)
 - [x] 7.2 Run on all of TRAIN and fix what the real notes expose
 - [x] 7.3 (People) Confirm the worked examples in `prompts/fewshot_v1.yaml` (confirmed by the team on 2026-11-03)
-- [ ] 7.4 (People) Label TEST and at least 100 VALIDATION notes, then freeze TEST
-- [ ] 7.5 Run on all rows, evaluate Level 1, and produce the summary
+- [ ] 7.4 (People) Check the Opus-drafted TEST labels (`deliverables/reviewing_test_labels.md`), and label at least 100 VALIDATION notes
+- [x] 7.5 Run on all rows, evaluate Level 1, and produce the summary (against Opus-drafted labels, see `live-check.md`)
 - [ ] 7.6 (People) Present D1, D2 and D3 to Jake, and record the review
 
 ## 8. Tests

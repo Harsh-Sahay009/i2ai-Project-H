@@ -1,7 +1,7 @@
 ## 1. Plan and decision
 
 - [x] 1.1 Write ADR 0015 and amend ADR 0012 and the `test-set-preparation` spec
-- [ ] 1.2 List the change on the scope page
+- [x] 1.2 List the change on the scope page
 
 ## 2. Settings
 
@@ -25,6 +25,6 @@
 
 ## 5. Live
 
-- [ ] 5.1 Draft the TEST labels with Opus, freeze, run on all rows and evaluate
-- [ ] 5.2 Check the review workbook round trip on the real labels, with no change to any label
-- [ ] 5.3 Record cost and results as aggregates in `add-d3-thin-path/live-check.md`
+- [x] 5.1 Draft the TEST labels with Opus, freeze, run on all rows and evaluate
+- [x] 5.2 Check the review workbook round trip on the real labels, with no change to any label
+- [x] 5.3 Record cost and results as aggregates in `add-d3-thin-path/live-check.md`

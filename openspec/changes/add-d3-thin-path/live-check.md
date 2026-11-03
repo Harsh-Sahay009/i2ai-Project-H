@@ -1,6 +1,43 @@
-# Live check on TRAIN
+# Live check
 
-Tasks 7.1 and 7.2, run on 2026-11-03 with the real API. TRAIN only: no TEST, RESERVE or VALIDATION note was sent. Aggregates only, with no note text.
+Aggregates only, with no note text.
+
+## First result on all rows, against Opus-drafted labels
+
+Task 7.5, run on 2026-11-03 from a clean commit. **Claude Opus wrote all 200 TEST labels, and no person has checked them (ADR 0015).** The tool also runs on Opus, so these figures show how far the tool agrees with those labels, and not that it is right. They are provisional, and the accuracy is in-sample.
+
+| Condition | Measured | Range | n | Level 1 target |
+|---|---|---|---|---|
+| Accuracy on covered rows | 99.3% | 98.3% to 100.0% | 195 notes | 95% |
+| Coverage of rows | 99.0% | 98.3% to 99.4% | 1,347 rows | 25% |
+| Coverage of disputed dollars | 99.1% | 92.6% to 99.9% | 1,347 rows | 80% |
+
+| Where they differ | Accuracy | Correct |
+|---|---|---|
+| Large disputes | 92.6% | 47 of 50 |
+| Multiple charges | 100% | 47 of 47 |
+| Single charge | 100% | 98 of 98 |
+| Note format seen in TRAIN | 100% | 137 of 137 |
+| Note format not seen in TRAIN | 94.8% | 55 of 58 |
+
+- **Outcomes:** 1,097 rows `verified`, 227 `discrepancy` (136 repeated invoices, 91 that do not add up), 14 `review`, 9 `no_charge_stated`. Invariant violations: 0.
+- **Without repeated invoices:** dollar coverage reads 100.9%, because one negative row is not covered and the plain sum is the scope's figure.
+- **Errors against the labels:** 3 category errors and 1 missing item, across 3 notes, all on large disputes.
+- **Run:** 729 notes in 3.2 minutes for $3.65, against D4's limit of 30 minutes for 1,500 rows.
+
+### Drafting the labels
+
+| Pack | Model | Notes | Labelled | Reported doubt | Cost, USD |
+|---|---|---|---|---|---|
+| `label_A` | Opus 5.5, effort `high` | 50 | 50 | 5 | 0.41 |
+| `label_B` | Opus 5.5, effort `xhigh` | 50 | 50 | 4 | 0.34 |
+| `label_single` | Opus 5.5, effort `high` | 150 | 150 | 7 | 0.72 |
+
+The total was $1.46, against the $20 budget. The two passes agreed on all 50 double-labelled notes, but one model reading a note twice is weak evidence, and two people might not have agreed. The mix came to 103 single and 97 multi-charge or large notes, so no reserve note was needed. Writing the review workbook and importing it unchanged left the frozen labels byte-identical.
+
+## Live check on TRAIN
+
+Tasks 7.1 and 7.2, run on 2026-11-03 with the real API. TRAIN only: no TEST, RESERVE or VALIDATION note was sent.
 
 ## Result
 
@@ -37,7 +74,7 @@ The Opus run on all of TRAIN took 1.4 minutes. Agreement between models is not a
 
 ## Not exercised live
 
-- The retry after a rejected answer: no model produced a rejected answer in 918 answers. Unit tests cover it.
+- The retry on TRAIN: no model produced a rejected answer in 918 answers. It later fired while drafting labels, where two answers were rejected as `empty_answer`, retried and accepted.
 - A refusal or a refusal fallback.
 - The Ollama and OpenAI-compatible adapters: no server was available.
 - `gt draft-taxonomy --send`: the D1 draft was written in the session.
