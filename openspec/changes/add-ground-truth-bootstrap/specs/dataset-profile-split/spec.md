@@ -43,6 +43,13 @@ Every note placed in a draft prompt MUST be recorded and MUST NOT enter TEST or 
 - **WHEN** the split is redone after the draft prompt was written
 - **THEN** no note in that prompt is in TEST or RESERVE
 
+### Requirement: Notes with tool output stay out of a new split
+A new split MUST keep every note that already has a tool answer out of TEST and the reserve.
+
+#### Scenario: Split replaced after a development run
+- **WHEN** a run on TRAIN exists and an operator replaces the split before labelling starts
+- **THEN** no note with an answer on disk is in TEST or the reserve
+
 ### Requirement: TEST drawn first with a reserve
 The system SHALL draw TEST before assigning any other note, as 100 single-charge notes, `split.test_large_notes` large-dispute notes and multi-charge notes for the rest of the 200, plus `split.test_reserve_notes` reserve notes.
 

@@ -119,6 +119,10 @@ def split_command(force: bool = typer.Option(False, help="Replace an existing sp
     ctx = Context(config)
     blank = sum("empty_note" in r.flags for r in ctx.rows)
     seen = set(ctx.ws.read_json("seen_in_draft.json")) if ctx.ws.exists("seen_in_draft.json") else set()
+    locked = ctx.ws.exists("packs.json") or ctx.ws.exists("seal_record.json")
+    if not locked:  # a note with tool output is no longer blind, so a new split must not put it in TEST or RESERVE
+        for results in (ctx.root / ctx.cfg.data_root / "runs").glob("run_*/note_results.json"):
+            seen |= set(json.loads(results.read_text(encoding="utf-8")))
     pinned = set(ctx.examples)
     if (ctx.root / CATEGORIES).exists():  # notes quoted as D1 examples stay in TRAIN
         pinned |= {e["fingerprint"] for c in tx.load_taxonomy(ctx.root / CATEGORIES)["categories"] for e in c["examples"]}
@@ -126,7 +130,7 @@ def split_command(force: bool = typer.Option(False, help="Replace an existing sp
     if ctx.ws.exists("split_manifest.json"):
         same = ctx.ws.read_json("split_manifest.json")["notes"] == json.loads(json.dumps(manifest["notes"], default=str))
         if not same:
-            if ctx.ws.exists("packs.json") or ctx.ws.exists("seal_record.json"):
+            if locked:
                 raise ContractError("labelling has started, so the split is locked")
             if not force:
                 raise ContractError("a different split already exists; pass --force to replace it")
@@ -274,7 +278,7 @@ def client_pack_command(config: Path = Config_) -> None:
 def import_client_command(
     path: Path = typer.Argument(..., help="The returned review workbook."),
     date: str = typer.Option(..., help="Review date, YYYY-MM-DD."),
-    role: str = typer.Option("client_owner", help="Reviewer's role."),
+    role: str = typer.Option(..., help="Reviewer's role: client_owner, or team_provisional for a team member. Required, because it decides whether TEST can be sealed."),
     config: Path = Config_,
 ) -> None:
     """Read the client's review. Their decision becomes the gold label."""
