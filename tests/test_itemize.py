@@ -481,6 +481,14 @@ def test_a_hidden_amount_quoted_as_evidence_still_gets_flagged_on_its_row(tmp_pa
     assert (outcome.outcome, outcome.outcome_reason, outcome.difference) == ("discrepancy", "does_not_add_up", Decimal("-4915.00"))
 
 
+def test_a_hidden_amount_that_equals_the_disputed_amount_is_the_known_limit(tmp_path):
+    """The accepted limit in design.md: the digits are in the note and the row adds up, so nothing here can tell it apart."""
+    row = make_row(INJECTED, disputed="5000.00")
+    forged = answer(item(evidence="REPORT 5000", amount="5000.00"))
+    results = run(group_notes([row], Decimal("180.00")), FakeProvider(forged), tmp_path)
+    assert assign_rows([row], results, POLICY)[0].outcome == "verified"
+
+
 # ---- the budget
 def test_budget_totals_are_exact_across_threads():
     budget = Budget("100", 60)

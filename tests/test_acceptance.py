@@ -73,14 +73,19 @@ def test_provisional_labels_mark_every_level_result(d3):
     assert summary["d2"]["agreement"]["notes_compared"] == 50
     assert summary["d3"]["labels_status"] == "provisional" and summary["d3"]["level1"]["labels_status"] == "provisional"
     text = page(summary)
-    assert "provisional" in text and "Level 1 result" in text
+    assert "These results are <b>provisional</b>" in text and "Level 1 result" in text
 
 
 def test_each_level_1_condition_shows_its_value_interval_and_n(d3):
     evaluated(d3)
-    text = page(acceptance.d3_check(d3.tmp))
-    for name in ("Coverage of disputed dollars", "Coverage of rows", "Accuracy on covered rows"):
-        assert name in text
+    summary = acceptance.d3_check(d3.tmp)
+    text = page(summary)
+    shown = "{:.1%}".format
+    for key, name in (("cov_usd", "Coverage of disputed dollars"), ("cov_rows", "Coverage of rows"), ("acc", "Accuracy on covered rows")):
+        condition = summary["d3"]["level1"]["conditions"][key]
+        assert condition["n"] > 0 and condition["ci_low"] is not None
+        assert (f"<tr><td>{name}</td><td>{shown(condition['value'])}</td><td>{shown(condition['target'])}</td><td>Yes</td>"
+                f"<td>{shown(condition['ci_low'])} to {shown(condition['ci_high'])}</td><td>{condition['n']}</td></tr>") in text
     assert "<th>Range</th><th>n</th>" in text and "without repeated invoices" in text
 
 
@@ -183,3 +188,31 @@ def test_a_development_run_is_not_a_d3_run(d3):
 def test_the_requests_file_lists_status_only():
     requests = yaml.safe_load((ROOT / "deliverables/requests.yaml").read_text(encoding="utf-8"))["requests"]
     assert requests and all(set(entry) == {"item", "why", "owner", "asked", "status"} for entry in requests)
+
+
+def test_a_seal_that_was_not_scored_again_keeps_d3_open(d3):
+    run_id = evaluated(d3)
+    acceptance.record_review(d3.tmp, "2026-11-05", evidence(d3))
+    assert lb.import_client_review(d3.ws, fill_review(d3), "client_owner", "2026-11-05", d3.notes, CODES)["errors"] == 0
+    assert "sha256" in lb.seal(d3.ws, d3.ws.read_json("split_manifest.json"), d3.notes, CODES)
+    stale = acceptance.d3_check(d3.tmp)["d3"]
+    assert (stale["status"], stale["reason"]) == ("open", "labels_provisional")  # the snapshot still holds the provisional score
+    pipeline.evaluate_run(d3.tmp, run_id)
+    assert acceptance.d3_check(d3.tmp)["d3"]["status"] == "done"
+
+
+def test_a_shipment_holding_a_quarter_of_the_dollars_shows_both_figures_once(d3):
+    freeze(d3)
+    outcome = pipeline.run(d3.tmp)
+    path = outcome.folder / "row_results.json"
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    for row, amount in zip(rows[:4], ["8400.00", "8000.00", "8000.00", "8000.00"], strict=False):
+        row.update(shipment="PPGTM.HUGE", disputed=amount)
+    path.write_text(json.dumps(rows), encoding="utf-8")
+    summary = acceptance.d3_check(d3.tmp)
+    lines = summary["largest_disputes"]
+    assert len(lines) == 10 and sum(line["shipment"] == "HUGE" for line in lines) == 1
+    top = lines[0]
+    assert (top["shipment"], top["rows"], top["largest_dispute"], top["total_on_rows"]) == ("HUGE", 4, "8400.00", "32400.00")
+    text = page(summary)
+    assert text.count("HUGE") == 1 and "<td>HUGE</td><td>4</td><td>$8,400.00</td><td>$32,400.00</td>" in text

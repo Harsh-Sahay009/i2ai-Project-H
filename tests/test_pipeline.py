@@ -21,7 +21,7 @@ from itemizer.bootstrap import split as sp
 from itemizer.bootstrap import taxonomy as tx
 from itemizer.bootstrap.data import COLUMNS, ContractError, Workspace, group_notes, load_config, load_export, sha256_file
 from itemizer.cli import app
-from itemizer.providers import Completion, ProviderError
+from itemizer.providers import Completion, ProviderError, load_models
 
 ROOT = Path(__file__).resolve().parents[1]
 CODES = {f"cat_{i}" for i in range(12)} | {"other_unmapped"}
@@ -239,8 +239,9 @@ def test_another_export_runs_whole_with_no_split(d3):
     assert {line["outcome"] for line in run_lines(outcome.workbook)} == {"verified"}
 
 
-def test_another_export_holding_test_notes_waits_for_the_freeze(d3):
-    held_back = d3.notes[sp.notes_in_set(d3.manifest, "TEST")[0]].text
+@pytest.mark.parametrize("held_in", ["TEST", "RESERVE"])
+def test_another_export_holding_held_back_notes_waits_for_the_freeze(d3, held_in):
+    held_back = d3.notes[sp.notes_in_set(d3.manifest, held_in)[0]].text
     path = _other_export(d3.tmp / "other.xlsx", [held_back, "FRESH CHARGE $50.00"])
     with pytest.raises(ContractError, match="held back for TEST"):
         pipeline.run(d3.tmp, export=path)
@@ -334,6 +335,10 @@ def test_a_new_entry_in_the_registry_is_usable_with_no_code_change(d3):
     outcome = pipeline.run(d3.tmp, model_name="claude-next", set_name="train", limit=2)
     stored = json.loads((outcome.folder / "manifest.json").read_text(encoding="utf-8"))
     assert stored["model"]["name"] == "claude-next" and stored["model"]["model"] == "claude-next-1"
+    specs, _ = load_models(d3.tmp / pipeline.MODELS)
+    assert stored["model"] == specs["claude-next"].model_dump(mode="json")  # the full entry, not only its name
+    assert {"provider", "effort", "refusal_fallback", "max_tokens", "api_key_env", "input_usd_per_mtok", "output_usd_per_mtok",
+            "cache_read_usd_per_mtok", "cache_write_usd_per_mtok"} <= set(stored["model"])
     assert {call.model for call in d3.calls} == {"claude-next"}
 
 
@@ -457,3 +462,30 @@ def test_gt_seal_provisional_allows_the_run_on_all_rows(d3):
     assert result.exit_code == 0, result.stderr
     assert lb.is_test_frozen(d3.ws) and pipeline.run(d3.tmp).rows == len(d3.rows)
     assert categories_for(d3)  # the category list is unchanged by the freeze
+
+
+# ---- the final seal through the command line
+def _approve(d3) -> None:
+    email = d3.tmp / "approval_email.txt"
+    email.write_text("Approved.", encoding="utf-8")
+    tx.record_approval(d3.tmp / pipeline.CATEGORIES, d3.tmp / pipeline.APPROVAL, "client_owner", "2026-11-05", email)
+
+
+def test_gt_seal_after_the_freeze_uses_the_clients_review_and_releases_the_reserve(d3):
+    freeze(d3)
+    assert sp.notes_in_set(d3.ws.read_json("split_manifest.json"), "RESERVE")
+    assert lb.import_client_review(d3.ws, fill_review(d3), "client_owner", "2026-11-05", d3.notes, CODES)["errors"] == 0
+    _approve(d3)
+    result = runner.invoke(app, ["gt", "seal"])
+    assert result.exit_code == 0, result.stderr
+    manifest = d3.ws.read_json("split_manifest.json")
+    assert manifest["reserve_released"] and not sp.notes_in_set(manifest, "RESERVE")
+    assert lb.load_test_gold(d3.ws)[1] == "sealed"
+
+
+def test_gt_seal_stops_without_the_clients_approval(d3):
+    freeze(d3)
+    assert lb.import_client_review(d3.ws, fill_review(d3), "client_owner", "2026-11-05", d3.notes, CODES)["errors"] == 0
+    result = runner.invoke(app, ["gt", "seal"])
+    assert result.exit_code != 0 and "approval" in result.stderr + result.stdout
+    assert lb.load_test_gold(d3.ws)[1] == "provisional" and not d3.ws.exists("seal_record.json")

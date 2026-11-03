@@ -45,4 +45,4 @@
 
 ## 8. Tests
 
-- [ ] 8.1 Tests per scenario in all six capability specs, on invented notes with no network
+- [x] 8.1 Tests per scenario in all six capability specs, on invented notes with no network
