@@ -12,6 +12,7 @@ import pytest
 from typer.testing import CliRunner
 
 from itemizer.bootstrap import split as sp
+from itemizer.bootstrap import taxonomy as tx
 from itemizer.bootstrap.data import (
     COLUMNS, Config, ContractError, Note, NoteLabel, Workspace, find_evidence, fingerprint, group_notes, load_export,
     money_tokens, sha256_file, to_money,
@@ -66,6 +67,23 @@ def world(tmp_path):
     manifest = sp.build_split(notes, cfg, examples, sha256_file(export))
     ws.write_json("split_manifest.json", manifest)
     return SimpleNamespace(tmp=tmp_path, export=export, cfg=cfg, ws=ws, rows=rows, examples=examples, notes=notes, manifest=manifest)
+
+
+def proposal(notes: dict[str, Note], fingerprints: list[str], count: int = 12) -> tx.TaxonomyProposal:
+    categories = []
+    for i in range(count):
+        note = notes[fingerprints[i]]
+        categories.append(tx.ProposedCategory(
+            code=f"cat_{i}", name=f"Category {i}", definition="A kind of charge.", includes=[], excludes=[],
+            examples=[tx.ProposedExample(note_id=note.note_id, quote=note.text[:10])]))
+    return tx.TaxonomyProposal(categories=categories)
+
+
+def categories_for(world) -> list[dict]:
+    sample = tx.sample_train_notes(world.manifest, world.notes, set(), 50, world.cfg.seed)
+    taxonomy, _ = tx.draft_taxonomy(proposal(world.notes, sample), sample, world.notes, "fake", "hash")
+    assert tx.validate_taxonomy(taxonomy, world.notes) == []
+    return taxonomy["categories"]
 
 
 def fill_pack(path: Path, notes: dict[str, Note], change=None) -> None:
@@ -209,6 +227,97 @@ def test_note_in_two_sets_fails(world):
         sp.check_manifest(broken)
 
 
+# ---- taxonomy-drafting
+def test_draft_sample_is_train_only_and_refuses_others(world):
+    sample = tx.sample_train_notes(world.manifest, world.notes, set(), 500, world.cfg.seed)
+    sets = {e["fingerprint"]: e["set"] for e in world.manifest["notes"]}
+    assert sample and all(sets[fp] == "TRAIN" for fp in sample)
+    test_note = next(fp for fp, s in sets.items() if s == "TEST")
+    with pytest.raises(ContractError, match="outside TRAIN"):
+        tx.assert_train_only(sample + [test_note], world.manifest)
+
+
+def test_reserve_is_not_used_before_sealing(world):
+    sample = tx.sample_train_notes(world.manifest, world.notes, set(), 10_000, world.cfg.seed)
+    assert not set(sample) & set(sp.notes_in_set(world.manifest, "RESERVE"))
+
+
+def test_too_few_categories_fail(world):
+    sample = tx.sample_train_notes(world.manifest, world.notes, set(), 50, world.cfg.seed)
+    with pytest.raises(ContractError, match="9 categories"):
+        tx.draft_taxonomy(proposal(world.notes, sample, 9), sample, world.notes, "fake", "hash")
+
+
+def test_paraphrased_quote_is_dropped_and_reported(world):
+    sample = tx.sample_train_notes(world.manifest, world.notes, set(), 50, world.cfg.seed)
+    drafted = proposal(world.notes, sample)
+    drafted.categories[0].examples[0].quote = "this was never in the note"
+    taxonomy, report = tx.draft_taxonomy(drafted, sample, world.notes, "fake", "hash")
+    assert report["dropped_examples"][0]["reason"] == "quote not verbatim"
+    assert "cat_0: no real example" in tx.validate_taxonomy(taxonomy, world.notes)
+
+
+def test_taxonomy_file_cannot_hold_note_text(world):
+    categories = categories_for(world)
+    taxonomy = {"version": "draft-1", "categories": json.loads(json.dumps(categories))}
+    taxonomy["categories"][0]["examples"][0]["quote"] = "LUMPER FEE $20.00"
+    assert any("only fingerprint" in p for p in tx.validate_taxonomy(taxonomy))
+    taxonomy = {"version": "draft-1", "categories": json.loads(json.dumps(categories))}
+    taxonomy["categories"][1]["definition"] = "Like BASE RATE CORRECTION $200.00 in a note"
+    assert any("text of a note" in p for p in tx.validate_taxonomy(taxonomy, world.notes))
+
+
+def test_written_taxonomy_holds_offsets_only(world, tmp_path):
+    path = tmp_path / "taxonomy" / "categories.yaml"
+    tx.write_taxonomy(path, {"version": "draft-1", "categories": categories_for(world)})
+    text = path.read_text()
+    assert "fingerprint" in text and "LUMPER" not in text and "BASE RATE" not in text
+
+
+def test_approval_document_shows_real_quotes(world):
+    document = tx.approval_document({"version": "draft-1", "categories": categories_for(world)}, world.notes)
+    example = categories_for(world)[0]["examples"][0]
+    assert world.notes[example["fingerprint"]].text[example["start"]:example["end"]] in document
+
+
+def test_approval_is_recorded_and_breaks_if_the_list_changes(world, tmp_path):
+    categories_path, approval_path = tmp_path / "categories.yaml", tmp_path / "approval.yaml"
+    tx.write_taxonomy(categories_path, {"version": "draft-1", "categories": categories_for(world)})
+    assert tx.approved_codes(categories_path, approval_path) is None
+    evidence = tmp_path / "email.txt"
+    evidence.write_text("Approved.")
+    record = tx.record_approval(categories_path, approval_path, "client_owner", "2026-11-03", evidence)
+    assert record["tag"] == "taxonomy@D1-approved"
+    assert "cat_0" in tx.approved_codes(categories_path, approval_path)
+    categories_path.write_text(categories_path.read_text() + "\n# edited\n")
+    assert tx.approved_codes(categories_path, approval_path) is None
+
+
+def test_adapter_sends_schema_and_reads_the_answer(world):
+    sample = tx.sample_train_notes(world.manifest, world.notes, set(), 50, world.cfg.seed)
+    seen = {}
+
+    def create(**kwargs):
+        seen.update(kwargs)
+        block = SimpleNamespace(type="text", text=proposal(world.notes, sample).model_dump_json())
+        return SimpleNamespace(stop_reason="end_turn", content=[block])
+
+    client = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=create)))
+    result = tx.AnthropicDrafter(client=client).propose("system", "user")
+    assert len(result.categories) == 12
+    assert seen["model"] == "claude-opus-5-5"
+    assert seen["output_config"]["format"]["schema"]["additionalProperties"] is False
+
+
+def test_adapter_stops_on_refusal(world):
+    def create(**kwargs):
+        return SimpleNamespace(stop_reason="refusal", content=[])
+
+    client = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=create)))
+    with pytest.raises(ContractError, match="declined"):
+        tx.AnthropicDrafter(client=client).propose("system", "user")
+
+
 # ---- test-set-preparation
 def _cells(path: Path) -> list[str]:
     workbook = openpyxl.load_workbook(path)
@@ -282,6 +391,13 @@ def test_cli_prints_no_note_text(project):
             assert text not in result.output
     log = (project / "data/bootstrap/command_log.jsonl").read_text().splitlines()
     assert [json.loads(line)["command"] for line in log] == ["profile", "scan", "split"]
+
+
+def test_cli_blocks_external_send_for_confidential_data(project):
+    runner = CliRunner()
+    runner.invoke(app, ["gt", "split"])
+    result = runner.invoke(app, ["gt", "draft-taxonomy"])
+    assert result.exit_code == 2 and "client_confidential" in result.output
 
 
 def test_cli_split_is_locked_once_packs_exist(project):

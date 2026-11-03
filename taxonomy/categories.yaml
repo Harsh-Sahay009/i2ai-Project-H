@@ -1,0 +1,315 @@
+version: draft-1
+model: claude-opus-5-5 (Claude Code session)
+prompt_sha256: 65a0077f6bd3b642543ce2863a0dc395768060d789725a55fafbc113eb97fa5d
+categories:
+- code: purchased_transportation
+  name: Purchased transportation
+  definition: A surcharge or fee for transportation the carrier bought from another provider. Notes spell it many
+    ways.
+  includes:
+  - purchase fee
+  - purchased transp surcharg
+  - purchased transportation fee
+  - purchase transportation surcharge
+  excludes:
+  - corrections to the base rate
+  examples:
+  - fingerprint: a3f042ca2323824238125f3bd5b7d596120d258dd5c6c7565e6beef53781e3d4
+    start: 0
+    end: 42
+  - fingerprint: a1042e15bc549c81abbed05b9575fb647f85f8804146f860a38bee5109083876
+    start: 0
+    end: 32
+  standard_codes: []
+- code: base_rate_correction
+  name: Base rate or linehaul correction
+  definition: 'A difference in the base freight charge: linehaul, minimum charge, or the rate the contract sets
+    for the lane.'
+  includes:
+  - incorrect base cost
+  - balance due per contract
+  - lane factor per contract
+  - min fee
+  - linehaul
+  excludes:
+  - fuel surcharge
+  - purchased transportation
+  examples:
+  - fingerprint: 8d4a8a40573ea4774d9547f33b229ae6620ba9fa8e378c2d8e1bb04aa54f987b
+    start: 0
+    end: 28
+  - fingerprint: a3ecb275b45c0c1c35bfbfcdb3063dff8f6c5054f3477ea73d89b5cd56d8a9cb
+    start: 0
+    end: 38
+  standard_codes: []
+- code: fuel_surcharge
+  name: Fuel surcharge
+  definition: A charge for fuel, including a difference caused by applying the wrong fuel rate.
+  includes:
+  - FSC
+  - fuel surcharge
+  - misspelled feul
+  excludes:
+  - tax on fuel
+  examples:
+  - fingerprint: 47d81bc0da34c135e1f2fddd159ddc0df0af0e3d331ae102f28b593ab72a437b
+    start: 42
+    end: 67
+  - fingerprint: 3bbce21c7ed05d8435cb2f285f563ba186e520d3c7fc6ea5e95f1cd38f8bddfe
+    start: 0
+    end: 7
+  standard_codes: []
+- code: tailgate_delivery
+  name: Tailgate delivery
+  definition: A charge for delivering with a tailgate or liftgate.
+  includes:
+  - tailgate
+  - tailgate delivery
+  excludes:
+  - one amount shared with another charge
+  examples:
+  - fingerprint: c31af6e80d7ab713a8cb38ef6652746a3e0fb921988ebb72495007b2bf733111
+    start: 0
+    end: 26
+  - fingerprint: cd02a52d73f11f5f06fdd84cf929f561c56aa758ff5e889d8141e9cddfcf973f
+    start: 27
+    end: 44
+  standard_codes: []
+- code: inside_delivery
+  name: Inside delivery
+  definition: A charge for bringing freight inside the delivery location.
+  includes:
+  - inside delivery
+  - inside delivery charge
+  excludes:
+  - one amount shared with another charge
+  examples:
+  - fingerprint: cd02a52d73f11f5f06fdd84cf929f561c56aa758ff5e889d8141e9cddfcf973f
+    start: 0
+    end: 24
+  - fingerprint: cc821664a56a8831d8b175d70f93cd8873da1af677460e59cc69c31415f25d8e
+    start: 0
+    end: 31
+  standard_codes: []
+- code: redelivery
+  name: Redelivery
+  definition: A charge for attempting delivery a second time.
+  includes:
+  - redelivery charge
+  excludes:
+  - detention while waiting
+  examples:
+  - fingerprint: 2299549110b9c6ee6f407064cd2360f5d38f04754866a4107586aa06317f592d
+    start: 76
+    end: 103
+  standard_codes: []
+- code: hazmat
+  name: Hazardous materials
+  definition: A charge for carrying hazardous materials.
+  includes:
+  - hazmat charge
+  excludes:
+  - temperature protection
+  examples:
+  - fingerprint: 7aaf975ef0e8b5848c57ea66b107c5a7e4aaa0707a6f6147db958e1cd8cfcb10
+    start: 0
+    end: 18
+  standard_codes: []
+- code: temperature_protection
+  name: Temperature protection
+  definition: A charge for protecting freight from cold or heat in transit.
+  includes:
+  - heat charge
+  - freezable accessorial
+  excludes:
+  - hazardous materials
+  examples:
+  - fingerprint: 6c17fb32e8460c9897b5b752e4cbb0c2f8bc3560cc39e794ac5a2961433a84a6
+    start: 12
+    end: 33
+  - fingerprint: 4fdca17013f045ac120880471030e46874686e11e5493f96dc63ea172e276ec6
+    start: 0
+    end: 63
+  standard_codes: []
+- code: driver_detention
+  name: Driver detention
+  definition: A charge for time a driver waited at a pickup or delivery location.
+  includes:
+  - driver detention
+  - detention driver
+  - detention time
+  excludes:
+  - equipment or container held for days
+  examples:
+  - fingerprint: 61ff99809a5362c9c3e2101095428c131a1d6dd05bb5c700261c2443d169b148
+    start: 0
+    end: 30
+  - fingerprint: bfbc3a69290aeaea4dbe32a7b5675a698e3198004168b7154380862b411d0816
+    start: 0
+    end: 20
+  standard_codes: []
+- code: equipment_detention
+  name: Equipment detention and dwell
+  definition: A charge for keeping a trailer or container beyond its free time, usually counted in days.
+  includes:
+  - equipment detention
+  - dwell days
+  - dwell detention
+  excludes:
+  - driver waiting time
+  - storage at a rail ramp
+  - origin per diem
+  examples:
+  - fingerprint: 3de8697129335fdc54873df25f4d4799675f1636024893ba5b8537dd0966f758
+    start: 0
+    end: 24
+  - fingerprint: 09b6ae141fd43a32d5c27810222bf265a6d77dc0738bb915274cca3f6f42ed54
+    start: 41
+    end: 61
+  standard_codes: []
+- code: ramp_storage
+  name: Rail ramp storage
+  definition: A charge for storing freight or a container at a rail ramp or terminal.
+  includes:
+  - ramp storage
+  - rail ramp storage
+  - storage
+  excludes:
+  - dwell days after deramp
+  examples:
+  - fingerprint: a1f561ee631c4fb57e4ad9abaec10e1af576692a772bc10dece384907df22945
+    start: 0
+    end: 17
+  - fingerprint: 3a01242c11b143cbd9ebc35f87b4cfa18a5f0fb0530815723d5f40e21cd84d2e
+    start: 0
+    end: 41
+  standard_codes: []
+- code: origin_per_diem
+  name: Origin per diem
+  definition: A daily charge for an empty trailer or container held at the origin beyond its free days.
+  includes:
+  - origin per diem
+  - orgin perdiem
+  excludes:
+  - dwell at destination
+  examples:
+  - fingerprint: fbb52e1e623a3ae5205877da84ce440ebf992ed31ffd121194a7b512ea0ce2f7
+    start: 0
+    end: 22
+  - fingerprint: e5cb0c0e03d20b2640b459f25eea34c06b8bca726a125e05b9c31677a44e7d53
+    start: 0
+    end: 25
+  standard_codes: []
+- code: port_and_drayage
+  name: Port and drayage fees
+  definition: Charges for moving a container around a port or yard, including chassis, pre-pull, yard pull, congestion
+    and port termination.
+  includes:
+  - chassis
+  - pre-pull
+  - yard pull
+  - congestion
+  - port termination
+  excludes:
+  - storage
+  - customs bond
+  examples:
+  - fingerprint: 546304da5fb13d32b362f940d9b47d754e07bb79279508691472432c2b0b9ecf
+    start: 10
+    end: 22
+  - fingerprint: 195c252d156c41356c4a2df808b21fb1887c3872124ede1a12b9dbd67a766650
+    start: 24
+    end: 38
+  standard_codes: []
+- code: road_closure_surcharge
+  name: Road closure surcharge
+  definition: A surcharge for a route disrupted by a road closure.
+  includes:
+  - road closure
+  excludes:
+  - fuel surcharge
+  examples:
+  - fingerprint: aefb848c189050cb8b0d44261dfe6f1613e9da49901ab73bf2468cc076f19460
+    start: 0
+    end: 15
+  standard_codes: []
+- code: terminal_handling
+  name: Terminal handling
+  definition: A fee for handling freight at a terminal, such as sorting it or reserving a slot.
+  includes:
+  - sortation fee
+  - reservation fee
+  excludes:
+  - storage
+  examples:
+  - fingerprint: 9735d5b0916921080cd68d5e8858ec7900e587d0d74a45d7ac61a57ac289f45c
+    start: 0
+    end: 20
+  - fingerprint: 9735d5b0916921080cd68d5e8858ec7900e587d0d74a45d7ac61a57ac289f45c
+    start: 25
+    end: 47
+  standard_codes: []
+- code: customs_bond
+  name: Customs bond
+  definition: A charge for a customs bond on a shipment.
+  includes:
+  - bond charges
+  excludes:
+  - port and drayage fees
+  examples:
+  - fingerprint: 86fff129150caf793cf6367193b82135d884258633b15a52aee73fcc325f996b
+    start: 0
+    end: 21
+  standard_codes: []
+- code: tax
+  name: Tax
+  definition: A tax on freight charges. Canadian notes show GST or HST.
+  includes:
+  - GST
+  - HST
+  - tax
+  excludes:
+  - the charge the tax applies to
+  examples:
+  - fingerprint: 30d10a1674918045bc125aacf680d6aaf0ae59cb04cce10a85da1737b9a56583
+    start: 45
+    end: 54
+  - fingerprint: 6c17fb32e8460c9897b5b752e4cbb0c2f8bc3560cc39e794ac5a2961433a84a6
+    start: 39
+    end: 48
+  standard_codes: []
+- code: short_paid
+  name: Short paid invoice
+  definition: The note says part of an invoice was not paid, and does not say which charge the amount is for.
+  includes:
+  - short paid
+  - still unpaid
+  excludes:
+  - a note that names the charge
+  examples:
+  - fingerprint: 4beb0f5be9dfcd45794ebe6f681d2c562119ff4fbef75fdb444314a56d646055
+    start: 0
+    end: 21
+  - fingerprint: 98d9ba156626e0f51fd7699620e26fa76059198bb43f635a9d19bcca9f5a8fc9
+    start: 0
+    end: 20
+  standard_codes: []
+- code: combined_charges
+  name: Combined charges
+  definition: One stated amount covers several named charges, and the note gives no breakdown.
+  includes:
+  - tailgate and purchase fee with one balance
+  excludes:
+  - notes that give an amount for each charge
+  examples:
+  - fingerprint: ae12682cb2eeb6b32d206eb334dbe2ed5b0ea8a2258733cb9ea0806f7197a335
+    start: 0
+    end: 45
+  standard_codes: []
+- code: other_unmapped
+  name: Other or unmapped
+  definition: A charge that fits no other category. Used to measure whether the list is complete.
+  includes: []
+  excludes: []
+  examples: []
+  standard_codes: []

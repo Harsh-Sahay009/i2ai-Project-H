@@ -14,10 +14,10 @@
 
 ## 3. D1 charge category list
 
-- [ ] 3.1 Implement `gt draft-taxonomy` over TRAIN notes only, with the dataset class check, verbatim example check, 12–20 category check and `other_unmapped`
-- [ ] 3.2 Write `taxonomy/categories.yaml` with fingerprints and offsets only, plus a validator that rejects note text
-- [ ] 3.3 Implement `gt approval-doc`: about two pages with definitions and real examples, kept out of Git
-- [ ] 3.4 Implement `gt record-approval` with approver role, date and evidence file hash
+- [x] 3.1 Implement `gt draft-taxonomy` over TRAIN notes only, with the dataset class check, verbatim example check, 12–20 category check and `other_unmapped`
+- [x] 3.2 Write `taxonomy/categories.yaml` with fingerprints and offsets only, plus a validator that rejects note text
+- [x] 3.3 Implement `gt approval-doc`: about two pages with definitions and real examples, kept out of Git
+- [x] 3.4 Implement `gt record-approval` with approver role, date and evidence file hash
 - [ ] 3.5 (People) Edit the draft; merge or split categories until each has a clear definition
 - [ ] 3.6 (People) Send the document to Jake and obtain written approval
 - [ ] 3.7 (People) If a model-written draft is wanted, set an API key and run `gt draft-taxonomy --send` once, which also confirms the live call
