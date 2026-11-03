@@ -1,7 +1,9 @@
 """Tests per scenario for `itemizer compare-models`. Every note is invented, and every model is a fake."""
 from __future__ import annotations
 
+import collections
 import json
+import re
 from decimal import Decimal
 
 import pytest
@@ -109,7 +111,12 @@ def test_the_table_has_a_column_for_each_model(d3):
     report = compare.compare_models(d3.tmp, MODELS, "train", 3)
     table = compare.format_table(report).splitlines()
     assert table[0].split()[1:] == MODELS
-    assert all(line.startswith(label) for line, (_, label, _) in zip(table[1:], compare._TABLE[1:], strict=True))
+    assert [re.split(r"\s{2,}", line)[0] for line in table] == [
+        "Model", "Valid first try", "Retried", "Review", "Verified", "Discrepancy", "Agrees with first", "Accuracy on labels", "Cost USD",
+        "Mean ms", "USD, all notes", "Minutes, all notes"]
+    shown = {re.split(r"\s{2,}", line)[0]: re.split(r"\s{2,}", line)[1:] for line in table}
+    assert shown["Discrepancy"] == [f"{line['discrepancy_share']:.1%}" for line in report["models"]]
+    assert shown["Verified"] == [f"{line['verified_share']:.1%}" for line in report["models"]]
 
 
 def test_a_cold_start_is_not_multiplied_across_all_notes():
@@ -119,3 +126,28 @@ def test_a_cold_start_is_not_multiplied_across_all_notes():
 
 def test_a_sample_with_no_cold_start_projects_its_plain_cost():
     assert compare.projected_usd([Decimal("0.005")] * 10, 100) == Decimal("0.50")
+
+
+def test_the_shares_are_the_runs_own_row_outcomes(d3):
+    line = compare.compare_models(d3.tmp, MODELS[:1], "train")["models"][0]
+    rows = json.loads((d3.tmp / "data" / "runs" / line["run_id"] / "row_results.json").read_text(encoding="utf-8"))
+    outcomes = collections.Counter(row["outcome"] for row in rows)
+    assert 0 < outcomes["discrepancy"] < len(rows)  # repeated invoices, so this share is not trivially 0 or 1
+    assert line["discrepancy_share"] == outcomes["discrepancy"] / len(rows)
+    assert line["verified_share"] == (outcomes["verified"] + outcomes["no_charge_stated"]) / len(rows)
+    assert line["review_share"] == outcomes["review"] / len(rows)
+
+
+def test_accuracy_on_labels_counts_the_wrong_answers_too(d3):
+    categories = _categories(d3)
+    lb.build_packs(d3.ws, d3.manifest, d3.notes, categories)
+    path = d3.ws.path("packs/validation.xlsx")
+    fill_pack(path, d3.notes)
+    assert lb.import_labels(d3.ws, "validation", path, "v", d3.notes, {c["code"] for c in categories})["errors"] == 0
+    labelled = set(d3.ws.read_json("labels/validation.json")["labels"]) & set(sp.notes_in_set(d3.manifest, "VALIDATION"))
+    d3.wrong_on = "LUMPER"  # the labels say cat_0, and this model says cat_1 on these charges
+    right = sum("LUMPER" not in d3.notes[fp].text for fp in labelled)
+    assert 0 < right < len(labelled)
+    accuracy = compare.compare_models(d3.tmp, MODELS[:1], "validation")["models"][0]["accuracy_on_labels"]
+    assert accuracy["correct"] == right and accuracy["answered"] == len(labelled)
+    assert accuracy["accuracy"] == pytest.approx(right / len(labelled))

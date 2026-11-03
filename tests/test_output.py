@@ -570,3 +570,22 @@ def test_a_folder_that_cannot_be_written_is_a_plain_error(tmp_path):
 
 def test_missing_folder_is_created(tmp_path):
     assert write(tmp_path / "runs" / "run_1" / "itemized.xlsx", []).exists()
+
+
+# ---- the spec's cases, read back from the sheet itself
+def test_one_dispute_repeated_appears_once_on_the_largest_sheet(tmp_path):
+    amounts = ["8400.00", "8400.00", "8400.00", "8000.00", "8000.00", "8000.00"]
+    rows = [row(f"R{n:04d}", "PPGTM.HUGE", amount, repeated=n > 0) for n, amount in enumerate(amounts)]
+    lines = sheet_values(write(tmp_path / "x.xlsx", rows + [row("R0100", "PPGTM.OTHER", "1600.00")]), "Largest")
+    huge = [line for line in lines if line["shipment"] == "HUGE"]
+    assert len(huge) == 1 and len(lines) == 2
+    assert (huge[0]["largest_dispute"], huge[0]["total_on_rows"], huge[0]["rows"], huge[0]["repeated_rows"]) == (8400, 49200, 6, 5)
+    assert huge[0]["share_of_total"] == pytest.approx(8400 / 10000)
+
+
+def test_filtering_discrepancy_shows_what_was_already_paid(tmp_path):
+    notes = {"a": answered("a", item(evidence="BILLED $300.00", amount="300.00"),
+                           item(evidence="PAID $100.00", amount="100.00", number=2, line_type="already_paid"))}
+    rows = [row("R0002", "PPGTM.S1", "150.00", "discrepancy", fp="a", items_total="300.00", already_paid_total="100.00", difference="-50.00")]
+    found = [line for line in sheet_values(write(tmp_path / "x.xlsx", rows, notes), "Row Summary") if line["outcome"] == "discrepancy"][0]
+    assert (found["disputed"], found["items_total"], found["already_paid"], found["difference"]) == (150, 300, 100, -50)
