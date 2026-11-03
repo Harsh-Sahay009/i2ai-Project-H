@@ -1,0 +1,187 @@
+# Worked examples for the prompt. Offsets only: the note text is read from the dataset at runtime.
+# claude_draft_unconfirmed entries need a person to confirm them (add-d3-thin-path task 7.3).
+version: fewshot@v1
+examples:
+- note_id: n_a3f042ca
+  source: claude_draft_unconfirmed
+  items:
+  - category: purchased_transportation
+    amount: '20.00'
+    start: 0
+    end: 42
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+- note_id: n_9735d5b0
+  source: team_example_corrected
+  items:
+  - category: terminal_handling
+    amount: '60.00'
+    start: 0
+    end: 20
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+  - category: terminal_handling
+    amount: '12.00'
+    start: 25
+    end: 47
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+  - category: tax
+    amount: '3.60'
+    start: 59
+    end: 68
+    line_type: tax
+    derivation: stated
+    basis: named_in_note
+- note_id: n_077781a1
+  source: team_example_corrected
+  items:
+  - category: fuel_surcharge
+    amount: '27.05'
+    start: 21
+    end: 42
+    line_type: charge
+    derivation: stated
+    basis: inferred_from_context
+  - category: tax
+    amount: '1.35'
+    start: 45
+    end: 54
+    line_type: tax
+    derivation: stated
+    basis: named_in_note
+- note_id: n_c383e38c
+  source: claude_draft_unconfirmed
+  items:
+  - category: purchased_transportation
+    amount: '20.00'
+    start: 0
+    end: 16
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+- note_id: n_ae12682c
+  source: claude_draft_unconfirmed
+  items:
+  - category: combined_charges
+    amount: '36.75'
+    start: 0
+    end: 45
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+- note_id: n_17db31fa
+  source: claude_draft_unconfirmed
+  items:
+  - category: other_unmapped
+    amount: '57.67'
+    start: 0
+    end: 5
+    line_type: charge
+    derivation: stated
+    basis: no_description
+- note_id: n_3a01242c
+  source: claude_draft_unconfirmed
+  items:
+  - category: ramp_storage
+    amount: '300.00'
+    start: 0
+    end: 41
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+- note_id: n_09b6ae14
+  source: claude_draft_unconfirmed
+  items:
+  - category: equipment_detention
+    amount: '150.00'
+    start: 41
+    end: 61
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+- note_id: n_d1c918c6
+  source: claude_draft_unconfirmed
+  items:
+  - category: short_paid
+    amount: '75.27'
+    start: 0
+    end: 17
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+- note_id: n_6c17fb32
+  source: claude_draft_unconfirmed
+  items:
+  - category: temperature_protection
+    amount: '100.00'
+    start: 12
+    end: 33
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+  - category: tax
+    amount: '5.00'
+    start: 39
+    end: 48
+    line_type: tax
+    derivation: stated
+    basis: named_in_note
+- note_id: n_fe81dcf7
+  source: claude_draft_unconfirmed
+  items:
+  - category: tailgate_delivery
+    amount: '15.00'
+    start: 8
+    end: 33
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+- note_id: n_546304da
+  source: claude_draft_unconfirmed
+  items:
+  - category: base_rate_correction
+    amount: '3085.00'
+    start: 0
+    end: 8
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+  - category: port_and_drayage
+    amount: '315.00'
+    start: 10
+    end: 22
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+  - category: port_and_drayage
+    amount: '200.00'
+    start: 24
+    end: 45
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+  - category: port_and_drayage
+    amount: '200.00'
+    start: 47
+    end: 62
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+  - category: port_and_drayage
+    amount: '200.00'
+    start: 64
+    end: 77
+    line_type: charge
+    derivation: stated
+    basis: named_in_note
+  - category: ramp_storage
+    amount: '300.00'
+    start: 79
+    end: 91
+    line_type: charge
+    derivation: stated
+    basis: named_in_note

@@ -1,4 +1,4 @@
-"""The `itemizer` command. For now it holds `gt`, which creates D1 and D2."""
+"""The `itemizer` command: `gt` creates D1 and D2, and `run`, `evaluate` and `acceptance` carry D3."""
 from __future__ import annotations
 
 import json
@@ -319,6 +319,45 @@ def seal_command(
     record = lb.seal(ctx.ws, manifest, ctx.notes, approved, code_map)
     ctx.ws.log("seal", [], [ctx.ws.path("test_sealed.json"), ctx.ws.path("split_manifest.json")], sha256=record["sha256"])
     _show(record)
+
+
+def _show_outcome(outcome) -> None:
+    root = Path.cwd()
+    coverage = outcome.coverage
+    _show({
+        "run_id": outcome.run_id, "rows": outcome.rows, "notes": outcome.notes, "outcomes": outcome.outcomes,
+        "reasons": outcome.reasons, "minutes": round(outcome.minutes, 2), "cost_this_run_usd": str(outcome.new_calls_usd),
+        "cost_when_first_answered_usd": str(outcome.measured_usd), "notes_from_cache": outcome.cached_notes,
+        "coverage_rows_on_these_rows": coverage["rows"]["share"], "coverage_usd_on_these_rows": coverage["usd"]["share"],
+        "workbook": str(outcome.workbook.relative_to(root)) if outcome.workbook.is_relative_to(root) else str(outcome.workbook),
+    })
+
+
+@app.command("run")
+@_guard
+def run_command(
+    model: str = typer.Option(None, help="A name from config/models.yaml. Without this, the default model."),
+    set_name: str = typer.Option(None, "--set", help="train or validation, for development. Without this, all rows."),
+    limit: int = typer.Option(None, help="Only this many notes of the set."),
+    export: Path = typer.Option(None, help="Another export file. Without this, the dataset file."),
+) -> None:
+    """Itemize an export and write the workbook. A run on all rows of the dataset waits until TEST is frozen."""
+    from .pipeline import run
+
+    _show_outcome(run(Path.cwd(), model_name=model, set_name=set_name, limit=limit, export=export))
+
+
+@app.command("evaluate")
+@_guard
+def evaluate_command(
+    run_id: str = typer.Option(None, "--run", help="The run to score. Without this, the newest run on all rows."),
+    milestone: str = typer.Option("d3", help="The milestone this evaluation belongs to."),
+) -> None:
+    """Score a run on TEST and report the Level gates. Aggregates only."""
+    from .pipeline import evaluate_run
+
+    snapshot = evaluate_run(Path.cwd(), run_id, milestone)
+    _show({key: snapshot[key] for key in ("run_id", "milestone", "labels_status", "accuracy_scope", "levels", "coverage", "accuracy", "invariants", "test_budget")})
 
 
 @app.command("models")
