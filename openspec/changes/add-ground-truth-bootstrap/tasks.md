@@ -24,12 +24,12 @@
 
 ## 4. D2 tooling
 
-- [ ] 4.1 Implement `gt label-packs`: separate workbooks for labeller A and B (50 notes), the single-labelled 150 and the 15-note spot check
-- [ ] 4.2 Implement `gt import-labels`: category in taxonomy, two-decimal amount, verbatim evidence, stated amount in evidence, rate × quantity product, with a per-row error report
-- [ ] 4.3 Implement `gt agreement`: Cohen's kappa on category, exact match on amounts, item count match, list of disagreements
-- [ ] 4.4 Implement `gt client-pack` and `gt import-client`: all 50 notes with both labels, disagreements flagged, the reviewer's decision becomes gold
-- [ ] 4.5 Implement final strata from gold items and replacement from the reserve
-- [ ] 4.6 Implement `gt seal`: every seal condition checked, hash recorded, fingerprint list exported without labels, unused reserve released to TRAIN and VALIDATION
+- [x] 4.1 Implement `gt label-packs`: separate workbooks for labeller A and B (50 notes), the single-labelled 150 and the 15-note spot check
+- [x] 4.2 Implement `gt import-labels`: category in taxonomy, two-decimal amount, verbatim evidence, stated amount in evidence, rate × quantity product, with a per-row error report
+- [x] 4.3 Implement `gt agreement`: Cohen's kappa on category, exact match on amounts, item count match, list of disagreements
+- [x] 4.4 Implement `gt client-pack` and `gt import-client`: all 50 notes with both labels, disagreements flagged, the reviewer's decision becomes gold
+- [x] 4.5 Implement final strata from gold items and replacement from the reserve
+- [x] 4.6 Implement `gt seal`: every seal condition checked, hash recorded, fingerprint list exported without labels, unused reserve released to TRAIN and VALIDATION
 
 ## 5. Labelling (people)
 
@@ -42,5 +42,5 @@
 
 ## 6. Tests
 
-- [ ] 6.1 Test that no TEST or VALIDATION pack contains tool output, by inspecting every generated file
-- [ ] 6.2 Tests per scenario in `dataset-profile-split`, `taxonomy-drafting` and `test-set-preparation` on synthetic notes
+- [x] 6.1 Test that no TEST or VALIDATION pack contains tool output, by inspecting every generated file
+- [x] 6.2 Tests per scenario in `dataset-profile-split`, `taxonomy-drafting` and `test-set-preparation` on synthetic notes
