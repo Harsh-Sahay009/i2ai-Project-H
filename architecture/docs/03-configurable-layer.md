@@ -169,6 +169,17 @@ Not configurable: blind labelling pages never receive predictions, and audit-sam
 | `split.test_reserve_notes` | int | 20 | 0 – 100; unused notes are released after sealing | Eval lead | locked after TEST is sealed |
 | `split.max_stratum_gap_notes` | int | 10 | 0 – 30; largest gap from a 100/100 TEST mix | Eval lead | — |
 
+### L. What the D3 thin path reads today (ADR 0014)
+
+The thin path reads two files, without the layering and schema that add-configuration-registry adds later. Their keys match this catalog, apart from the D3 values noted here.
+
+| File | Holds |
+|---|---|
+| `config/models.yaml` | `default`, and for each model `provider`, `model`, `api_key_env` (the variable's name, never a key), `base_url`, `effort`, `refusal_fallback`, `max_tokens` and four prices in USD per million tokens |
+| `config/run.yaml` | `reconcile.abs_tolerance_usd`, `review.no_charge_stated_policy`, `review.repeated_invoice_policy`, `budget.max_usd_per_run`, `budget.max_minutes_per_run`, `runtime.concurrency`, `kpi.amount_match_tolerance_usd`, `kpi.bootstrap_resamples`, `kpi.test_peek_budget_per_milestone`, `gates` |
+
+`budget.max_usd_per_run` is 25.00 and `runtime.concurrency` is 8 for D3. The live check on TRAIN projects about $3 for all 729 notes on `claude-opus-5-5`, so the budget can come down once a full run is measured. Doc 11 explains how to test another model.
+
 ## 3.3 What is *not* configurable
 
 Parameters that would weaken an invariant are not exposed: no flag disables the evidence verifier, the amount-edit prohibition, the confidentiality gate's fail-closed behaviour, the TEST-label access restriction, or the UI's blind labelling and blind audit rules. The only exception is `guardrails.profile`, which can be lowered **only** in the `experiment` environment, which accepts SYNTH and ADV data only and cannot publish changes or outputs (ADR 0010).

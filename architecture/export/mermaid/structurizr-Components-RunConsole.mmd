@@ -13,71 +13,75 @@ graph LR
       subgraph 23 ["Run Console"]
         style 23 fill:#ffffff,stroke:#ef601b,color:#ef601b
 
-        24["<div style='font-weight: bold'>CLI Commands</div><div style='font-size: 70%; margin-top: 0px'>[Component: Typer]</div><div style='font-size: 80%; margin-top:10px'>run, evaluate, review<br />export/import, promote,<br />recertify, replay, report,<br />acceptance.</div>"]
+        24["<div style='font-weight: bold'>CLI Commands</div><div style='font-size: 70%; margin-top: 0px'>[Component: Typer]</div><div style='font-size: 80%; margin-top:10px'>run, evaluate, models,<br />compare-models, review<br />export/import, promote,<br />recertify, replay, report,<br />acceptance.</div>"]
         style 24 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        25["<div style='font-weight: bold'>Pipeline Orchestrator</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Executes the stage graph<br />ingest -> route -> itemize -><br />format -> score, with<br />resumable checkpoints keyed<br />by run_id.</div>"]
+        25["<div style='font-weight: bold'>Model Comparison Runner</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Runs several models on the<br />same TRAIN or VALIDATION<br />notes with the same prompt<br />and reports them on the same<br />measures, as aggregates.<br />Refuses TEST, which never<br />chooses between candidates.</div>"]
         style 25 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        26["<div style='font-weight: bold'>Run Manifest Builder</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python, pydantic]</div><div style='font-size: 80%; margin-top:10px'>Freezes every input to a run<br />(snapshot hash, dataset<br />class, split manifest, config<br />version, taxonomy, prompt,<br />lexicon, model id, code SHA,<br />seed) before any stage<br />executes.</div>"]
+        26["<div style='font-weight: bold'>Pipeline Orchestrator</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Executes the stage graph<br />ingest -> route -> itemize -><br />format -> score, with<br />resumable checkpoints keyed<br />by run_id.</div>"]
         style 26 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        27["<div style='font-weight: bold'>Acceptance Runner</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Runs the D3 and D4 checks in<br />one command, reports the<br />Level gate result as the KPI<br />Calculator wrote it, and<br />records client review<br />evidence.</div>"]
+        27["<div style='font-weight: bold'>Run Manifest Builder</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python, pydantic]</div><div style='font-size: 80%; margin-top:10px'>Freezes every input to a run<br />(snapshot hash, dataset<br />class, split manifest, config<br />version, taxonomy, prompt,<br />lexicon, model id, code SHA,<br />seed) before any stage<br />executes.</div>"]
         style 27 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        28["<div style='font-weight: bold'>Acceptance Runner</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Runs the D3 and D4 checks in<br />one command, reports the<br />Level gate result as the KPI<br />Calculator wrote it, and<br />records client review<br />evidence.</div>"]
+        style 28 fill:#f4f4f6,stroke:#aaaaac,color:#272834
       end
 
       10["<div style='font-weight: bold'>Web UI</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, FastAPI, Jinja2, server-rendered HTML]</div><div style='font-size: 80%; margin-top:10px'>Browser interface for<br />uploading exports, launching<br />and monitoring runs,<br />exploring results with<br />evidence highlighted in the<br />note, reviewing errors,<br />reviewing and adjudicating<br />rows, blind labelling and<br />reading KPIs. Holds no<br />business logic: it calls the<br />Run Console, Human Review<br />System and stores.</div>"]
       style 10 fill:#e2e3fb,stroke:#343ced,color:#272834
-      110["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
-      style 110 fill:#d8f1f6,stroke:#ef601b,color:#272834
-      114[("<div style='font-weight: bold'>Version & Artifact Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: Filesystem CAS + DuckDB, Git tags]</div><div style='font-size: 80%; margin-top:10px'>Content-addressed store and<br />lineage index for every<br />versioned artifact: input<br />snapshots, taxonomy,<br />evaluation sets, prompts,<br />lexicon, calibration maps,<br />model identities, run<br />manifests, outputs, KPI<br />snapshots.</div>")]
-      style 114 fill:#e2e3fb,stroke:#ef601b,color:#272834
-      28["<div style='font-weight: bold'>Data Transformation & Check</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Reads the TMS Excel export,<br />validates it against the<br />input contract, normalizes<br />fields, fingerprints and<br />de-duplicates notes, and<br />writes an immutable input<br />snapshot.</div>"]
-      style 28 fill:#e2e3fb,stroke:#343ced,color:#272834
-      44["<div style='font-weight: bold'>Itemization Classifier</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pydantic]</div><div style='font-size: 80%; margin-top:10px'>Turns one note into charge<br />items with category, amount<br />and exact evidence span using<br />a bounded tool-calling LLM<br />agent; checks evidence,<br />reconciles to the disputed<br />amount, scores confidence and<br />assigns the row outcome.<br />Never invents or edits an<br />amount.</div>"]
-      style 44 fill:#e2e3fb,stroke:#343ced,color:#272834
-      54["<div style='font-weight: bold'>Output Formatter</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Writes the Excel deliverable:<br />items sheet (one line per<br />charge with evidence), row<br />summary sheet (outcome,<br />totals, discrepancy) and a<br />run info sheet carrying the<br />manifest.</div>"]
-      style 54 fill:#e2e3fb,stroke:#343ced,color:#272834
-      55["<div style='font-weight: bold'>Human Review System</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Review service behind the Web<br />UI: builds the review queue<br />within reviewer capacity,<br />validates and records<br />approvals, edits and<br />adjudications, runs blind<br />labelling for the test set,<br />and closes cases. An Excel<br />review workbook remains as an<br />offline fallback.</div>"]
-      style 55 fill:#e2e3fb,stroke:#343ced,color:#272834
-      62["<div style='font-weight: bold'>KPI Calculator</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, scikit-learn, SciPy]</div><div style='font-size: 80%; margin-top:10px'>Computes every success and<br />error metric from immutable,<br />versioned inputs only, per<br />population (TRAIN,<br />VALIDATION, TEST, FRESH,<br />PROD), with sample sizes,<br />weights and confidence<br />intervals, and evaluates the<br />Level 1/2/3 gates.</div>"]
-      style 62 fill:#e2e3fb,stroke:#343ced,color:#272834
-      78["<div style='font-weight: bold'>Training & Calibration Pipeline</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, scikit-learn]</div><div style='font-size: 80%; margin-top:10px'>Turns closed cases into<br />candidate changes (prompt,<br />few-shot set, lexicon,<br />thresholds, calibration map),<br />replays them on VALIDATION,<br />and submits them to the<br />promotion gate. Has no read<br />access to locked test labels.</div>"]
-      style 78 fill:#d8f1f6,stroke:#343ced,color:#272834
+      112["<div style='font-weight: bold'>Configuration Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: YAML in Git, JSON Schema, pydantic]</div><div style='font-size: 80%; margin-top:10px'>The configurable layer. Typed<br />parameters with limits,<br />owner, change log and<br />validity horizon; layered<br />resolution core -><br />environment -> carrier<br />override; every resolved<br />config is hashed into the run<br />manifest.</div>"]
+      style 112 fill:#d8f1f6,stroke:#ef601b,color:#272834
+      116[("<div style='font-weight: bold'>Version & Artifact Registry</div><div style='font-size: 70%; margin-top: 0px'>[Container: Filesystem CAS + DuckDB, Git tags]</div><div style='font-size: 80%; margin-top:10px'>Content-addressed store and<br />lineage index for every<br />versioned artifact: input<br />snapshots, taxonomy,<br />evaluation sets, prompts,<br />lexicon, calibration maps,<br />model identities, run<br />manifests, outputs, KPI<br />snapshots.</div>")]
+      style 116 fill:#e2e3fb,stroke:#ef601b,color:#272834
+      29["<div style='font-weight: bold'>Data Transformation & Check</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Reads the TMS Excel export,<br />validates it against the<br />input contract, normalizes<br />fields, fingerprints and<br />de-duplicates notes, and<br />writes an immutable input<br />snapshot.</div>"]
+      style 29 fill:#e2e3fb,stroke:#343ced,color:#272834
+      46["<div style='font-weight: bold'>Itemization Classifier</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pydantic]</div><div style='font-size: 80%; margin-top:10px'>Turns one note into charge<br />items with category, amount<br />and exact evidence span using<br />a bounded tool-calling LLM<br />agent; checks evidence,<br />reconciles to the disputed<br />amount, scores confidence and<br />assigns the row outcome.<br />Never invents or edits an<br />amount.</div>"]
+      style 46 fill:#e2e3fb,stroke:#343ced,color:#272834
+      56["<div style='font-weight: bold'>Output Formatter</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Writes the Excel deliverable:<br />items sheet (one line per<br />charge with evidence), row<br />summary sheet (outcome,<br />totals, discrepancy) and a<br />run info sheet carrying the<br />manifest.</div>"]
+      style 56 fill:#e2e3fb,stroke:#343ced,color:#272834
+      57["<div style='font-weight: bold'>Human Review System</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, openpyxl]</div><div style='font-size: 80%; margin-top:10px'>Review service behind the Web<br />UI: builds the review queue<br />within reviewer capacity,<br />validates and records<br />approvals, edits and<br />adjudications, runs blind<br />labelling for the test set,<br />and closes cases. An Excel<br />review workbook remains as an<br />offline fallback.</div>"]
+      style 57 fill:#e2e3fb,stroke:#343ced,color:#272834
+      64["<div style='font-weight: bold'>KPI Calculator</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, pandas, scikit-learn, SciPy]</div><div style='font-size: 80%; margin-top:10px'>Computes every success and<br />error metric from immutable,<br />versioned inputs only, per<br />population (TRAIN,<br />VALIDATION, TEST, FRESH,<br />PROD), with sample sizes,<br />weights and confidence<br />intervals, and evaluates the<br />Level 1/2/3 gates.</div>"]
+      style 64 fill:#e2e3fb,stroke:#343ced,color:#272834
+      80["<div style='font-weight: bold'>Training & Calibration Pipeline</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python, scikit-learn]</div><div style='font-size: 80%; margin-top:10px'>Turns closed cases into<br />candidate changes (prompt,<br />few-shot set, lexicon,<br />thresholds, calibration map),<br />replays them on VALIDATION,<br />and submits them to the<br />promotion gate. Has no read<br />access to locked test labels.</div>"]
+      style 80 fill:#d8f1f6,stroke:#343ced,color:#272834
     end
 
     3-. "<div>Uploads export, launches<br />runs, reviews errors, reads<br />KPIs</div><div style='font-size: 70%'>[HTTPS]</div>" .->10
-    10-. "<div>Pre-checks uploaded export<br />against the input contract</div><div style='font-size: 70%'></div>" .->28
-    10-. "<div>Stores uploads; reads runs,<br />predictions, outputs and KPI<br />snapshots</div><div style='font-size: 70%'></div>" .->114
-    10-. "<div>Reads queue; submits<br />decisions, labels and<br />adjudications</div><div style='font-size: 70%'></div>" .->55
-    10-. "<div>Reads role map, upload limits<br />and review settings</div><div style='font-size: 70%'></div>" .->110
-    28-. "<div>Writes raw + normalized input<br />snapshots</div><div style='font-size: 70%'></div>" .->114
-    28-. "<div>Hands over deduplicated notes</div><div style='font-size: 70%'></div>" .->44
-    44-. "<div>Reads thresholds, tolerances,<br />prompt and lexicon versions</div><div style='font-size: 70%'></div>" .->110
-    44-. "<div>Writes predictions</div><div style='font-size: 70%'></div>" .->114
-    44-. "<div>Hands over items and row<br />outcomes</div><div style='font-size: 70%'></div>" .->54
-    54-. "<div>Registers the output workbook<br />hash</div><div style='font-size: 70%'></div>" .->114
-    55-. "<div>Reads predictions and run<br />manifests</div><div style='font-size: 70%'></div>" .->114
-    55-. "<div>Reads audit sample rate and<br />weekly capacity</div><div style='font-size: 70%'></div>" .->110
-    62-. "<div>Reads manifests and<br />predictions; writes KPI<br />snapshots</div><div style='font-size: 70%'></div>" .->114
-    62-. "<div>Reads metric set, weights,<br />targets, price table versions</div><div style='font-size: 70%'></div>" .->110
-    62-. "<div>Returns VALIDATION scores to<br />the promotion gate</div><div style='font-size: 70%'></div>" .->78
-    78-. "<div>Requests VALIDATION scoring</div><div style='font-size: 70%'></div>" .->62
-    78-. "<div>Publishes approved parameter<br />changes</div><div style='font-size: 70%'></div>" .->110
-    78-. "<div>Registers candidate and<br />published versions</div><div style='font-size: 70%'></div>" .->114
+    10-. "<div>Pre-checks uploaded export<br />against the input contract</div><div style='font-size: 70%'></div>" .->29
+    10-. "<div>Stores uploads; reads runs,<br />predictions, outputs and KPI<br />snapshots</div><div style='font-size: 70%'></div>" .->116
+    10-. "<div>Reads queue; submits<br />decisions, labels and<br />adjudications</div><div style='font-size: 70%'></div>" .->57
+    10-. "<div>Reads role map, upload limits<br />and review settings</div><div style='font-size: 70%'></div>" .->112
+    29-. "<div>Writes raw + normalized input<br />snapshots</div><div style='font-size: 70%'></div>" .->116
+    29-. "<div>Hands over deduplicated notes</div><div style='font-size: 70%'></div>" .->46
+    46-. "<div>Reads thresholds, tolerances,<br />prompt and lexicon versions</div><div style='font-size: 70%'></div>" .->112
+    46-. "<div>Writes predictions</div><div style='font-size: 70%'></div>" .->116
+    46-. "<div>Hands over items and row<br />outcomes</div><div style='font-size: 70%'></div>" .->56
+    56-. "<div>Registers the output workbook<br />hash</div><div style='font-size: 70%'></div>" .->116
+    57-. "<div>Reads predictions and run<br />manifests</div><div style='font-size: 70%'></div>" .->116
+    57-. "<div>Reads audit sample rate and<br />weekly capacity</div><div style='font-size: 70%'></div>" .->112
+    64-. "<div>Reads manifests and<br />predictions; writes KPI<br />snapshots</div><div style='font-size: 70%'></div>" .->116
+    64-. "<div>Reads metric set, weights,<br />targets, price table versions</div><div style='font-size: 70%'></div>" .->112
+    64-. "<div>Returns VALIDATION scores to<br />the promotion gate</div><div style='font-size: 70%'></div>" .->80
+    80-. "<div>Requests VALIDATION scoring</div><div style='font-size: 70%'></div>" .->64
+    80-. "<div>Publishes approved parameter<br />changes</div><div style='font-size: 70%'></div>" .->112
+    80-. "<div>Registers candidate and<br />published versions</div><div style='font-size: 70%'></div>" .->116
     10-. "<div>Spawns 'itemizer run' job</div><div style='font-size: 70%'></div>" .->24
     3-. "<div>Types commands</div><div style='font-size: 70%'>[CLI]</div>" .->24
-    24-. "<div>Invokes</div><div style='font-size: 70%'></div>" .->25
-    25-. "<div>Freezes inputs before stage 1</div><div style='font-size: 70%'></div>" .->26
-    26-. "<div>Resolves effective config<br />hash</div><div style='font-size: 70%'></div>" .->110
-    26-. "<div>Writes run manifest</div><div style='font-size: 70%'></div>" .->114
-    25-. "<div>Stage 1: ingest</div><div style='font-size: 70%'></div>" .->28
-    25-. "<div>Stage 2: itemize</div><div style='font-size: 70%'></div>" .->44
-    25-. "<div>Stage 3: format</div><div style='font-size: 70%'></div>" .->54
-    25-. "<div>Stage 4: score</div><div style='font-size: 70%'></div>" .->62
-    24-. "<div>review export / import</div><div style='font-size: 70%'></div>" .->55
-    24-. "<div>calibrate / replay / promote<br />/ recertify</div><div style='font-size: 70%'></div>" .->78
-    24-. "<div>acceptance d3 / d4</div><div style='font-size: 70%'></div>" .->27
-    27-. "<div>Runs the pipeline on the<br />export</div><div style='font-size: 70%'></div>" .->25
-    27-. "<div>Reads gate results; writes<br />acceptance evidence</div><div style='font-size: 70%'></div>" .->114
-    3-. "<div>Approves publication</div><div style='font-size: 70%'>[CLI]</div>" .->78
-    3-. "<div>Proposes parameter changes<br />via pull request</div><div style='font-size: 70%'></div>" .->110
+    24-. "<div>Invokes</div><div style='font-size: 70%'></div>" .->26
+    26-. "<div>Freezes inputs before stage 1</div><div style='font-size: 70%'></div>" .->27
+    27-. "<div>Resolves effective config<br />hash</div><div style='font-size: 70%'></div>" .->112
+    27-. "<div>Writes run manifest</div><div style='font-size: 70%'></div>" .->116
+    26-. "<div>Stage 1: ingest</div><div style='font-size: 70%'></div>" .->29
+    26-. "<div>Stage 2: itemize</div><div style='font-size: 70%'></div>" .->46
+    26-. "<div>Stage 3: format</div><div style='font-size: 70%'></div>" .->56
+    26-. "<div>Stage 4: score</div><div style='font-size: 70%'></div>" .->64
+    24-. "<div>review export / import</div><div style='font-size: 70%'></div>" .->57
+    24-. "<div>calibrate / replay / promote<br />/ recertify</div><div style='font-size: 70%'></div>" .->80
+    24-. "<div>acceptance d3 / d4</div><div style='font-size: 70%'></div>" .->28
+    24-. "<div>compare-models</div><div style='font-size: 70%'></div>" .->25
+    25-. "<div>One run per model, on the<br />same notes</div><div style='font-size: 70%'></div>" .->26
+    28-. "<div>Runs the pipeline on the<br />export</div><div style='font-size: 70%'></div>" .->26
+    28-. "<div>Reads gate results; writes<br />acceptance evidence</div><div style='font-size: 70%'></div>" .->116
+    3-. "<div>Approves publication</div><div style='font-size: 70%'>[CLI]</div>" .->80
+    3-. "<div>Proposes parameter changes<br />via pull request</div><div style='font-size: 70%'></div>" .->112
 
   end

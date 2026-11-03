@@ -58,7 +58,8 @@ workspace "Freight Invoice Itemizer" "Turns free-text freight dispute notes from
 
             # ---- Command-line entry point and pipeline owner
             runConsole = container "Run Console" "Command-line entry point and the only pipeline orchestrator: 'itemizer run <export.xlsx>'. Resolves configuration, opens a run manifest, runs the stages, and exposes evaluate / review / promote sub-commands. The Web UI launches runs through it." "Python 3.12, Typer CLI" "Controlled,CommonCore" {
-                cliCommands = component "CLI Commands" "run, evaluate, review export/import, promote, recertify, replay, report, acceptance." "Typer"
+                cliCommands = component "CLI Commands" "run, evaluate, models, compare-models, review export/import, promote, recertify, replay, report, acceptance." "Typer"
+                modelComparison = component "Model Comparison Runner" "Runs several models on the same TRAIN or VALIDATION notes with the same prompt and reports them on the same measures, as aggregates. Refuses TEST, which never chooses between candidates." "Python"
                 pipelineOrchestrator = component "Pipeline Orchestrator" "Executes the stage graph ingest -> route -> itemize -> format -> score, with resumable checkpoints keyed by run_id." "Python"
                 manifestBuilder = component "Run Manifest Builder" "Freezes every input to a run (snapshot hash, dataset class, split manifest, config version, taxonomy, prompt, lexicon, model id, code SHA, seed) before any stage executes." "Python, pydantic"
                 acceptanceRunner = component "Acceptance Runner" "Runs the D3 and D4 checks in one command, reports the Level gate result as the KPI Calculator wrote it, and records client review evidence." "Python"
@@ -75,6 +76,7 @@ workspace "Freight Invoice Itemizer" "Turns free-text freight dispute notes from
 
             # ---- Slide 2: "Router"
             router = container "Model Router" "Decides which model handles each note, enforces the confidentiality gate, applies fallback, caches responses by content hash and meters tokens and cost. The provider interface is the exit path." "Python" "Controlled,CommonCore" {
+                modelRegistry = component "Model Registry" "Lists models in config/models.yaml with provider, model id, settings and prices. A model on a known API takes one entry; a new API family takes one adapter and one line. Names the variable holding a key and never holds the key." "YAML, pydantic"
                 routingPolicy = component "Routing Policy Engine" "Applies the configured route: rules-only, local model, or external API, with per-carrier and per-size overrides." "Python"
                 confidentialityGate = component "Confidentiality Gate" "Blocks any external call unless the dataset class is open_anonymized with a recorded source, or 'external_ai_approved' is true with an approval reference. Fails closed." "Python"
                 providerInterface = component "Provider Interface" "Stable contract: complete(prompt, schema, params) -> structured response + usage. Every adapter must pass the same contract tests." "Python Protocol"
@@ -92,7 +94,7 @@ workspace "Freight Invoice Itemizer" "Turns free-text freight dispute notes from
                 candidateExtractor = component "Amount & Pattern Extractor" "Deterministic pre-pass: finds money tokens, rate x quantity patterns, taxes and 'already paid' phrases using the domain lexicon." "regex, lexicon"
                 promptBuilder = component "Prompt Builder" "Builds the agent's system prompt and task message from the versioned template, taxonomy definitions, few-shot set (drawn from TRAIN only) and extractor hints; wraps note text as untrusted data." "Jinja2" "Controlled,ConfigurableLayer"
                 agentController = component "Itemization Agent Controller" "Bounded ReAct-style loop: the pretrained LLM (via the router) chooses tool calls; deterministic tools do all arithmetic, lookup and verification; the loop ends only through submit_itemization or escalate_to_review, within step and call budgets." "Python"
-                responseParser = component "Structured Response Parser" "Validates the model output against the item schema; malformed output is a failure, not something to repair by guessing." "pydantic"
+                responseParser = component "Structured Response Parser" "Checks every answer against the controlled grammar, whichever model wrote it: one JSON object, closed value lists, no free prose. A rejected answer is retried once with its violation codes and then goes to Review. It is never repaired." "pydantic"
                 evidenceVerifier = component "Evidence Verifier" "Checks that each item's evidence is a verbatim substring of the raw note and that the amount appears in that evidence or is derived by an explicit rate x quantity span." "Python"
                 categoryMapper = component "Category Mapper" "Maps the proposed category to the active taxonomy version; unknown labels become 'unmapped' and count toward the not-enough-categories error." "Python"
                 amountReconciler = component "Amount Reconciler" "Compares the item sum (net of amounts already paid) with the disputed amount within the configured tolerance. Never edits an amount to make a row add up." "Python, Decimal"
@@ -325,6 +327,8 @@ workspace "Freight Invoice Itemizer" "Turns free-text freight dispute notes from
         cliCommands -> reviewSystem "review export / import"
         cliCommands -> improvement "calibrate / replay / promote / recertify"
         cliCommands -> acceptanceRunner "acceptance d3 / d4"
+        cliCommands -> modelComparison "compare-models"
+        modelComparison -> pipelineOrchestrator "One run per model, on the same notes"
         acceptanceRunner -> pipelineOrchestrator "Runs the pipeline on the export"
         acceptanceRunner -> versionRegistry "Reads gate results; writes acceptance evidence"
 
@@ -424,6 +428,8 @@ workspace "Freight Invoice Itemizer" "Turns free-text freight dispute notes from
         # ---- component level: Model Router
         classifier -> routingPolicy "Itemization request"
         routingPolicy -> configRegistry "Reads route, model ids, budget"
+        routingPolicy -> modelRegistry "Reads the chosen model's entry"
+        modelRegistry -> providerInterface "Selects the adapter for the entry"
         routingPolicy -> responseCache "Looks up cached response"
         routingPolicy -> confidentialityGate "Candidate external call"
         confidentialityGate -> providerInterface "Allowed call"

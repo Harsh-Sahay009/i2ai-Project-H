@@ -55,7 +55,10 @@ skills/                   itemizer-weekly-review/, itemizer-analyst/, itemizer-d
 src/itemizer/             core, config, registry, ingest, router, classify, agent_tools,
                           guardrails, output, telemetry, review, kpi, dashboard, improve,
                           synth, ui, cli
-config/                   schema, core, env, carriers
+config/                   bootstrap.yaml, models.yaml, run.yaml today; schema, core, env, carriers later
+prompts/                  prompt template and worked examples, with offsets and no note text
+contracts/schemas/        JSON Schemas generated from the contracts
+deliverables/             requests to PPG, with status only
 taxonomy/  metrics/       versioned definitions
 data/synthetic/           published SYNTH and ADV sets (no PPG data in Git)
 demo/                     code demo script, demo walkthrough

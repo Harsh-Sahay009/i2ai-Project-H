@@ -58,8 +58,8 @@ The Configuration Registry, Version & Artifact Registry, Ground Truth Store and 
 
 | Deliverable | Due | Status | Architecture elements |
 |---|---|---|---|
-| D1 Charge category list | 15 Oct | Late; not started as of 2 Nov | Ground Truth Bootstrap (Taxonomy Drafter), Ground Truth Store (taxonomy v1, approval record) |
-| D2 Locked test set | 22 Oct | Late; not started as of 2 Nov | Ground Truth Bootstrap (Split Builder, Labelling Pack Builder, Label Validator & Sealer), Ground Truth Store (sealed) |
-| D3 Prototype, Level 1 | 5 Nov | Open | Run Console (Acceptance Runner), Data Prep, Router, Classifier, Output Formatter, KPI Calculator; Web UI upload + results pages |
+| D1 Charge category list | 15 Oct | Late; draft of 19 categories exists, team edit and client approval pending | Ground Truth Bootstrap (Taxonomy Drafter), Ground Truth Store (taxonomy v1, approval record) |
+| D2 Locked test set | 22 Oct | Late; tool and labelling packs ready, labelling pending | Ground Truth Bootstrap (Split Builder, Labelling Pack Builder, Label Validator & Sealer), Ground Truth Store (sealed) |
+| D3 Prototype, Level 1 | 5 Nov | Built and checked on TRAIN; Level 1 waits for labels | Run Console (run, evaluate, compare-models, Acceptance Runner), Model Router (Model Registry, Provider Interface), Itemization Classifier (one call per note, grammar parser), Output Formatter, KPI Calculator. No agent or Web UI yet (ADR 0014) |
 | D4 Final tool, Level 2 | 3 Dec | Open | All containers including the full Web UI; <30 min for 1,500 rows |
 | D5 Methodology report | 3 Dec | Open | KPI Dashboard (Methodology Report Builder); KPI snapshots + run manifests make every number rerunnable |

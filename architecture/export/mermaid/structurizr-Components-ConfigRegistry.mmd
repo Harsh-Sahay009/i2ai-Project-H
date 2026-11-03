@@ -10,22 +10,22 @@ graph LR
     subgraph 9 ["Freight Invoice Itemizer"]
       style 9 fill:#ffffff,stroke:#1b1c24,color:#1b1c24
 
-      subgraph 110 ["Configuration Registry"]
-        style 110 fill:#ffffff,stroke:#ef601b,color:#ef601b
+      subgraph 112 ["Configuration Registry"]
+        style 112 fill:#ffffff,stroke:#ef601b,color:#ef601b
 
-        111["<div style='font-weight: bold'>Parameter Schema</div><div style='font-size: 70%; margin-top: 0px'>[Component: JSON Schema]</div><div style='font-size: 80%; margin-top:10px'>Declares every parameter:<br />type, default, min/max, owner<br />role, placement, horizon.</div>"]
-        style 111 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        112["<div style='font-weight: bold'>Config Resolver</div><div style='font-size: 70%; margin-top: 0px'>[Component: pydantic-settings]</div><div style='font-size: 80%; margin-top:10px'>Merges layers, validates<br />limits, freezes and hashes<br />the effective config.</div>"]
-        style 112 fill:#f4f4f6,stroke:#aaaaac,color:#272834
-        113["<div style='font-weight: bold'>Config Change Log</div><div style='font-size: 70%; margin-top: 0px'>[Component: Git history + CHANGELOG]</div><div style='font-size: 80%; margin-top:10px'>Append-only record: who<br />changed what, why, evidence<br />link, previous value.</div>"]
+        113["<div style='font-weight: bold'>Parameter Schema</div><div style='font-size: 70%; margin-top: 0px'>[Component: JSON Schema]</div><div style='font-size: 80%; margin-top:10px'>Declares every parameter:<br />type, default, min/max, owner<br />role, placement, horizon.</div>"]
         style 113 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        114["<div style='font-weight: bold'>Config Resolver</div><div style='font-size: 70%; margin-top: 0px'>[Component: pydantic-settings]</div><div style='font-size: 80%; margin-top:10px'>Merges layers, validates<br />limits, freezes and hashes<br />the effective config.</div>"]
+        style 114 fill:#f4f4f6,stroke:#aaaaac,color:#272834
+        115["<div style='font-weight: bold'>Config Change Log</div><div style='font-size: 70%; margin-top: 0px'>[Component: Git history + CHANGELOG]</div><div style='font-size: 80%; margin-top:10px'>Append-only record: who<br />changed what, why, evidence<br />link, previous value.</div>"]
+        style 115 fill:#f4f4f6,stroke:#aaaaac,color:#272834
       end
 
     end
 
-    3-. "<div>Proposes parameter changes<br />via pull request</div><div style='font-size: 70%'></div>" .->113
-    113-. "<div>Validated against</div><div style='font-size: 70%'></div>" .->111
-    112-. "<div>Validates limits</div><div style='font-size: 70%'></div>" .->111
-    112-. "<div>Reads current layer values</div><div style='font-size: 70%'></div>" .->113
+    3-. "<div>Proposes parameter changes<br />via pull request</div><div style='font-size: 70%'></div>" .->115
+    115-. "<div>Validated against</div><div style='font-size: 70%'></div>" .->113
+    114-. "<div>Validates limits</div><div style='font-size: 70%'></div>" .->113
+    114-. "<div>Reads current layer values</div><div style='font-size: 70%'></div>" .->115
 
   end
