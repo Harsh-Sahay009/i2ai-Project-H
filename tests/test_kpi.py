@@ -1056,3 +1056,45 @@ def test_different_answers_are_a_new_charge(world):
     with pytest.raises(ContractError, match="is spent"):
         run_evaluate(world, note_results=changed)
 
+
+# ---- ledger lines written before charges followed what was scored
+def _older_line(world, results: str, run_id: str = "run_older") -> None:
+    ledger = world.root / "kpi" / "test_budget.jsonl"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text(json.dumps({"event": "spent", "run_id": run_id, "results_sha256": results, "milestone": "d3", "budget": 1, "runs_spent": 1}) + "\n", encoding="utf-8")
+
+
+def _older_manifest(world, run_id: str = "run_older", **changes) -> None:
+    folder = world.root / "runs" / run_id
+    folder.mkdir(parents=True, exist_ok=True)
+    fields = {"prompt_sha256": world.manifest.prompt_sha256, "taxonomy_sha256": world.manifest.taxonomy_sha256, "config_sha256": world.manifest.config_sha256, **changes}
+    (folder / "manifest.json").write_text(json.dumps(fields), encoding="utf-8")
+
+
+def test_an_older_line_for_the_same_answers_and_inputs_is_a_free_rescore(world):
+    _older_line(world, kpi.results_digest(world.results))
+    _older_manifest(world)
+    before = (world.root / "kpi" / "test_budget.jsonl").read_text(encoding="utf-8")
+    assert run_evaluate(world)["test_budget"] == {"event": "rescored", "budget": 1, "runs_spent": 1, "extra_peeks": 0}
+    assert (world.root / "kpi" / "test_budget.jsonl").read_text(encoding="utf-8").startswith(before)  # the older line is kept as written
+
+
+def test_an_older_line_for_different_answers_still_spends_the_budget(world):
+    _older_line(world, "other answers")
+    _older_manifest(world)
+    with pytest.raises(ContractError, match="is spent"):
+        run_evaluate(world)
+
+
+def test_an_older_line_for_different_inputs_still_spends_the_budget(world):
+    _older_line(world, kpi.results_digest(world.results))
+    _older_manifest(world, prompt_sha256="another prompt")
+    with pytest.raises(ContractError, match="is spent"):
+        run_evaluate(world)
+
+
+def test_an_older_line_with_its_manifest_gone_stays_charged(world):
+    _older_line(world, kpi.results_digest(world.results))
+    with pytest.raises(ContractError, match="is spent"):
+        run_evaluate(world)
+
