@@ -543,6 +543,7 @@ def write_label_review(ws: Workspace, manifest: dict, notes: dict[str, Note], ca
     missing = [fp for fp in test if fp not in current]
     if missing:
         raise ContractError(f"{len(missing)} TEST notes have no label yet, so there is nothing to review for them")
+    _refuse_old_codes(current, {category["code"] for category in categories})
     disagreed = {d["fingerprint"] for d in ws.read_json("agreement.json")["disagreements"]}
     ranked = {fp: _review_priority(current[fp], notes[fp], disagreed, ws.cfg.large_dispute_usd) for fp in test}
     workbook = openpyxl.Workbook()
@@ -578,6 +579,54 @@ def write_label_review(ws: Workspace, manifest: dict, notes: dict[str, Note], ca
     return {"notes": len(test), "by_priority": dict(sorted(order.items())), "workbook": str(path.relative_to(ws.project_root))}
 
 
+def _refuse_old_codes(labels: dict[str, NoteLabel], codes: set[str]) -> None:
+    """Find-and-replace in the workbook would mark every unread draft as corrected, and this is the only state that invites it."""
+    old = sorted({item.category for label in labels.values() for item in label.items} - set(codes))
+    if old:
+        raise ContractError(f"current labels hold categories no longer in the list: {', '.join(old)}. Run `itemizer gt rename-category "
+                            "<old> <new>` first. Do not use find-and-replace, which marks unread labels as corrected")
+
+
+def check_not_sealed(ws: Workspace) -> None:
+    if ws.exists("seal_record.json"):
+        raise ContractError("TEST is sealed, so its labels cannot change; a correction needs a new version")
+
+
+def _rename_items(label: dict, old: str, new: str) -> int:
+    changed = 0
+    for item in label.get("items", []):
+        if item["category"] == old:
+            item["category"] = new
+            changed += 1
+    return changed
+
+
+def rename_category(ws: Workspace, old: str, new: str) -> dict:
+    """Change a code in every stored label. Each label keeps its `source`, because nobody read a note to do this."""
+    check_not_sealed(ws)
+    changed: collections.Counter = collections.Counter()
+    folder = ws.root / "labels"
+    for path in sorted(folder.glob("*.json")) if folder.exists() else []:
+        stored = json.loads(path.read_text(encoding="utf-8"))
+        changed[path.name] = sum(_rename_items(label, old, new) for label in stored.get("labels", {}).values())
+        if changed[path.name]:
+            ws.write_json(f"labels/{path.name}", stored)
+    if ws.exists("client_review.json"):
+        review = ws.read_json("client_review.json")
+        changed["client_review.json"] = sum(_rename_items(decision["label"], old, new) for decision in review["decisions"].values())
+        ws.write_json("client_review.json", review)
+    if ws.exists("provisional_record.json"):
+        frozen = ws.read_json("test_provisional.json")
+        changed["test_provisional.json"] = sum(_rename_items(label, old, new) for label in frozen["labels"].values())
+        digest = sha256_file(ws.write_json("test_provisional.json", frozen))
+        record = ws.read_json("provisional_record.json")
+        record["sha256"] = digest
+        ws.write_json("provisional_record.json", record)
+    with ws.path("labels/category_renames.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"old": old, "new": new, "changed": dict(sorted(changed.items()))}, sort_keys=True) + "\n")
+    return {name: count for name, count in sorted(changed.items()) if count}
+
+
 def _label_content(label: NoteLabel) -> tuple:
     return (label.no_charge_stated, sorted((i.category, i.amount, i.evidence_text, i.line_type, i.derivation) for i in label.items))
 
@@ -605,6 +654,7 @@ def import_label_review(ws: Workspace, path: Path, reviewer: str, date: str, man
         raise ContractError("name the reviewer, because the labels record who checked them")
     test = set(notes_in_set(manifest, "TEST"))
     current = current_test_labels(ws)
+    _refuse_old_codes(current, codes)
     lines = _read_label_lines(path, "Labels")
     checked = {_clean(line.get("note_id")) for _, line in lines if _clean(line.get("checked")).upper() == "Y"}
     parsed, errors = parse_lines(lines, test, notes, codes, f"person:{reviewer.strip()}", "test_label_review")

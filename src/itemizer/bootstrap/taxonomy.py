@@ -196,6 +196,42 @@ def load_taxonomy(path: Path) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+def rename_in_taxonomy(path: Path, old: str, new: str, merge: bool, notes: dict[str, Note]) -> None:
+    """Change a category's code, or with `merge` move it into an existing one. A refusal changes nothing."""
+    taxonomy = load_taxonomy(path)
+    categories = taxonomy["categories"]
+    by_code = {category["code"]: category for category in categories}
+    if old == new:
+        raise ContractError("the old and new codes are the same")
+    if old == CATCH_ALL:
+        raise ContractError(f"{CATCH_ALL} is the catch-all, and cannot be renamed")
+    if old not in by_code:
+        raise ContractError(f"category {old} is not in the list")
+    if new in by_code and not merge:
+        raise ContractError(f"category {new} already exists. Pass --merge to move {old} into it")
+    if merge and new not in by_code:
+        raise ContractError(f"--merge needs an existing category, and {new} is not in the list")
+    if merge:
+        by_code[new].setdefault("examples", []).extend(by_code[old].get("examples", []))
+        categories.remove(by_code[old])
+    else:
+        by_code[old]["code"] = new
+    problems = validate_taxonomy(taxonomy, notes)
+    if problems:
+        raise ContractError("the list would break: " + "; ".join(problems))
+    write_taxonomy(path, taxonomy)
+
+
+def rename_in_worked_examples(path: Path, old: str, new: str) -> int:
+    """Edit the lines themselves, so the file keeps its comments and its order."""
+    if not path.exists():
+        return 0
+    text, count = re.subn(rf"(?m)^(\s*-?\s*category:\s*)['\"]?{re.escape(old)}['\"]?\s*$", lambda match: f"{match[1]}{new}", path.read_text(encoding="utf-8"))
+    if count:
+        path.write_text(text, encoding="utf-8")
+    return count
+
+
 def write_taxonomy(path: Path, taxonomy: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(taxonomy, sort_keys=False, allow_unicode=True, width=110), encoding="utf-8")
