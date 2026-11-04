@@ -4,7 +4,7 @@ Date: 2026-11-02
 
 ## Status
 
-Accepted. Amends [7. Web UI for upload, results, error review and review](0007-web-ui-for-upload-review-results.md): replaces Streamlit and OIDC login. The pages and rules in ADR 0007 stay.
+Accepted. Amends [7. Web UI for upload, results, error review and review](0007-web-ui-for-upload-review-results.md): replaces Streamlit and OIDC login. The pages and rules in ADR 0007 stay. [16. A local upload page before D3](0016-local-upload-page-before-d3.md) builds the upload, run and KPI pages first, on one machine, and login waits for the full UI.
 
 ## Context
 

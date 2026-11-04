@@ -18,6 +18,7 @@ The code is in `src/itemizer/bootstrap/data.py`, `contracts.py` and `grammar.py`
 | Run manifest (`RunManifest`) | `itemizer run` | `evaluate`, `acceptance` | `data/runs/<run_id>/manifest.json` |
 | Workbook | `itemizer run` | Accountants | `data/runs/<run_id>/itemized.xlsx` |
 | KPI snapshot | `itemizer evaluate` | `acceptance d3` | `data/kpi/<run_id>_<milestone>.json` |
+| Uploaded file | The local page | `itemizer run`, through the page | `data/uploads/<sha256>.xlsx` |
 
 Everything under `data/` is ignored by Git, because this repo is public. Only code, settings, prompts with offsets, and aggregates are tracked.
 
@@ -117,9 +118,9 @@ A run's folder is named by a hash of everything its numbers depend on: `dataset_
 
 ## 11.7 KPI snapshot
 
-`itemizer evaluate` writes aggregates only, with no note text, items or row ids. Coverage comes from the run on all rows, and accuracy from TEST on covered notes, weighted back to the real mix. Each condition has `value`, `target`, `met`, `ci_low`, `ci_high`, `n` and `interval_contains_target`. A level passes when every measured value reaches its target and invariant violations are 0, and results say whether the labels are `provisional` or `sealed`. Metric definitions are in [doc 4](04-kpi-calculator.md).
+`itemizer evaluate` writes aggregates only, with no note text, items or row ids. Coverage comes from the run on all rows, and accuracy from TEST on covered notes, weighted back to the real mix. Each condition has `value`, `target`, `met`, `ci_low`, `ci_high`, `n` and `interval_contains_target`. A level passes when every measured value reaches its target and invariant violations are 0, and results say whether the labels are `provisional` or `sealed`. A level whose work is not built reports `work_not_built`, whatever its numbers. Beside coverage, the snapshot reports rows and dollars `accepted_without_reading`, and accuracy on labels a person has checked. Metric definitions are in [doc 4](04-kpi-calculator.md).
 
-A score belongs to its run. `evaluate` refuses, with nothing charged, a run whose category list, worked examples, prompt, grammar or result-deciding settings changed after it ran, a run with notes that got no answer, and rows that do not follow from its note results. Each milestone in `kpi.milestones` has a TEST budget. Re-scoring the same results is free, and different answers under one run id count as a new run. `--extra-peek <reason>` spends past the budget on purpose, is logged, and is flagged on the status page.
+A score belongs to its run. `evaluate` refuses, with nothing charged, a run whose category list, worked examples, prompt, grammar or result-deciding settings changed after it ran, a run with notes that got no answer, and rows that do not follow from its note results. Each milestone in `kpi.milestones` has a TEST budget. A charge follows what was scored: the answers, the prompt, the category list and the result-deciding settings. Scoring the same again is free, whatever the run id, and different answers under one run id count as a new run. `--extra-peek <reason>` spends past the budget on purpose, is logged, and is flagged on the status page.
 
 ## 11.8 How to test another model
 

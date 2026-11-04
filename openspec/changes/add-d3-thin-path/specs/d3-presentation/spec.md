@@ -3,6 +3,14 @@
 ### Requirement: One page for D1, D2 and D3
 `itemizer acceptance d3` SHALL write one summary showing D1 status and category count, D2 status with labelled notes and agreement, and D3 status with each Level 1 condition, its interval and n, and whether labels are provisional.
 
+#### Scenario: Who wrote the labels comes first
+- **WHEN** any TEST label is a model draft
+- **THEN** the summary says so before D1, and says the figures may change when people correct the labels
+
+#### Scenario: What an accountant is spared
+- **WHEN** a run has been scored
+- **THEN** the summary shows rows and dollars accepted without reading beside coverage
+
 #### Scenario: Labels still provisional
 - **WHEN** the summary is written before the client's review
 - **THEN** every Level result is marked provisional

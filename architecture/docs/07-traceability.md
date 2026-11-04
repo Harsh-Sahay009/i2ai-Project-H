@@ -32,6 +32,7 @@
 | Ground Truth Store | add-ground-truth-store | charge-taxonomy, evaluation-sets |
 | Ground Truth Bootstrap | add-ground-truth-bootstrap | dataset-profile-split, taxonomy-drafting, test-set-preparation |
 | Run Console (Acceptance Runner), KPI Dashboard (Methodology Report Builder) | add-delivery-acceptance | deliverable-acceptance, methodology-report |
+| Web UI (local upload, run and KPI pages only) | add-local-upload-page | local-upload-page |
 | Model Router (Model Registry, Provider Interface), Itemization Classifier (Structured Response Parser, Amount Reconciler, Outcome Assigner), Output Formatter, KPI Calculator, Run Console (Model Comparison Runner, Acceptance Runner) | add-d3-thin-path | output-grammar, model-registry, d3-itemization, d3-output, level-evaluation, d3-presentation |
 | Agent Tool Library & MCP Server | add-agent-tools | agent-tools, mcp-analyst-tools |
 | Guardrail Layer | add-guardrails | guardrails |
@@ -53,7 +54,7 @@
 ## 7.3 Build order
 
 0. **Bootstrap (D1, D2), first and standalone:** add-ground-truth-bootstrap. It depends on no other change, because D1 and D2 are late and D3 is measured on them.
-0a. **D3 thin path, next and standalone:** add-d3-thin-path. D1, D2 and D3 are presented together and the full plan cannot be built in time (ADR 0014), so this is the shortest path to D3's done-when conditions: one model call per distinct note, deterministic checks, the workbook, Level gates and a one-page status. Later changes replace parts of it behind the same contracts.
+0a. **D3 thin path, next and standalone:** add-d3-thin-path. D1, D2 and D3 are presented together and the full plan cannot be built in time (ADR 0014), so this is the shortest path to D3's done-when conditions: one model call per distinct note, deterministic checks, the workbook, Level gates and a one-page status. Later changes replace parts of it behind the same contracts. add-local-upload-page adds a local page for the D3 meeting (ADR 0016).
 1. **Foundation:** add-common-core-contracts → add-configuration-registry → add-version-artifact-registry → add-telemetry-episode-store → add-synthetic-data-generator (so every later change tests on synthetic data)
 2. **Ground truth store:** add-ground-truth-store, which registers what the bootstrap produced
 3. **Full path, after D3:** add-data-transformation-check → add-model-router → add-agent-tools → add-guardrails → add-itemization-classifier → add-output-formatter → add-run-console → add-kpi-calculator → add-kpi-dashboard → add-delivery-acceptance (D3 check) → add-web-ui (access control, upload, run monitor, results explorer)
@@ -68,6 +69,6 @@ D2's labelling uses Excel workbooks from add-ground-truth-bootstrap, because the
 |---|---|---|
 | D1 Charge category list | add-ground-truth-bootstrap, add-ground-truth-store | Team edits the draft; Jake approves in writing |
 | D2 Locked test set | add-ground-truth-bootstrap, add-ground-truth-store | Team labels 200 notes; Jake or a PPG accountant reviews 50 |
-| D3 Prototype | add-d3-thin-path | Team labels TEST; Jake sees the prototype |
+| D3 Prototype | add-d3-thin-path, add-local-upload-page | Team labels TEST; Jake sees the prototype |
 | D4 Final tool | add-delivery-acceptance plus all containers | Team runs the acceptance check |
 | D5 Methodology report | add-delivery-acceptance | Team writes the prose; an outside reader tries the rerun |

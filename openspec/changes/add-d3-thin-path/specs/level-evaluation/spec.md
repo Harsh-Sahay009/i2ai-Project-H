@@ -29,6 +29,27 @@ A level SHALL pass when every measured value reaches its target and invariant vi
 - **WHEN** one accepted item's evidence is not verbatim
 - **THEN** every level fails with reason `invariant_failed`
 
+### Requirement: A level needs its work
+A level whose work in the scope's Table 1 is not built SHALL report `work_not_built`, whatever its numbers. The levels with their work built are fixed in the code, and MUST NOT depend on `gates` in `config/run.yaml`.
+
+#### Scenario: Level 3
+- **WHEN** a run's numbers reach Level 3's targets, and its code list and cost-driver summary do not exist
+- **THEN** Level 3 reports `work_not_built`
+
+### Requirement: Accepted without reading
+The KPIs SHALL report rows and dollars an accountant can accept without reading the note, counting `verified` and `no_charge_stated`, beside coverage, which also counts rows flagged for an accountant to read.
+
+#### Scenario: Flagged rows
+- **WHEN** a row's outcome is `discrepancy`
+- **THEN** it counts toward coverage, and not toward accepted without reading
+
+### Requirement: Accuracy on labels a person has checked
+The KPIs SHALL report accuracy on covered notes whose label is not a model draft, with its n and interval, unweighted because those notes are not a random sample, and SHALL report how many checked drafts people changed.
+
+#### Scenario: Some labels checked
+- **WHEN** people have checked 40 labels and changed 3
+- **THEN** the figures show n of 40 or fewer, after notes in Review are left out, and 3 changed
+
 ### Requirement: Dollars with and without repeats
 Coverage in dollars SHALL be reported with and without rows flagged `repeated_invoice`, and the gates SHALL use the scope's figure, which includes them.
 
@@ -37,7 +58,7 @@ Coverage in dollars SHALL be reported with and without rows flagged `repeated_in
 - **THEN** both figures appear in the report
 
 ### Requirement: TEST budget and aggregates only
-A new run evaluated on TEST SHALL use the budget in `kpi.test_peek_budget_per_milestone` for a milestone listed in `kpi.milestones`, and re-scoring the same results SHALL be free. Different results under one run id SHALL count as a new run. Spending past the budget SHALL need a stated reason, which is logged and flagged beside the result. Results MUST contain only aggregates.
+A new run evaluated on TEST SHALL use the budget in `kpi.test_peek_budget_per_milestone` for a milestone listed in `kpi.milestones`. A charge follows what was scored: the answers, the prompt, the category list and the result-deciding settings. Scoring the same again SHALL be free, whatever the run id, because a change of code alone gives no new chance to pick a score. Different answers under one run id SHALL count as a new run. Spending past the budget SHALL need a stated reason, which is logged and flagged beside the result. Results MUST contain only aggregates.
 
 #### Scenario: Second run on TEST
 - **WHEN** a different run is evaluated at a milestone whose budget of 1 is spent
@@ -46,6 +67,10 @@ A new run evaluated on TEST SHALL use the budget in `kpi.test_peek_budget_per_mi
 #### Scenario: Labels corrected by the client
 - **WHEN** the client changes labels and the same run is evaluated again
 - **THEN** the evaluation proceeds without using budget, and the status changes from provisional to sealed once TEST is sealed
+
+#### Scenario: A change of code alone
+- **WHEN** only code changed, so a new run has a new id, the same answers and the same inputs
+- **THEN** scoring it is a free re-score, and the page warns of no second peek
 
 #### Scenario: A new milestone name
 - **WHEN** a second run is evaluated under a milestone not in `kpi.milestones`

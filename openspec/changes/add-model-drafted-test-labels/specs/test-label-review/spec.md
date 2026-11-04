@@ -34,6 +34,21 @@
 - **WHEN** TEST is sealed
 - **THEN** the command refuses
 
+### Requirement: Renaming a category keeps who wrote each label
+`itemizer gt rename-category` SHALL change a category's code in the list, the worked examples and every stored label, keep each label's `source`, and log it. It SHALL NOT count as a correction. A merge SHALL need `--merge`. The review workbook and its import MUST refuse while a current label holds a code no longer in the list.
+
+#### Scenario: Rename after the freeze
+- **WHEN** a category is renamed after `gt seal --provisional`
+- **THEN** every label holds the new code, drafts are still drafts, `corrected_after_freeze` is unchanged, and the final seal still refuses the drafts
+
+#### Scenario: The list edited by hand
+- **WHEN** someone changes a code in `taxonomy/categories.yaml` directly
+- **THEN** the review workbook and its import refuse, and point to `gt rename-category`, so find-and-replace cannot mark unread drafts as corrected
+
+#### Scenario: Merge without the flag
+- **WHEN** the new code already exists and `--merge` is not given
+- **THEN** the command refuses, and nothing changes
+
 ### Requirement: Correcting a frozen test set
 A correction after a provisional freeze SHALL update the frozen labels and their record, count the corrections made after the freeze, and leave results labelled provisional. It MUST NOT take a client review into the frozen labels before the final seal.
 
