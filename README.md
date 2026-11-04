@@ -20,7 +20,7 @@ The dataset is not in this repo, because this repo is public. Put the export fil
 itemizer ui
 ```
 
-Open <http://127.0.0.1:8000> to upload an export, see what the run would cost, run it, download the output Excel and see the KPIs. It serves your machine only.
+Open <http://127.0.0.1:8899> to upload an export, see what the run would cost, run it, download the output Excel and see the KPIs. It serves your machine only.
 
 The same from a terminal:
 

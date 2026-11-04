@@ -488,8 +488,15 @@ def compare_command(
 
 @app.command("ui")
 @_guard
-def ui_command(port: int = typer.Option(8000, help="The port on this machine.")) -> None:
+def ui_command(port: int = typer.Option(8899, help="The port on this machine.")) -> None:
     """Start the local upload page. It has no login, so it serves this machine only."""
+    import socket
+
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+            raise ContractError(f"Something is already listening on port {port}. Choose another with --port.")
+    except OSError:  # nothing answered, so the port is free. A bind alone would not show this: it can succeed beside a server on 0.0.0.0
+        pass
     try:
         import uvicorn
 
