@@ -351,14 +351,37 @@ def test_localhost_is_accepted():
     assert ui_app._host_name("localhost:8000") == "localhost" and ui_app._host_name("127.0.0.1") == "127.0.0.1"
 
 
+def test_the_command_will_not_start_beside_something_already_listening(d3, monkeypatch):
+    import socket
+
+    import uvicorn
+
+    started = []
+    monkeypatch.setattr(uvicorn, "run", lambda app, **options: started.append(options))
+    with socket.socket() as other:
+        other.bind(("0.0.0.0", 0))  # as another project's server would, on every address
+        other.listen()
+        port = other.getsockname()[1]
+        result = runner.invoke(cli_app, ["ui", "--port", str(port)])
+    assert result.exit_code == 2 and f"already listening on port {port}" in result.stderr and started == []
+
+
+def test_the_default_port_is_not_one_other_projects_use(d3, monkeypatch):
+    import uvicorn
+
+    seen = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, **options: seen.update(options))
+    assert runner.invoke(cli_app, ["ui"]).exit_code == 0 and seen["port"] == 8899
+
+
 def test_the_command_binds_to_this_machine_and_has_no_host_option(d3, monkeypatch):
     import uvicorn
 
     seen = {}
     monkeypatch.setattr(uvicorn, "run", lambda app, **options: seen.update(options))
-    result = runner.invoke(cli_app, ["ui", "--port", "8123"])
+    result = runner.invoke(cli_app, ["ui", "--port", "8931"])
     assert result.exit_code == 0, result.stderr
-    assert seen["host"] == "127.0.0.1" and seen["port"] == 8123 and "127.0.0.1:8123" in result.stdout
+    assert seen["host"] == "127.0.0.1" and seen["port"] == 8931 and "127.0.0.1:8931" in result.stdout
     assert runner.invoke(cli_app, ["ui", "--host", "0.0.0.0"]).exit_code != 0
 
 
