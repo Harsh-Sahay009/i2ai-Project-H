@@ -29,6 +29,27 @@ Coverage also counts rows flagged for an accountant to read. What an accountant 
 
 Across all 881 items, 15 are taxes and 1 is an amount already paid, and none use rate × quantity. That path does work on a real model: an invented note, "3 HOURS @ $40 PER HOUR", came back as 120.00 with `rate_x_quantity`. So zero on this file more likely means its notes do not need it, though only a person reading them can confirm that.
 
+### Kimi K3, against the same Opus labels
+
+Run on 2026-11-04 at the team's request, on all rows, with the same prompt and worked examples. It went through `--extra-peek`, so the TEST ledger now reads 2 runs against a budget of 1, with the reason. The status page still reports the Opus run. **TEST does not choose between models, and neither set of labels has been checked by a person.**
+
+| Measure | `claude-opus-5-5` | `kimi-k3` |
+|---|---|---|
+| Accuracy, weighted | 99.3% | 99.3% |
+| Correct of covered TEST notes | 192 of 195 | 196 of 199 |
+| Large disputes | 47 of 50 | 47 of 50 |
+| Multiple charges | 47 of 47 | 47 of 47 |
+| Single charge | 98 of 98 | 102 of 102 |
+| Coverage, rows and dollars | 99.0% and 99.1% | 99.8% and 99.9% |
+| Accepted without reading, rows and dollars | 82.1% and 50.0% | 82.4% and 50.4% |
+| Notes the model was unsure about | 10 | 3 |
+| Answers rejected, then fixed on the retry | 0 | 2 |
+| Run on all rows | 3.2 minutes | 16.8 minutes |
+| Mean seconds per note | 2.1 | 11.1 |
+| Cost | $3.65 | $4.54 computed, $3.91 by the fall in Moonshot's balance |
+
+The two models gave the same categories and amounts on 717 of the 718 notes both answered. That is more than Opus agreeing with itself, but they share a prompt and its rules, so a mistake in those rules would not show. Kimi's cost is an estimate, because Moonshot's price table would not load, and the balance suggests the listed rates run about 16% high.
+
 ### Rehearsal for the 5 November meeting
 
 Run on 2026-11-03 from a clean commit, on the real data, driving the local page in a real Chrome with a throwaway profile.
@@ -94,5 +115,5 @@ The Opus run on all of TRAIN took 1.4 minutes. Agreement between models is not a
 - A person looking at the page or the workbook: the checks above were driven by script.
 - The retry on TRAIN: no model produced a rejected answer in 918 answers. It later fired while drafting labels, where two answers were rejected as `empty_answer`, retried and accepted.
 - A refusal or a refusal fallback.
-- The Ollama and OpenAI-compatible adapters: no server was available.
+- The Ollama adapter: no server was available. The OpenAI-compatible adapter has since run against Moonshot, which found a defect: it sent a temperature that Kimi K3 refuses.
 - `gt draft-taxonomy --send`: the D1 draft was written in the session.
