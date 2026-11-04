@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Freight Invoice Itemizer{% endblock %}</title>
+<style>
+  body { font: 16px/1.5 Arial, sans-serif; color: #222; max-width: 60em; margin: 1.5em auto; padding: 0 1em; }
+  h1 { font-size: 1.5em; margin: 0 0 .3em; } h2 { font-size: 1.15em; margin: 1.4em 0 .4em; }
+  nav { margin-bottom: 1em; } nav a { margin-right: 1em; }
+  table { border-collapse: collapse; width: 100%; margin: .4em 0; }
+  th, td { border: 1px solid #bbb; padding: 4px 8px; text-align: left; vertical-align: top; } th { background: #eee; }
+  .flag { background: #fff2cc; padding: 6px 10px; margin: .6em 0; }
+  .stop { background: #f8cbad; padding: 6px 10px; margin: .6em 0; }
+  .button { display: inline-block; padding: 8px 14px; background: #0b5d73; color: #fff; border: 0; font-size: 1em; text-decoration: none; cursor: pointer; }
+  button:disabled { background: #999; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<nav><a href="/">Upload</a><a href="/status">D1, D2 and D3 status</a></nav>
+{% block content %}{% endblock %}
+</body>
+</html>

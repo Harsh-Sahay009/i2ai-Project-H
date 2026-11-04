@@ -8,6 +8,7 @@ import json
 import re
 import subprocess
 import time
+from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -24,7 +25,7 @@ from .bootstrap.data import (
 )
 from .contracts import NoteResult, RowResult, RunManifest
 from .grammar import GRAMMAR_VERSION
-from .itemize import Budget, Policy, assign_rows, build_system_prompt, itemize_notes, load_fewshots
+from .itemize import Budget, Policy, assign_rows, build_system_prompt, itemize_notes, load_fewshots, notes_needing_a_call
 from .output import write_workbook
 from .providers import ModelSpec, get_provider, load_models
 
@@ -221,8 +222,58 @@ class RunOutcome:
     row_results: list[RowResult]
 
 
+# From the live check on TRAIN: the tokens one note takes once the prompt is cached.
+_TYPICAL_INPUT_TOKENS, _TYPICAL_OUTPUT_TOKENS, _TYPICAL_CACHE_READ_TOKENS = 70, 150, 6400
+
+
+def _estimate_usd(spec: ModelSpec, calls: int) -> Decimal:
+    each = (_TYPICAL_INPUT_TOKENS * spec.input_usd_per_mtok + _TYPICAL_OUTPUT_TOKENS * spec.output_usd_per_mtok
+            + _TYPICAL_CACHE_READ_TOKENS * spec.cache_read_usd_per_mtok) / Decimal(1_000_000)
+    return (each * calls).quantize(Decimal("0.01"))
+
+
+def inspect_export(root: Path, path: Path, model_name: str | None = None) -> dict:
+    """What a run on this file would do, by the same rules as `run`, before anything is paid for. Counts and plain messages only."""
+    project = load_project(root)
+    spec = choose_model(root, model_name)
+    limit = project.settings.get("budget", {}).get("max_usd_per_run", "0")
+    report: dict = {"model": spec.name, "rows": 0, "notes": 0, "new_calls": 0, "estimated_usd": "0.00", "budget_usd": str(limit), "full_kpis": False, "stops": []}
+    is_dataset = sha256_file(path) == project.split["dataset_sha256"]
+    try:
+        rows, notes = (project.rows, project.notes) if is_dataset else _read_export(project, path)
+    except ContractError as exc:
+        report["stops"].append(str(exc))
+        return report
+    report.update(rows=len(rows), notes=len(notes), full_kpis=is_dataset)
+    if not rows:
+        report["stops"].append("This file has no rows.")
+        return report
+    left_out: set[str] = set()
+    for check in (lambda: _select(project, rows, notes, is_dataset, None, None), lambda: _left_out_of_send(project, spec, notes, is_dataset)):
+        try:
+            found = check()
+            left_out = found if isinstance(found, set) else left_out
+        except ContractError as exc:
+            report["stops"].append(str(exc))
+    categories = project.categories()
+    codes = {c["code"] for c in categories}
+    system = build_system_prompt(categories, load_fewshots(root / FEWSHOTS, project.notes, project.split, codes), root / PROMPT)
+    sent = {fp: note for fp, note in notes.items() if fp not in left_out}
+    report["new_calls"] = notes_needing_a_call(sent, spec, codes, system, project.data_root / "cache" / "llm")
+    estimate = _estimate_usd(spec, report["new_calls"])
+    report["estimated_usd"] = str(estimate)
+    if estimate > Decimal(str(limit)):
+        report["stops"].append(f"The estimated cost of ${estimate} is over the ${limit} limit in budget.max_usd_per_run.")
+    return report
+
+
+def _read_export(project: Project, path: Path) -> tuple[list[DisputeRow], dict[str, Note]]:
+    rows, _ = load_export(path, project.cfg.examples_sheet)
+    return rows, group_notes(rows, project.cfg.large_dispute_usd)
+
+
 def run(root: Path, model_name: str | None = None, set_name: str | None = None, limit: int | None = None,
-        export: Path | None = None) -> RunOutcome:
+        export: Path | None = None, progress: Callable[[int, int, Decimal], None] | None = None) -> RunOutcome:
     """Itemize an export. Every file goes under the run's folder, named by a hash of everything the run depends on."""
     project = load_project(root)
     spec = choose_model(root, model_name)
@@ -230,11 +281,7 @@ def run(root: Path, model_name: str | None = None, set_name: str | None = None, 
     if not path.is_file():
         raise ContractError(f"export not found, or it cannot be read as a file: {path}")
     is_dataset = sha256_file(path) == project.split["dataset_sha256"]  # by content, so a copy under another name counts
-    if is_dataset:
-        rows, notes = project.rows, project.notes
-    else:
-        rows, _ = load_export(path, project.cfg.examples_sheet)
-        notes = group_notes(rows, project.cfg.large_dispute_usd)
+    rows, notes = (project.rows, project.notes) if is_dataset else _read_export(project, path)
     rows, notes = _select(project, rows, notes, is_dataset, set_name, limit)
     if not rows:
         raise ContractError("there are no rows to run")
@@ -259,7 +306,7 @@ def run(root: Path, model_name: str | None = None, set_name: str | None = None, 
     started = time.monotonic()
     note_results = itemize_notes({fp: n for fp, n in notes.items() if fp not in left_out}, provider, codes, system,
                                  project.data_root / "cache" / "llm", budget,
-                                 project.settings.get("runtime", {}).get("concurrency", 8), folder / "telemetry.jsonl")
+                                 project.settings.get("runtime", {}).get("concurrency", 8), folder / "telemetry.jsonl", progress)
     for fp in sorted(set(notes) & left_out):
         note_results[fp] = NoteResult(fingerprint=fp, note_id=notes[fp].note_id, status="review", review_reason="refused",
                                       violations=["not_sent_after_scan"], model=spec.name)
@@ -303,9 +350,13 @@ def run(root: Path, model_name: str | None = None, set_name: str | None = None, 
 
 
 def load_run(project: Project, run_id: str) -> tuple[RunManifest, list[RowResult], dict[str, NoteResult]]:
+    return read_run(project.data_root, run_id)
+
+
+def read_run(data_root: Path, run_id: str) -> tuple[RunManifest, list[RowResult], dict[str, NoteResult]]:
     if not _RUN_ID.fullmatch(run_id):
         raise ContractError("a run id looks like run_ followed by 16 hex characters")
-    folder = project.data_root / "runs" / run_id
+    folder = data_root / "runs" / run_id
     if not (folder / "row_results.json").exists():
         raise ContractError(f"run {run_id} has no results; run `itemizer run` first")
     try:

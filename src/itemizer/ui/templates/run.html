@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Result</h1>
+<p>File: <b>{{ file }}</b>, {{ rows }} rows, on {{ model }}.</p>
+<p><a class="button" href="/runs/{{ run_id }}/download">Download the output Excel</a></p>
+<p class="flag"><small>This file holds the tool's answers. Anyone about to check the test labels should not open it first.</small></p>
+
+<h2>Outcomes</h2>
+<table>
+  <tr><th>Outcome</th><th>Rows</th></tr>
+  {% for name, count in outcomes.items() %}<tr><td>{{ name }}</td><td>{{ count }}</td></tr>{% endfor %}
+</table>
+<p><small>{% for name, count in reasons.items() %}{{ name }}: {{ count }}{% if not loop.last %}, {% endif %}{% endfor %}</small></p>
+
+<h2>What an accountant can accept without reading the note</h2>
+<table>
+  <tr><th></th><th>Accepted without reading</th><th>Coverage, which also counts rows flagged to read</th></tr>
+  <tr><td>Rows</td><td>{{ "%.1f"|format(coverage.accepted_without_reading.rows.share * 100) if coverage.accepted_without_reading.rows.share is not none else "not measured" }}%</td>
+      <td>{{ "%.1f"|format(coverage.rows.share * 100) if coverage.rows.share is not none else "not measured" }}%</td></tr>
+  <tr><td>Disputed dollars</td><td>{{ "%.1f"|format(coverage.accepted_without_reading.usd.share * 100) if coverage.accepted_without_reading.usd.share is not none else "not measured" }}%</td>
+      <td>{{ "%.1f"|format(coverage.usd.share * 100) if coverage.usd.share is not none else "not measured" }}%</td></tr>
+</table>
+
+<h2>Accuracy on the test set</h2>
+{% if not whole_dataset %}
+<p>Not measured for this file, because test labels exist only for the dataset file.</p>
+{% elif snapshot %}
+  {% set drafts = snapshot.labels_sources.get("model_draft", 0) %}
+  {% if drafts %}<p class="flag"><b>Read this first.</b> {{ drafts }} of the test labels were written by Claude Opus, and no person has checked them. The tool also runs on Claude, so accuracy here shows how far the tool agrees with those labels, and not that it is right. It will change when people correct the labels, and it may get worse.</p>{% endif %}
+  <p>Level 1: <b>{{ snapshot.levels.level1.status }}</b>. Labels are {{ snapshot.labels_status }}.</p>
+  <table>
+    <tr><th>Condition</th><th>Measured</th><th>Target</th><th>Range</th><th>n</th></tr>
+    {% for key, name in [("acc", "Accuracy on covered rows"), ("cov_rows", "Coverage of rows"), ("cov_usd", "Coverage of disputed dollars")] %}
+    {% set condition = snapshot.levels.level1.conditions[key] %}
+    <tr><td>{{ name }}</td><td>{{ "%.1f"|format(condition.value * 100) if condition.value is not none else "not measured" }}%</td><td>{{ "%.0f"|format(condition.target * 100) }}%</td>
+        <td>{% if condition.ci_low is not none %}{{ "%.1f"|format(condition.ci_low * 100) }}% to {{ "%.1f"|format(condition.ci_high * 100) }}%{% endif %}</td><td>{{ condition.n }}</td></tr>
+    {% endfor %}
+  </table>
+  <form action="/runs/{{ run_id }}/evaluate" method="post"><button class="button" type="submit">Score again, after labels change</button></form>
+  <p><a href="/status">See the full status page</a></p>
+{% else %}
+  <p>This run has not been scored on the test set yet.</p>
+  <form action="/runs/{{ run_id }}/evaluate" method="post"><button class="button" type="submit">Score on the test set</button></form>
+{% endif %}
+{% endblock %}

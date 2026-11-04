@@ -994,3 +994,24 @@ def test_a_repeat_run_keeps_what_the_answer_cost_when_first_made(tmp_path):
     assert second["cost_usd"] == "0" and second["cached"] is True
     assert Decimal(second["measured_cost_usd"]) == Decimal(first["cost_usd"]) > 0
     assert second["measured_latency_ms"] == first["latency_ms"]
+
+
+# ---- progress
+def _run_with(notes, tmp_path, progress):
+    return itemize_notes(notes, FakeProvider(GOOD), ["lumper"], "SYSTEM", tmp_path / "cache", Budget("100.00", 30), 1, tmp_path / "telemetry.jsonl", progress)
+
+
+def test_progress_is_told_once_per_note_with_the_running_total(tmp_path):
+    seen = []
+    _run_with(make_notes(LUMPER, f"{LUMPER} AGAIN"), tmp_path, lambda done, total, spent: seen.append((done, total, spent)))
+    assert [(done, total) for done, total, _ in seen] == [(1, 2), (2, 2)]
+    assert seen[-1][2] >= seen[0][2] > 0
+
+
+def test_a_failure_in_progress_cannot_stop_a_run(tmp_path):
+    def breaks(done, total, spent):
+        raise ValueError("the display broke")
+
+    results = _run_with(make_notes(LUMPER), tmp_path, breaks)
+    assert {result.status for result in results.values()} == {"ok"}
+
