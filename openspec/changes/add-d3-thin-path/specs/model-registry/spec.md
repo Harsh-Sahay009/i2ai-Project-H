@@ -7,12 +7,24 @@ Models SHALL be listed in `config/models.yaml` with their provider, model id, pr
 - **WHEN** an entry for another Claude model is added and `itemizer run --model <name>` is run
 - **THEN** the run uses that model, and its manifest records the full entry
 
+#### Scenario: A model that refuses a setting
+- **WHEN** a model only accepts its default temperature, and its entry sets `temperature` to null
+- **THEN** the request leaves the setting out, with no code change
+
 #### Scenario: Unknown name
 - **WHEN** `--model` names no entry
 - **THEN** the command stops and lists the available names
 
 ### Requirement: One provider interface
 Every provider SHALL implement one interface taking a system prompt, a user prompt and a schema, and returning text and usage. Every registered adapter MUST pass one shared contract test.
+
+#### Scenario: A rate limit
+- **WHEN** a server answers 429 and then answers normally
+- **THEN** the note gets its answer, waiting as long as `Retry-After` says
+
+#### Scenario: A request a server will never accept
+- **WHEN** a server answers 400
+- **THEN** the call is not tried again, and the note goes to Review
 
 #### Scenario: New API family
 - **WHEN** an adapter class is added to `ADAPTERS`

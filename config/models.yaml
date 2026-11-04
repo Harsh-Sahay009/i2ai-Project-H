@@ -63,6 +63,21 @@ models:
     cache_read_usd_per_mtok: "0.20"
     cache_write_usd_per_mtok: "5.00"
 
+  # Kimi K3 only accepts its default temperature, so temperature is null here. Moonshot's own price table would not load on
+  # 2026-11-04: these are the rates most listings give ($3, $0.30, $15), so treat a cost figure as an estimate and check it.
+  kimi-k3:
+    provider: openai_compatible
+    model: kimi-k3
+    base_url: "https://api.moonshot.ai/v1"
+    api_key_env: MOONSHOT_API_KEY
+    effort: medium
+    temperature: null
+    refusal_fallback: false
+    input_usd_per_mtok: "3.00"
+    output_usd_per_mtok: "15.00"
+    cache_read_usd_per_mtok: "0.30"
+    cache_write_usd_per_mtok: "3.00"
+
   # Examples for other providers. They run once the runtime or key exists.
   local-qwen:
     provider: ollama
