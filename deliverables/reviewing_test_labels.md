@@ -9,6 +9,7 @@ The labels live under `data/`, which Git ignores. Do not copy notes or labels in
 1. **Do not open `data/runs/` or any `itemized.xlsx` while reviewing.** Those hold the tool's answers. A reviewer who has seen them may follow them, which defeats the review. The review workbook holds no tool output.
 2. **Read the note first, then the label.** Ask what the note says, and then whether the label says the same.
 3. **Follow the labelling rules** on the workbook's `Instructions` sheet. Never change an amount to make a row add up.
+4. **If you saw the tool's answers at the meeting, judge from the note anyway.** The workbook already shows Opus's label, and the tool agrees with it on almost every note, so the few notes where they differ are the ones to read most carefully.
 
 ## Step 1: write the review workbook
 
@@ -60,12 +61,25 @@ What to do depends on what changed:
 | What changed | What to run | Model calls | TEST budget |
 |---|---|---|---|
 | Only labels | `itemizer evaluate`, then `itemizer acceptance d3` | None | Free, because the run is the same |
-| The category list, worked examples, prompt or grammar, or `reconcile`, `review`, `kpi` or `gates` in `config/run.yaml` | `itemizer run`, then `itemizer evaluate --extra-peek "<reason>"`, then `itemizer acceptance d3` | Yes | Past the budget, so the reason is logged and flagged on the page |
+| A category renamed or merged (see below), or the category list, worked examples, prompt or grammar, or `reconcile`, `review`, `kpi` or `gates` in `config/run.yaml` | `itemizer run`, then `itemizer evaluate --extra-peek "<reason>"`, then `itemizer acceptance d3` | Yes | Past the budget, so the reason is logged and flagged on the page |
 | Code that changes what the tool answers | The same as the row above | Yes | Past the budget |
 
 `itemizer evaluate` on an out-of-date run stops and says what changed, and nothing is charged. The result is at `data/reports/d3_summary.html`.
 
 Each extra peek is a chance to pick the best-looking score, so use them rarely. Correcting labels after seeing a result is allowed, but the page counts corrections made after the freeze. Do not change a label because the tool answered differently: change it only because the note says so.
+
+## If a category is renamed or merged
+
+This can happen when the team edits D1, or when the client asks for a change at approval. **Do not use find-and-replace in the workbook.** It would mark every label it touches as `person_corrected`, as though someone had read those notes, and the final seal's check on unread drafts would then pass. The review workbook and its import refuse to run while labels hold an old code, for this reason. Use:
+
+```bash
+itemizer gt rename-category <old> <new>
+itemizer gt rename-category <old> <existing> --merge
+```
+
+This changes the code in the category list, the worked examples and every stored label. Each label keeps who wrote it, and it does not count as a correction. To change a category's name or definition, edit `taxonomy/categories.yaml` directly, and leave its code alone.
+
+Then follow the row for category changes in Step 4. A split, where one category becomes two, needs a person to choose for each note, so add the new category to the list and correct those labels in the workbook.
 
 ## If the balance-due rule changes
 
@@ -84,6 +98,7 @@ Results stay provisional, and D3 stays `open`, until all of these are done:
 
    ```bash
    itemizer gt client-pack
+   # the client fills in the workbook
    itemizer gt import-client data/bootstrap/packs/client_review.xlsx --date <YYYY-MM-DD> --role client_owner
    ```
 

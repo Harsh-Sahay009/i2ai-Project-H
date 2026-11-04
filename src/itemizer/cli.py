@@ -20,6 +20,7 @@ acceptance_app = typer.Typer(no_args_is_help=True, help="Check a deliverable aga
 app.add_typer(acceptance_app, name="acceptance")
 
 CATEGORIES = Path("taxonomy/categories.yaml")
+WORKED_EXAMPLES = Path("prompts/fewshot_v1.yaml")
 APPROVAL = Path("taxonomy/approval.yaml")
 
 
@@ -335,6 +336,26 @@ def draft_test_labels_command(
     if not report["complete"]:
         typer.secho("Some notes have no label. Run this again to continue, or see the errors file for each pack.", fg=typer.colors.YELLOW)
         raise typer.Exit(code=1)
+
+
+@gt.command("rename-category")
+@_guard
+def rename_category_command(
+    old: str = typer.Argument(..., help="The code to change."),
+    new: str = typer.Argument(..., help="The new code."),
+    merge: bool = typer.Option(False, "--merge", help="Move the category into one that already exists."),
+    config: Path = Config_,
+) -> None:
+    """Change a category's code in the list, the worked examples and every label, keeping who wrote each label."""
+    ctx = Context(config)
+    lb.check_not_sealed(ctx.ws)
+    tx.rename_in_taxonomy(ctx.root / CATEGORIES, old, new, merge, ctx.notes)
+    examples = tx.rename_in_worked_examples(ctx.root / WORKED_EXAMPLES, old, new)
+    changed = lb.rename_category(ctx.ws, old, new)
+    ctx.ws.log("rename-category", [], [ctx.root / CATEGORIES], old=old, new=new, merge=merge)
+    _show({"old": old, "new": new, "items_changed": changed, "worked_examples_changed": examples})
+    typer.echo("The prompt changed, so the next step is `itemizer run`, then `itemizer evaluate --extra-peek \"<reason>\"`. "
+               "Any earlier approval of the list no longer applies. If the client's workbook was written, run `itemizer gt client-pack` again.")
 
 
 @gt.command("label-review-pack")

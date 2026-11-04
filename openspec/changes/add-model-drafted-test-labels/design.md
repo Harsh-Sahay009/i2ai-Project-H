@@ -42,6 +42,10 @@ The prompt says never to answer `unsure`: a label must exist. Doubt goes in `rea
 - It accumulates in `labels/test_label_review.json` and logs each import to `labels/test_label_review_log.jsonl`. `gold_labels` applies it after a model's review, and a client's decisions still win. A note the client decided is refused. Where the team corrected one of the 50 notes, the client's workbook shows it in `team_correction`, and `accept_correction` keeps it.
 - After a provisional freeze, the frozen file is updated for the reviewed notes only, and its record gets the new hash, `checked_by_person` and `corrected_after_freeze`. So a client review imported after the freeze still waits for the final seal. A sealed TEST refuses, as before.
 
+### Renaming a category
+
+`gt rename-category <old> <new> [--merge]` changes the code in `taxonomy/categories.yaml`, `prompts/fewshot_v1.yaml`, every `labels/*.json`, `client_review.json` and `test_provisional.json`, updates the frozen record's hash, keeps each label's `source`, and logs to `labels/category_renames.jsonl`. It validates the new list first, so a refusal changes nothing. The review workbook and its import refuse while a current label holds a code outside the list, because find-and-replace there would mark unread drafts as `person_corrected` and pass the final seal's check. A split still needs a person to choose for each note.
+
 ### Running the test again
 
 Only labels changed: `itemizer evaluate` re-scores the same run with no model calls and no budget. Categories, prompt or settings changed: the run is out of date, so a new `itemizer run`, then `evaluate --extra-peek "<reason>"`. Both are existing behaviour, and the instruction file explains them.

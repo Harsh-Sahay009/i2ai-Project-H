@@ -22,7 +22,7 @@
 - [x] 4.2 Implement `gt import-label-review`, with the frozen labels updated
 - [x] 4.3 Write `deliverables/reviewing_test_labels.md`
 - [x] 4.4 Tests per scenario in `test-label-review`, on invented notes with no network
-- [ ] 4.5 Implement `gt rename-category`, and refuse the workbook and import while labels hold an old code
+- [x] 4.5 Implement `gt rename-category`, and refuse the workbook and import while labels hold an old code
 
 ## 5. Live
 

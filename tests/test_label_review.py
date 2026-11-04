@@ -441,3 +441,147 @@ def test_every_priority_in_the_instruction_file_is_one_the_workbook_writes():
     text = (ROOT / "deliverables/reviewing_test_labels.md").read_text(encoding="utf-8")
     for word in ("labellers_disagreed", "model_doubt", "large_dispute", "several_charges", "no_charge_stated", "already_checked"):
         assert f"`{word}" in text
+
+
+# ---- renaming a category
+def rename(*args):
+    return runner.invoke(app, ["gt", "rename-category", *args])
+
+
+def codes_of(world) -> set[str]:
+    return {category["code"] for category in tx.load_taxonomy(world.tmp / pipeline.CATEGORIES)["categories"]}
+
+
+def snapshot_of_labels(world) -> dict:
+    names = ["labels/label_A.json", "labels/label_B.json", "labels/label_single.json", "client_review.json", "test_provisional.json", "provisional_record.json"]
+    return {name: world.ws.path(name).read_text(encoding="utf-8") for name in names} | {
+        "list": (world.tmp / pipeline.CATEGORIES).read_text(encoding="utf-8"), "examples": (world.tmp / pipeline.FEWSHOTS).read_text(encoding="utf-8")}
+
+
+def test_a_rename_reaches_the_list_the_examples_and_every_label_and_keeps_who_wrote_them(frozen):
+    before = lb.load_test_gold(frozen.ws)[0]
+    result = rename("cat_0", "cat_renamed")
+    assert result.exit_code == 0, result.stderr
+    assert "cat_0" not in codes_of(frozen) and "cat_renamed" in codes_of(frozen)
+    gold, status = lb.load_test_gold(frozen.ws)  # it checks the frozen file against its record
+    assert status == "provisional" and {i.category for label in gold.values() for i in label.items} == {"cat_renamed"}
+    assert {fp: label.source for fp, label in gold.items()} == {fp: label.source for fp, label in before.items()} and {l.source for l in gold.values()} == {"model_draft"}
+    for pack in ("label_A", "label_B", "label_single"):
+        assert "cat_0" not in frozen.ws.path(f"labels/{pack}.json").read_text(encoding="utf-8")
+    assert "cat_0" not in frozen.ws.path("client_review.json").read_text(encoding="utf-8")
+    assert "cat_renamed" in (frozen.tmp / pipeline.FEWSHOTS).read_text(encoding="utf-8")
+    assert frozen.ws.read_json("provisional_record.json").get("corrected_after_freeze", 0) == 0
+    logged = json.loads(frozen.ws.path("labels/category_renames.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert logged["old"] == "cat_0" and logged["new"] == "cat_renamed"
+
+
+def test_after_a_rename_the_workbook_round_trips_with_no_correction(frozen):
+    rename("cat_0", "cat_renamed")
+    before = frozen.ws.path("test_provisional.json").read_bytes()
+    result = lb.import_label_review(frozen.ws, write_pack(frozen), REVIEWER, "2026-11-04", frozen.ws.read_json("split_manifest.json"), frozen.notes, codes_of(frozen))
+    assert (result["errors"], result["reviewed"], result["corrected"]) == (0, 0, 0)
+    assert frozen.ws.path("test_provisional.json").read_bytes() == before
+
+
+def test_the_final_seal_still_refuses_drafts_after_a_rename(frozen):
+    rename("cat_0", "cat_renamed")
+    assert lb.import_client_review(frozen.ws, fill_review(frozen), lb.CLIENT_ROLE, "2026-11-05", frozen.notes, codes_of(frozen))["errors"] == 0
+    with pytest.raises(ContractError, match="150 TEST labels are model drafts"):
+        lb.seal(frozen.ws, frozen.ws.read_json("split_manifest.json"), frozen.notes, codes_of(frozen))
+
+
+def test_a_rename_makes_the_run_out_of_date_and_the_worked_examples_still_load(frozen):
+    outcome = pipeline.run(frozen.tmp)
+    rename("cat_0", "cat_renamed")
+    project = pipeline.load_project(frozen.tmp)
+    changed = pipeline.out_of_date(project, outcome.manifest)
+    assert "the category list" in changed and "the worked examples" in changed
+    from itemizer.itemize import load_fewshots
+
+    shots = load_fewshots(frozen.tmp / pipeline.FEWSHOTS, project.notes, project.split, codes_of(frozen))
+    assert '"category": "cat_renamed"' in shots[0].answer
+
+
+def test_a_list_edited_by_hand_stops_the_workbook_and_its_import(frozen):
+    path = write_pack(frozen)  # written while the codes still matched
+    taxonomy = tx.load_taxonomy(frozen.tmp / pipeline.CATEGORIES)
+    next(c for c in taxonomy["categories"] if c["code"] == "cat_0")["code"] = "cat_by_hand"
+    tx.write_taxonomy(frozen.tmp / pipeline.CATEGORIES, taxonomy)
+    with pytest.raises(ContractError, match="rename-category"):
+        write_pack(frozen)
+    with pytest.raises(ContractError, match="rename-category"):
+        lb.import_label_review(frozen.ws, path, REVIEWER, "2026-11-04", frozen.ws.read_json("split_manifest.json"), frozen.notes, codes_of(frozen))
+
+
+def test_find_and_replace_cannot_mark_unread_drafts_as_corrected(frozen):
+    """The defect this guards against: a hand edit plus find-and-replace turned 200 unread drafts into person_corrected."""
+    path = write_pack(frozen)
+    taxonomy = tx.load_taxonomy(frozen.tmp / pipeline.CATEGORIES)
+    next(c for c in taxonomy["categories"] if c["code"] == "cat_0")["code"] = "cat_by_hand"
+    tx.write_taxonomy(frozen.tmp / pipeline.CATEGORIES, taxonomy)
+
+    def replace(line):
+        if line["category"].value == "cat_0":
+            line["category"].value = "cat_by_hand"
+
+    edit(path, replace)
+    with pytest.raises(ContractError, match="rename-category"):
+        lb.import_label_review(frozen.ws, path, REVIEWER, "2026-11-04", frozen.ws.read_json("split_manifest.json"), frozen.notes, codes_of(frozen))
+    assert lb.label_sources(frozen.ws) == {"model_draft": 200}
+
+
+def test_a_merge_needs_the_flag_and_a_refusal_changes_nothing(frozen):
+    before = snapshot_of_labels(frozen)
+    result = rename("cat_0", "cat_1")
+    assert result.exit_code == 2 and "--merge" in result.stderr
+    assert snapshot_of_labels(frozen) == before
+
+
+def test_a_merge_moves_the_labels_and_the_examples(frozen):
+    taxonomy = tx.load_taxonomy(frozen.tmp / pipeline.CATEGORIES)  # one spare, because the list must keep 12
+    extra = dict(next(c for c in taxonomy["categories"] if c["code"] == "cat_1"), code="cat_extra")
+    taxonomy["categories"].append(extra)
+    tx.write_taxonomy(frozen.tmp / pipeline.CATEGORIES, taxonomy)
+    result = rename("cat_0", "cat_1", "--merge")
+    assert result.exit_code == 0, result.stderr
+    gold = lb.load_test_gold(frozen.ws)[0]
+    assert "cat_0" not in codes_of(frozen) and {i.category for label in gold.values() for i in label.items} == {"cat_1"}
+    merged = next(c for c in tx.load_taxonomy(frozen.tmp / pipeline.CATEGORIES)["categories"] if c["code"] == "cat_1")
+    assert len(merged["examples"]) == len(extra["examples"]) + 1
+
+
+def test_a_merge_that_would_leave_too_few_categories_changes_nothing(frozen):
+    before = snapshot_of_labels(frozen)
+    result = rename("cat_0", "cat_1", "--merge")
+    assert result.exit_code == 2 and "11 categories" in result.stderr
+    assert snapshot_of_labels(frozen) == before
+
+
+@pytest.mark.parametrize("args, words", [
+    (["other_unmapped", "anything"], "catch-all"),
+    (["no_such_code", "anything"], "not in the list"),
+    (["cat_0", "cat_0"], "the same"),
+    (["cat_0", "no_such_code", "--merge"], "needs an existing category"),
+    (["cat_0", "Bad Code"], "bad code"),
+])
+def test_a_bad_rename_is_refused_and_changes_nothing(frozen, args, words):
+    before = snapshot_of_labels(frozen)
+    result = rename(*args)
+    assert result.exit_code == 2 and words in result.stderr
+    assert snapshot_of_labels(frozen) == before
+
+
+def test_a_rename_after_the_final_seal_is_refused_and_changes_nothing(frozen):
+    _check_everything(frozen)
+    assert lb.import_client_review(frozen.ws, fill_review(frozen), lb.CLIENT_ROLE, "2026-11-05", frozen.notes, CODES)["errors"] == 0
+    assert "sha256" in lb.seal(frozen.ws, frozen.ws.read_json("split_manifest.json"), frozen.notes, CODES)
+    list_before = (frozen.tmp / pipeline.CATEGORIES).read_text(encoding="utf-8")
+    result = rename("cat_0", "cat_renamed")
+    assert result.exit_code == 2 and "TEST is sealed" in result.stderr
+    assert (frozen.tmp / pipeline.CATEGORIES).read_text(encoding="utf-8") == list_before
+
+
+def test_a_rename_works_before_the_freeze_too(drafted):
+    assert rename("cat_0", "cat_renamed").exit_code == 0
+    assert {i.category for label in lb.current_test_labels(drafted.ws).values() for i in label.items} == {"cat_renamed"}
+
