@@ -38,7 +38,7 @@ PRICES = {"input_usd_per_mtok": "4.00", "output_usd_per_mtok": "20.00", "cache_r
 def isolated(tmp_path, monkeypatch):
     """No test can reach the project's real .env: the working folder is empty, and the only key is a fake one."""
     monkeypatch.chdir(tmp_path)
-    for name in ("CLAUDE_API_KEY", "OTHER_API_KEY", "ANTHROPIC_API_KEY"):
+    for name in ("CLAUDE_API_KEY", "OTHER_API_KEY", "ANTHROPIC_API_KEY", "MOONSHOT_API_KEY"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv(KEY_VAR, SECRET)
 
@@ -508,9 +508,10 @@ def test_every_entry_in_the_real_registry_loads():
 
 
 def test_every_entry_in_the_real_registry_works_with_its_adapter(monkeypatch):
-    monkeypatch.setenv("CLAUDE_API_KEY", "fake")
-    monkeypatch.setenv("OTHER_API_KEY", "fake")
     models, _ = load_models(REAL_REGISTRY)
+    for spec in models.values():
+        if spec.api_key_env:
+            monkeypatch.setenv(spec.api_key_env, "fake")
     for name, spec in models.items():
         sample = ADAPTERS[spec.provider].wire_sample()
         wire = FakeWire(sample.ok)
@@ -647,3 +648,126 @@ def test_an_openai_compatible_failure_reports_what_it_used(finish_reason, messag
 def test_a_malformed_http_reply_is_a_provider_error_and_not_a_crash(family, failure):
     with pytest.raises(ProviderError, match="the request failed"):
         get_provider(make_spec(family, base_url="http://fake.invalid"), client=FakeWire(failure)).complete(SYSTEM, USER, SCHEMA)
+
+
+# ---- what a real server needed: found against Moonshot on 2026-11-04
+@pytest.fixture(autouse=True)
+def no_waiting(monkeypatch):
+    waits = []
+    monkeypatch.setattr("itemizer.providers.time.sleep", waits.append)
+    return waits
+
+
+def _http_error(code, retry_after=None):
+    headers = {"Retry-After": retry_after} if retry_after else None
+    return urllib.error.HTTPError("http://fake.invalid", code, "quotes the request", headers, None)
+
+
+class Scripted(FakeWire):
+    """Raises or answers from a list, one per call."""
+
+    def __init__(self, *answers):
+        super().__init__()
+        self.answers = list(answers)
+
+    def __call__(self, *args, **kwargs):
+        self.calls.append((args, kwargs))
+        answer = self.answers.pop(0)
+        if isinstance(answer, BaseException):
+            raise answer
+        return answer
+
+
+def test_a_null_temperature_is_left_out_of_the_request():
+    wire = FakeWire(OpenAICompatibleProvider.wire_sample().ok)
+    get_provider(make_spec("openai_compatible", temperature=None), client=wire).complete(SYSTEM, USER, SCHEMA)
+    assert "temperature" not in wire.calls[0][0][2]
+
+
+def test_a_null_temperature_is_left_out_for_ollama_too():
+    wire = FakeWire(OllamaProvider.wire_sample().ok)
+    get_provider(make_spec("ollama", temperature=None), client=wire).complete(SYSTEM, USER, SCHEMA)
+    assert wire.calls[0][0][2]["options"] == {"num_predict": 16000}
+
+
+def test_a_set_temperature_is_sent():
+    wire = FakeWire(OpenAICompatibleProvider.wire_sample().ok)
+    get_provider(make_spec("openai_compatible", temperature=0.5), client=wire).complete(SYSTEM, USER, SCHEMA)
+    assert wire.calls[0][0][2]["temperature"] == 0.5
+
+
+def test_effort_goes_to_the_server_as_reasoning_effort():
+    wire = FakeWire(OpenAICompatibleProvider.wire_sample().ok)
+    get_provider(make_spec("openai_compatible", effort="medium"), client=wire).complete(SYSTEM, USER, SCHEMA)
+    assert wire.calls[0][0][2]["reasoning_effort"] == "medium"
+
+
+def test_cached_and_written_prompt_tokens_are_priced_apart():
+    reply = OpenAICompatibleProvider.wire_sample().ok
+    reply["usage"] = {"prompt_tokens": 100, "completion_tokens": 7, "prompt_tokens_details": {"cached_tokens": 60, "cache_write_tokens": 10}}
+    found = get_provider(make_spec("openai_compatible"), client=FakeWire(reply)).complete(SYSTEM, USER, SCHEMA)
+    assert (found.input_tokens, found.cache_read_tokens, found.cache_write_tokens, found.output_tokens) == (30, 60, 10, 7)
+
+
+def test_cached_tokens_at_the_top_of_usage_count_too():
+    reply = OpenAICompatibleProvider.wire_sample().ok
+    reply["usage"] = {"prompt_tokens": 100, "completion_tokens": 7, "cached_tokens": 40}
+    found = get_provider(make_spec("openai_compatible"), client=FakeWire(reply)).complete(SYSTEM, USER, SCHEMA)
+    assert (found.input_tokens, found.cache_read_tokens) == (60, 40)
+
+
+@pytest.mark.parametrize("family", ["ollama", "openai_compatible"])
+def test_a_rate_limit_is_tried_again_and_the_answer_arrives(family, no_waiting):
+    good = ADAPTERS[family].wire_sample().ok
+    wire = Scripted(_http_error(429), _http_error(503), good)
+    found = get_provider(make_spec(family, base_url="http://fake.invalid"), client=wire).complete(SYSTEM, USER, SCHEMA)
+    assert found.text == "{}" and len(wire.calls) == 3 and no_waiting == [1.0, 2.0]
+
+
+def test_retry_after_says_how_long_to_wait(no_waiting):
+    wire = Scripted(_http_error(429, "7"), OpenAICompatibleProvider.wire_sample().ok)
+    get_provider(make_spec("openai_compatible"), client=wire).complete(SYSTEM, USER, SCHEMA)
+    assert no_waiting == [7.0]
+
+
+def test_a_long_retry_after_is_capped(no_waiting):
+    wire = Scripted(_http_error(429, "9000"), OpenAICompatibleProvider.wire_sample().ok)
+    get_provider(make_spec("openai_compatible"), client=wire).complete(SYSTEM, USER, SCHEMA)
+    assert no_waiting == [60.0]
+
+
+def test_a_rate_limit_that_never_clears_goes_to_review(no_waiting):
+    wire = Scripted(*[_http_error(429) for _ in range(4)])
+    with pytest.raises(ProviderError, match="status 429"):
+        get_provider(make_spec("openai_compatible"), client=wire).complete(SYSTEM, USER, SCHEMA)
+    assert len(wire.calls) == 4
+
+
+@pytest.mark.parametrize("code", [400, 401, 403, 404])
+def test_a_request_the_server_will_never_accept_is_not_tried_again(code, no_waiting):
+    wire = Scripted(_http_error(code))
+    with pytest.raises(ProviderError, match=f"status {code}"):
+        get_provider(make_spec("openai_compatible"), client=wire).complete(SYSTEM, USER, SCHEMA)
+    assert len(wire.calls) == 1 and no_waiting == []
+
+
+def test_a_dropped_connection_is_tried_again(no_waiting):
+    wire = Scripted(urllib.error.URLError("quotes the request"), OpenAICompatibleProvider.wire_sample().ok)
+    assert get_provider(make_spec("openai_compatible"), client=wire).complete(SYSTEM, USER, SCHEMA).text == "{}"
+    assert len(wire.calls) == 2
+
+
+def test_a_timeout_is_not_tried_again_because_it_may_have_been_billed(no_waiting):
+    wire = Scripted(TimeoutError("quotes the request"))
+    with pytest.raises(ProviderError):
+        get_provider(make_spec("openai_compatible"), client=wire).complete(SYSTEM, USER, SCHEMA)
+    assert len(wire.calls) == 1
+
+
+def test_the_kimi_entry_names_the_variable_and_holds_no_key():
+    specs, default = load_models(Path(__file__).resolve().parents[1] / "config" / "models.yaml")
+    kimi = specs["kimi-k3"]
+    assert default == "claude-opus-5-5" and kimi.provider == "openai_compatible" and kimi.temperature is None
+    assert kimi.api_key_env == "MOONSHOT_API_KEY" and kimi.base_url == "https://api.moonshot.ai/v1" and not kimi.refusal_fallback
+    assert "sk-" not in (Path(__file__).resolve().parents[1] / "config" / "models.yaml").read_text(encoding="utf-8")
+

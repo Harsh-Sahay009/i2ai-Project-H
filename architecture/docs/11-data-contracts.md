@@ -134,6 +134,7 @@ A score belongs to its run. `evaluate` refuses, with nothing charged, a run whos
      model: the-provider-model-id
      api_key_env: CLAUDE_API_KEY   # the name of the variable, never the key
      effort: medium
+     # temperature: null        # for a model that refuses one
      refusal_fallback: false
      input_usd_per_mtok: "2.00"
      output_usd_per_mtok: "10.00"
@@ -154,4 +155,4 @@ A score belongs to its run. `evaluate` refuses, with nothing charged, a run whos
 
 **A new API family takes one adapter and one line.** Add a class to `src/itemizer/providers.py` with `complete(system, user, schema) -> Completion` and a static `wire_sample()`, then add it to `ADAPTERS`. The shared contract test runs against it with no new test code. The grammar goes through the same parser, so a model with weak schema support shows up as a low valid-first-try rate and not as bad data.
 
-The Ollama and OpenAI-compatible adapters have only been tested against recorded reply shapes, so try a few notes first.
+A server may refuse a setting: Kimi K3 only accepts its default temperature, so its entry sets `temperature: null`, and that needs no code. The OpenAI-compatible adapter has run against Moonshot. The Ollama adapter has only been tested against recorded reply shapes, so try a few notes first.

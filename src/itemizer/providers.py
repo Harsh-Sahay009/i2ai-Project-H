@@ -31,6 +31,7 @@ _HTTP_TIMEOUT_SECONDS = 600
 _FALLBACK_BETA = "server-side-fallback-2026-07-01"
 # A reply that is not the shape its API documents. Read errors never reach the caller as they are.
 _UNREADABLE = (KeyError, IndexError, TypeError, AttributeError, ValueError)
+_TRY_AGAIN = (429, 500, 502, 503, 504)
 
 
 class _ProviderFailure(Exception):
@@ -62,6 +63,7 @@ class ModelSpec(BaseModel):
     effort: str | None = None
     refusal_fallback: bool
     max_tokens: int = Field(default=16000, gt=0)
+    temperature: float | None = 0  # sent by the HTTP adapters. Set it to null for a model that refuses one, as Kimi K3 refuses 0
     input_usd_per_mtok: Decimal = Field(ge=0)
     output_usd_per_mtok: Decimal = Field(ge=0)
     cache_read_usd_per_mtok: Decimal = Field(ge=0)
@@ -282,9 +284,15 @@ def _post_json(url: str, headers: dict[str, str], body: dict) -> dict:
 
 
 class _HttpProvider:
-    """The call and its errors, for APIs reached with the standard library. `client` is a transport(url, headers, body)."""
+    """The call and its errors, for APIs reached with the standard library. `client` is a transport(url, headers, body).
+
+    A rate limit, a server error or a dropped connection is tried again. A real server limits a run of 700 calls.
+    """
 
     path = ""
+    attempts = 4
+    first_delay_seconds = 1.0
+    longest_delay_seconds = 60.0
 
     def __init__(self, spec: ModelSpec, client: Any = None, project_root: Path | None = None):
         if not spec.base_url:
@@ -303,15 +311,31 @@ class _HttpProvider:
     def _read(self, reply: Any, latency_ms: int) -> Completion:
         raise NotImplementedError
 
+    def _send(self, body: dict) -> Any:
+        for attempt in range(self.attempts):
+            last = attempt == self.attempts - 1
+            delay = self.first_delay_seconds * 2 ** attempt
+            try:
+                return self._transport(self._url, self._headers, body)
+            except urllib.error.HTTPError as exc:
+                waited = exc.headers.get("Retry-After") if exc.headers else None
+                code = exc.code
+                exc.close()
+                if code not in _TRY_AGAIN or last:
+                    raise ProviderError(f"{self.spec.name}: the server answered with status {code}") from None
+                if waited and waited.isdigit():
+                    delay = float(waited)
+            except urllib.error.URLError as exc:  # the connection dropped, so nothing was answered
+                if last:
+                    raise ProviderError(f"{self.spec.name}: the request failed ({type(exc).__name__})") from None
+            except (OSError, ValueError, http.client.HTTPException) as exc:  # a malformed reply must not stop the whole run
+                raise ProviderError(f"{self.spec.name}: the request failed ({type(exc).__name__})") from None
+            time.sleep(min(delay, self.longest_delay_seconds))
+        raise ProviderError(f"{self.spec.name}: the request failed")  # reached only if attempts is set below 1
+
     def complete(self, system: str, user: str, schema: dict) -> Completion:
         started = time.monotonic()
-        try:
-            reply = self._transport(self._url, self._headers, self._body(system, user, schema))
-        except urllib.error.HTTPError as exc:
-            exc.close()
-            raise ProviderError(f"{self.spec.name}: the server answered with status {exc.code}") from None
-        except (OSError, ValueError, http.client.HTTPException) as exc:  # a malformed reply must not stop the whole run
-            raise ProviderError(f"{self.spec.name}: the request failed ({type(exc).__name__})") from None
+        reply = self._send(self._body(system, user, schema))
         try:
             return self._read(reply, _elapsed_ms(started))
         except _UNREADABLE:
@@ -326,8 +350,10 @@ class OllamaProvider(_HttpProvider):
     path = "/api/chat"
 
     def _body(self, system: str, user: str, schema: dict) -> dict:
-        return {"model": self.spec.model, "messages": _chat_messages(system, user), "stream": False, "format": schema,
-                "options": {"temperature": 0, "num_predict": self.spec.max_tokens}}
+        options: dict[str, Any] = {"num_predict": self.spec.max_tokens}
+        if self.spec.temperature is not None:
+            options["temperature"] = self.spec.temperature
+        return {"model": self.spec.model, "messages": _chat_messages(system, user), "stream": False, "format": schema, "options": options}
 
     def _read(self, reply: Any, latency_ms: int) -> Completion:
         if reply.get("error"):
@@ -363,10 +389,15 @@ class OpenAICompatibleProvider(_HttpProvider):
         return {"Authorization": f"Bearer {load_secret(self.spec.api_key_env, project_root)}"}
 
     def _body(self, system: str, user: str, schema: dict) -> dict:
-        return {"model": self.spec.model, "messages": _chat_messages(system, user),
-                "response_format": {"type": "json_schema",
-                                    "json_schema": {"name": "note_answer", "strict": True, "schema": schema}},
-                "temperature": 0, "max_tokens": self.spec.max_tokens}
+        body: dict[str, Any] = {"model": self.spec.model, "messages": _chat_messages(system, user),
+                                "response_format": {"type": "json_schema",
+                                                    "json_schema": {"name": "note_answer", "strict": True, "schema": schema}},
+                                "max_tokens": self.spec.max_tokens}
+        if self.spec.temperature is not None:
+            body["temperature"] = self.spec.temperature
+        if self.spec.effort:
+            body["reasoning_effort"] = self.spec.effort
+        return body
 
     def _read(self, reply: Any, latency_ms: int) -> Completion:
         if reply.get("error"):
@@ -374,15 +405,17 @@ class OpenAICompatibleProvider(_HttpProvider):
         choice = reply["choices"][0]
         message, finish_reason = choice["message"], choice.get("finish_reason")
         reported = reply.get("usage") or {}
-        used = Completion(text="", input_tokens=reported.get("prompt_tokens", 0), output_tokens=reported.get("completion_tokens", 0),
-                          stop_reason=finish_reason, latency_ms=latency_ms)
+        details = reported.get("prompt_tokens_details") or {}
+        cached = reported.get("cached_tokens") or details.get("cached_tokens") or 0
+        written = details.get("cache_write_tokens") or 0
+        used = Completion(text="", input_tokens=reported.get("prompt_tokens", 0) - cached - written, output_tokens=reported.get("completion_tokens", 0),
+                          cache_read_tokens=cached, cache_write_tokens=written, stop_reason=finish_reason, latency_ms=latency_ms)
         if message.get("refusal") or finish_reason == "content_filter":
             raise ProviderRefused(f"{self.spec.name}: the model declined this note", usage=used)
         if finish_reason == "length":
             raise ProviderError(f"{self.spec.name}: the answer was cut off at the token limit", usage=used)
-        usage = reply["usage"]  # required: without it a call would look free and the budget could not stop a run
-        return Completion(text=message["content"], input_tokens=usage["prompt_tokens"],
-                          output_tokens=usage["completion_tokens"], stop_reason=finish_reason, latency_ms=latency_ms)
+        reply["usage"]["prompt_tokens"], reply["usage"]["completion_tokens"]  # required: without them a call would look free and the budget could not stop a run
+        return Completion.model_validate({**used.model_dump(), "text": message["content"]})  # validated, because a reply can hold no text
 
     @staticmethod
     def wire_sample() -> WireSample:
