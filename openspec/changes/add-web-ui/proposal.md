@@ -31,3 +31,5 @@ The team has reversed the "no user interface" decision (ADR 0007 supersedes ADR 
 - Depends on add-run-console, add-human-review-system, add-kpi-calculator, add-version-artifact-registry, add-telemetry-episode-store, add-configuration-registry, add-data-transformation-check.
 - Changes in place: add-human-review-system (UI is the primary review surface; Excel becomes fallback), add-run-console (UI launches jobs), add-kpi-dashboard (shared panel templates), add-data-transformation-check (pre-check entry point).
 - C4: container `webUi` and view `Components-WebUI` in `architecture/workspace.dsl`.
+
+> **Note:** `add-local-upload-page` builds a local upload, run, download and KPI page first, for the 5 November meeting (ADR 0016). This change absorbs that page, and adds login, hosting and the review pages.

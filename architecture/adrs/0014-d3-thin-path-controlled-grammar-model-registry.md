@@ -4,7 +4,7 @@ Date: 2026-11-02
 
 ## Status
 
-Accepted. Sequences [8. Itemization as a bounded tool-calling agent](0008-bounded-tool-calling-agent.md) after D3, and refines [3. Local model by default; external API behind a fail-closed confidentiality gate](0003-local-model-default-external-gated.md) with a model registry.
+Accepted. The Web UI part is amended by [16. A local upload page before D3](0016-local-upload-page-before-d3.md). Sequences [8. Itemization as a bounded tool-calling agent](0008-bounded-tool-calling-agent.md) after D3, and refines [3. Local model by default; external API behind a fail-closed confidentiality gate](0003-local-model-default-external-gated.md) with a model registry.
 
 ## Context
 
