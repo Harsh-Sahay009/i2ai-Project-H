@@ -323,3 +323,11 @@ def test_the_labels_prompt_needs_its_placeholders(tmp_path):
     path.write_text("no placeholders", encoding="utf-8")
     with pytest.raises(ContractError, match="must hold both"):
         model_labels.build_label_prompt([], path)
+
+
+def test_the_page_does_not_present_two_opus_passes_as_two_people(labels):
+    draft(labels)
+    summary = acceptance.d3_check(labels.tmp)
+    text = Path(summary["page"]).read_text(encoding="utf-8")
+    assert "Claude Opus read 50 notes twice" in text and "weak evidence" in text and "Two labellers read" not in text
+

@@ -1,6 +1,7 @@
 """Tests per scenario for the one-page D1, D2 and D3 status. Every note is invented, and every model is a fake."""
 from __future__ import annotations
 
+import html
 import json
 import shutil
 from decimal import Decimal
@@ -360,4 +361,28 @@ def test_level_3_is_not_reported_as_passing(d3):
     run_id = evaluated(d3)
     snapshot = json.loads(kpi.snapshot_path(d3.tmp / "data", run_id, "d3").read_text(encoding="utf-8"))
     assert snapshot["levels"]["level3"]["status"] == "work_not_built" and snapshot["levels"]["level1"]["status"] == "pass"
+
+
+def test_people_labelling_twice_is_described_as_people(d3):
+    evaluated(d3)
+    text = page(acceptance.d3_check(d3.tmp))
+    assert "Two labellers read 50 notes twice" in text and "weak evidence" not in text
+
+
+def test_the_page_says_why_d3_is_open_in_words(d3):
+    evaluated(d3)
+    summary = acceptance.d3_check(d3.tmp)
+    assert summary["d3"]["reason"] == "client_review_missing"  # the code stays in the data
+    text = html.unescape(page(summary))
+    assert "the client's review is not recorded yet" in text and "client_review_missing" not in text
+
+
+def test_a_score_from_before_these_figures_asks_to_be_scored_again(d3):
+    run_id = evaluated(d3)
+    path = kpi.snapshot_path(d3.tmp / "data", run_id, "d3")
+    snapshot = json.loads(path.read_text(encoding="utf-8"))
+    del snapshot["accuracy_on_checked_labels"]
+    path.write_text(json.dumps(snapshot), encoding="utf-8")
+    summary = acceptance.d3_check(d3.tmp)
+    assert summary["d3"]["reason"] == "not_evaluated" and "the run has not been scored yet" in page(summary)
 

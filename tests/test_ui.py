@@ -360,3 +360,14 @@ def test_the_command_binds_to_this_machine_and_has_no_host_option(d3, monkeypatc
     assert result.exit_code == 0, result.stderr
     assert seen["host"] == "127.0.0.1" and seen["port"] == 8123 and "127.0.0.1:8123" in result.stdout
     assert runner.invoke(cli_app, ["ui", "--host", "0.0.0.0"]).exit_code != 0
+
+
+# ---- the estimate, measured against the rehearsal
+def test_the_estimate_counts_the_cold_start_that_a_small_file_mostly_costs():
+    from decimal import Decimal
+
+    spec = pipeline.choose_model(Path(__file__).resolve().parents[1], "claude-opus-5-5")
+    assert pipeline._estimate_usd(spec, 6, 8) == Decimal("0.22")  # the rehearsal's 6 notes cost $0.2209
+    assert pipeline._estimate_usd(spec, 729, 8) == Decimal("3.58")  # the run on all rows cost $3.65
+    assert pipeline._estimate_usd(spec, 0, 8) == Decimal("0.00")
+
