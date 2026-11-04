@@ -15,6 +15,10 @@ from .output import largest_shipments
 from .pipeline import APPROVAL, CATEGORIES, Project, latest_full_run, load_project, load_run, out_of_date
 
 REVIEW_RECORD = "reports/client_review_d3.json"
+_REASONS = {"client_review_missing": "the client's review is not recorded yet", "labels_provisional": "the labels are not final yet",
+            "target_not_met": "a target is not met", "invariant_failed": "a check that cannot be compromised failed", "no_run_on_all_rows": "no run on all rows yet",
+            "not_evaluated": "the run has not been scored yet", "run_out_of_date": "an input changed after the run",
+            "results_changed_since_scored": "the answers changed after they were scored", "no_level1_in_gates": "Level 1 has no targets in the settings"}
 _CONDITION_NAMES = {"cov_usd": "Coverage of disputed dollars", "cov_rows": "Coverage of rows", "acc": "Accuracy on covered rows"}
 
 
@@ -93,6 +97,8 @@ def _d3(project: Project, run_id: str | None) -> tuple[dict, list[dict]]:
     if not snapshot_path.exists():
         return {**result, "status": "open", "reason": "not_evaluated"}, shipments
     snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    if "accuracy_on_checked_labels" not in snapshot:  # scored before these figures existed, and scoring it again is free
+        return {**result, "status": "open", "reason": "not_evaluated"}, shipments
     if snapshot["results_sha256"] != kpi.results_digest(notes):  # the score on file was measured on other answers
         return {**result, "status": "open", "reason": "results_changed_since_scored"}, shipments
     level = snapshot["levels"].get("level1")
@@ -162,12 +168,14 @@ def _page(summary: dict, shipments: list[dict]) -> str:
         parts.append(f"<p>{_count(d2['corrected_after_freeze'], 'label was', 'labels were')} corrected after TEST was frozen, when tool output existed.</p>")
     if "agreement" in d2:
         agreement = d2["agreement"]
-        parts.append(f"<p>Two labellers compared on {agreement['notes_compared']} notes: category agreement (Cohen's kappa) "
+        who = "Claude Opus read" if d2["written_by_model"] else "Two labellers read"
+        caution = " One model agreeing with itself is weak evidence, and two people might not agree." if d2["written_by_model"] else ""
+        parts.append(f"<p>{who} {agreement['notes_compared']} notes twice, separately: category agreement (Cohen's kappa) "
                      f"{agreement['cohens_kappa_category']}, amounts matching on {agreement['amount_exact_match']} notes, "
-                     f"{agreement['disagreements']} disagreements.</p>")
+                     f"{agreement['disagreements']} disagreements.{caution}</p>")
     parts.append("<h2>D3: prototype on all rows, Level 1</h2>")
     parts.append(f"<p>Status: <b>{html.escape(d3['status'])}</b>"
-                 + (f" ({html.escape(str(d3['reason']))})" if d3.get("reason") else "") + ".</p>")
+                 + (f": {html.escape(_REASONS.get(d3['reason'], str(d3['reason'])))}" if d3.get("reason") else "") + ".</p>")
     if "level1" in d3:
         if d3["labels_status"] == "provisional":
             parts.append("<p class='flag'>These results are <b>provisional</b>, until the client has reviewed the 50 double-labelled "

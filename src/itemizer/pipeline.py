@@ -226,10 +226,12 @@ class RunOutcome:
 _TYPICAL_INPUT_TOKENS, _TYPICAL_OUTPUT_TOKENS, _TYPICAL_CACHE_READ_TOKENS = 70, 150, 6400
 
 
-def _estimate_usd(spec: ModelSpec, calls: int) -> Decimal:
+def _estimate_usd(spec: ModelSpec, calls: int, concurrency: int) -> Decimal:
+    """The first calls run together on a cold cache, so each writes the prompt. In the rehearsal that was most of a small file's cost."""
     each = (_TYPICAL_INPUT_TOKENS * spec.input_usd_per_mtok + _TYPICAL_OUTPUT_TOKENS * spec.output_usd_per_mtok
             + _TYPICAL_CACHE_READ_TOKENS * spec.cache_read_usd_per_mtok) / Decimal(1_000_000)
-    return (each * calls).quantize(Decimal("0.01"))
+    cold_start = min(calls, concurrency) * _TYPICAL_CACHE_READ_TOKENS * spec.cache_write_usd_per_mtok / Decimal(1_000_000)
+    return (each * calls + cold_start).quantize(Decimal("0.01"))
 
 
 def inspect_export(root: Path, path: Path, model_name: str | None = None) -> dict:
@@ -260,7 +262,7 @@ def inspect_export(root: Path, path: Path, model_name: str | None = None) -> dic
     system = build_system_prompt(categories, load_fewshots(root / FEWSHOTS, project.notes, project.split, codes), root / PROMPT)
     sent = {fp: note for fp, note in notes.items() if fp not in left_out}
     report["new_calls"] = notes_needing_a_call(sent, spec, codes, system, project.data_root / "cache" / "llm")
-    estimate = _estimate_usd(spec, report["new_calls"])
+    estimate = _estimate_usd(spec, report["new_calls"], project.settings.get("runtime", {}).get("concurrency", 8))
     report["estimated_usd"] = str(estimate)
     if estimate > Decimal(str(limit)):
         report["stops"].append(f"The estimated cost of ${estimate} is over the ${limit} limit in budget.max_usd_per_run.")
