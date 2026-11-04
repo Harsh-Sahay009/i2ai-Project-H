@@ -101,7 +101,8 @@ def _d3(project: Project, run_id: str | None) -> tuple[dict, list[dict]]:
     result.update(level1=level, labels_status=snapshot["labels_status"], accuracy_scope=snapshot["accuracy_scope"],
                   coverage=snapshot["coverage"], invariants=snapshot["invariants"], accuracy=snapshot["accuracy"],
                   test_budget=snapshot["test_budget"], code_dirty=snapshot["run"]["code_dirty"], code_commit=snapshot["run"]["code_commit"],
-                  labels_sources=snapshot["labels_sources"])
+                  labels_sources=snapshot["labels_sources"], accuracy_on_checked_labels=snapshot["accuracy_on_checked_labels"],
+                  labels_changed_by_people=snapshot["labels_changed_by_people"])
     if level["status"] != "pass":
         return {**result, "status": "open", "reason": level.get("reason") or "level1_not_met"}, shipments
     if result["client_review"] is None:
@@ -142,6 +143,13 @@ def _page(summary: dict, shipments: list[dict]) -> str:
         "table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:3pt 6pt;text-align:left;vertical-align:top}"
         "th{background:#eee}.flag{background:#fff2cc;padding:4pt 8pt;margin:.5em 0}</style></head><body>",
         "<h1>Freight Invoice Itemization: D1, D2 and D3 status</h1>",
+    ]
+    if d2["written_by_model"]:
+        total = d2["written_by_model"] + d2["checked_by_person"]
+        parts.append(f"<p class='flag'><b>Read this first.</b> {d2['written_by_model']} of the {total} TEST labels behind these figures were written by "
+                     "Claude Opus, and no person has checked them. The tool also runs on Claude, so accuracy here shows how far the tool agrees with "
+                     "those labels, and not that it is right. The figures will change when people correct the labels, and they may get worse.</p>")
+    parts += [
         "<h2>D1: charge category list</h2>",
         f"<p>Status: <b>{html.escape(d1['status'])}</b>. {d1['categories']} categories, plus a catch-all.</p>",
         "<h2>D2: locked test set</h2>",
@@ -164,16 +172,24 @@ def _page(summary: dict, shipments: list[dict]) -> str:
         if d3["labels_status"] == "provisional":
             parts.append("<p class='flag'>These results are <b>provisional</b>, until the client has reviewed the 50 double-labelled "
                          "notes and TEST is sealed.</p>")
-        drafts = d3["labels_sources"].get("model_draft", 0)
-        if drafts:
-            parts.append(f"<p class='flag'>{drafts} of the {sum(d3['labels_sources'].values())} TEST labels behind this result were written by "
-                         "Claude Opus, and no person has checked them. Accuracy here shows how far the tool agrees with those labels, and not "
-                         "that it is right.</p>")
         parts.append(f"<p>Level 1 result: <b>{html.escape(d3['level1']['status'])}</b>. A level is met when the measured value "
                      "reaches the target, with its range shown beside it. Accuracy is in-sample, because all notes come from one file.</p>")
         parts.append("<table><tr><th>Condition</th><th>Measured</th><th>Target</th><th>Met</th><th>Range</th><th>n</th></tr>"
                      f"{_level_rows(d3['level1'])}</table>")
         coverage = d3["coverage"]
+        accepted = coverage["accepted_without_reading"]
+        parts.append("<h3>What an accountant can accept without reading the note</h3>"
+                     "<p>Coverage above also counts rows flagged for an accountant to read. These figures count only rows that add up, or that state no charge.</p>"
+                     "<table><tr><th></th><th>Accepted without reading</th><th>Coverage, for comparison</th></tr>"
+                     f"<tr><td>Rows</td><td>{_percent(accepted['rows']['share'])}</td><td>{_percent(coverage['rows']['share'])}</td></tr>"
+                     f"<tr><td>Disputed dollars</td><td>{_percent(accepted['usd']['share'])}</td><td>{_percent(coverage['usd']['share'])}</td></tr></table>")
+        checked = d3["accuracy_on_checked_labels"]
+        reviewed_drafts = set(d3["labels_sources"]) & {"model_draft", "person_checked", "person_corrected"}  # not for labels people wrote from the start
+        if checked["n"] and reviewed_drafts:
+            parts.append(f"<p>Accuracy on labels a person has checked: <b>{_percent(checked['share'])}</b>, {checked['correct']} of {checked['n']} notes, "
+                         f"range {_percent(checked['wilson_low'])} to {_percent(checked['wilson_high'])}. People changed "
+                         f"{_count(d3['labels_changed_by_people'], 'label', 'labels')} they checked. People check the riskiest notes first, so this is not "
+                         "a random sample.</p>")
         parts.append(f"<p>Dollar coverage without repeated invoices: {_percent(coverage['without_repeats']['usd']['share'])}. "
                      f"Invariant violations: {d3['invariants']['violations']}.</p>")
         spent = d3["test_budget"]

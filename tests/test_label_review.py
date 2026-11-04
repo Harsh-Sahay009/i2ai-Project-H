@@ -585,3 +585,22 @@ def test_a_rename_works_before_the_freeze_too(drafted):
     assert rename("cat_0", "cat_renamed").exit_code == 0
     assert {i.category for label in lb.current_test_labels(drafted.ws).values() for i in label.items} == {"cat_renamed"}
 
+
+# ---- what a person's check shows on the page
+def test_the_page_reports_accuracy_on_what_people_checked_and_what_they_changed(frozen):
+    first, second = frozen.packs["label_single"][:2]
+    pipeline.evaluate_run(frozen.tmp, pipeline.run(frozen.tmp).run_id)
+    text = Path(acceptance.d3_check(frozen.tmp)["page"]).read_text(encoding="utf-8")
+    assert "Accuracy on labels a person has checked" not in text and "Read this first" in text
+    path = write_pack(frozen)
+    edit(path, mark_checked(frozen.notes[first].note_id))
+    edit(path, set_category(frozen.notes[second].note_id))
+    do_import(frozen, path)
+    snapshot = pipeline.evaluate_run(frozen.tmp)
+    assert snapshot["accuracy_on_checked_labels"]["n"] == 2 and snapshot["accuracy_on_checked_labels"]["correct"] == 1
+    assert snapshot["labels_changed_by_people"] == 1 and snapshot["test_budget"]["event"] == "rescored"
+    summary = acceptance.d3_check(frozen.tmp)
+    text = Path(summary["page"]).read_text(encoding="utf-8")
+    assert "Accuracy on labels a person has checked: <b>50.0%</b>, 1 of 2 notes" in text and "People changed 1 label they checked" in text
+    assert "198 of the 200 TEST labels behind these figures" in text
+
