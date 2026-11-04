@@ -11,4 +11,4 @@
 
 ## 3. Meeting
 
-- [ ] 3.1 Write `deliverables/meeting_2026-11-05.md`, and rehearse on the real data
+- [x] 3.1 Write `deliverables/meeting_2026-11-05.md`, and rehearse on the real data

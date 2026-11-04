@@ -12,6 +12,8 @@ Task 7.5, run on 2026-11-03 from a clean commit. **Claude Opus wrote all 200 TES
 | Coverage of rows | 99.0% | 98.3% to 99.4% | 1,347 rows | 25% |
 | Coverage of disputed dollars | 99.1% | 92.6% to 99.9% | 1,347 rows | 80% |
 
+Coverage also counts rows flagged for an accountant to read. What an accountant can accept without reading the note is **82.1% of rows and 50.0% of dollars**. Level 2's numbers are met too. Level 3 reads `work_not_built`, because its code list and cost-driver summary do not exist.
+
 | Where they differ | Accuracy | Correct |
 |---|---|---|
 | Large disputes | 92.6% | 47 of 50 |
@@ -24,6 +26,21 @@ Task 7.5, run on 2026-11-03 from a clean commit. **Claude Opus wrote all 200 TES
 - **Without repeated invoices:** dollar coverage reads 100.9%, because one negative row is not covered and the plain sum is the scope's figure.
 - **Errors against the labels:** 3 category errors and 1 missing item, across 3 notes, all on large disputes.
 - **Run:** 729 notes in 3.2 minutes for $3.65, against D4's limit of 30 minutes for 1,500 rows.
+
+Across all 881 items, 15 are taxes and 1 is an amount already paid, and none use rate × quantity. That path does work on a real model: an invented note, "3 HOURS @ $40 PER HOUR", came back as 120.00 with `rate_x_quantity`. So zero on this file more likely means its notes do not need it, though only a person reading them can confirm that.
+
+### Rehearsal for the 5 November meeting
+
+Run on 2026-11-03 from a clean commit, on the real data, driving the local page in a real Chrome with a throwaway profile.
+
+| Check | Result |
+|---|---|
+| Run and score from a clean commit | No model calls, and the budget event is `rescored`, with no second-peek warning. It first failed: the morning's ledger line was not recognised, and that is fixed |
+| Upload the AutoPay file with model calls blocked by a dead proxy | Finished in 2.6 seconds with no new answers, and the workbook hash matches the command line's |
+| Chrome's `Origin` on each `POST` | Local, so the page accepted them. Another site's `Origin`, a missing one, and another site's `Host` are refused by the running server |
+| Open the workbooks in real Excel, by script | Both open with no repair prompt. `Items` has 1,520 lines and `Row Summary` 1,348, as expected. No person has looked at them yet |
+| Upload an invented file through the real API | 6 notes, 6.5 seconds, $0.22. The pre-check first said $0.03, because it left out the cold start. It now says $0.22 |
+| Correct one label on a copy of the data, score, then undo | Accuracy went from 99.3% to 98.8% and back, with no model calls and no budget |
 
 ### Drafting the labels
 
@@ -74,6 +91,7 @@ The Opus run on all of TRAIN took 1.4 minutes. Agreement between models is not a
 
 ## Not exercised live
 
+- A person looking at the page or the workbook: the checks above were driven by script.
 - The retry on TRAIN: no model produced a rejected answer in 918 answers. It later fired while drafting labels, where two answers were rejected as `empty_answer`, retried and accepted.
 - A refusal or a refusal fallback.
 - The Ollama and OpenAI-compatible adapters: no server was available.

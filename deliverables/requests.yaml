@@ -43,3 +43,18 @@ requests:
     owner: client_owner
     asked: null
     status: open
+  - item: Jake's written reply on Opus drafting the test labels, with the two blind labellers waived
+    why: The team reports he approved this, and the scope says changes are agreed in writing. Keep the reply outside Git
+    owner: client_owner
+    asked: null
+    status: open
+  - item: Whether repeated invoices that add up stay flagged as discrepancy
+    why: 136 rows and $60,840. The scope defines verified as items adding up. Flagged, accepted dollars are 50.0%; verified, they are 82.6%
+    owner: client_owner
+    asked: null
+    status: open
+  - item: One recent month of data
+    why: The scope asks for it, so final accuracy comes from data the team did not use to build the tool. It is also the likely new export for D4
+    owner: client_owner
+    asked: null
+    status: open

@@ -428,10 +428,11 @@ def test_accept_correction_needs_a_correction(drafted):
 
 
 # ---- the instruction file
-def test_every_command_in_the_instruction_file_exists():
-    text = (ROOT / "deliverables/reviewing_test_labels.md").read_text(encoding="utf-8")
-    commands = re.findall(r"itemizer ((?:gt |acceptance )?[a-z][a-z0-9-]*)", text)
-    assert len(set(commands)) >= 10
+@pytest.mark.parametrize("name, at_least", [("deliverables/reviewing_test_labels.md", 10), ("deliverables/meeting_2026-11-05.md", 4), ("README.md", 5)])
+def test_every_command_a_document_gives_exists(name, at_least):
+    text = (ROOT / name).read_text(encoding="utf-8")
+    commands = re.findall(r"`?itemizer ((?:gt |acceptance )?[a-z][a-z0-9-]*)", text)
+    assert len(set(commands)) >= at_least
     for command in set(commands):
         result = runner.invoke(app, [*command.split(), "--help"])
         assert result.exit_code == 0, command
