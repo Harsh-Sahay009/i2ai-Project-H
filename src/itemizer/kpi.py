@@ -293,10 +293,27 @@ def level_gate(level: str, coverage: Mapping[str, Any], accuracy: Mapping[str, A
             "invariant_violations": violations}
 
 
+def _scored_key(results: str, prompt: str, taxonomy: str, config: str) -> str:
+    return hashlib.sha256(json.dumps([results, prompt, taxonomy, config]).encode("utf-8")).hexdigest()
+
+
 def scored_on(results: str, manifest: RunManifest) -> str:
     """What a TEST score was measured on. A change of code alone gives the same answers from the same inputs, so no new chance to pick a score."""
-    inputs = [results, manifest.prompt_sha256, manifest.taxonomy_sha256, manifest.config_sha256]
-    return hashlib.sha256(json.dumps(inputs).encode("utf-8")).hexdigest()
+    return _scored_key(results, manifest.prompt_sha256, manifest.taxonomy_sha256, manifest.config_sha256)
+
+
+def _charge_key(entry: dict, ledger: Path) -> str:
+    """What a ledger line charged. The ledger is append-only, so older lines stay as written: those holding only the answers' digest
+    get the rest from their run's manifest. A line that cannot be worked out stays charged to its run, which is the cautious reading."""
+    if entry.get("scored_on"):
+        return entry["scored_on"]
+    if entry.get("results_sha256"):
+        try:
+            stored = json.loads((ledger.parent.parent / "runs" / entry["run_id"] / "manifest.json").read_text(encoding="utf-8"))
+            return _scored_key(entry["results_sha256"], stored["prompt_sha256"], stored["taxonomy_sha256"], stored["config_sha256"])
+        except (OSError, ValueError, KeyError):
+            pass
+    return entry["run_id"]
 
 
 def results_digest(note_results: Mapping[str, NoteResult]) -> str:
@@ -315,8 +332,7 @@ def _runs_spent(path: Path, milestone: str) -> dict[str, str]:
         return {}
     try:
         entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-        return {e.get("scored_on") or e["run_id"]: e["event"]
-                for e in entries if e["milestone"] == milestone and e["event"] in _CHARGED}
+        return {_charge_key(e, path): e["event"] for e in entries if e["milestone"] == milestone and e["event"] in _CHARGED}
     except (ValueError, KeyError, TypeError):
         raise ContractError(f"the TEST budget ledger {path} has a line that cannot be read, "
                             "so what was spent is unknown; repair the file before evaluating") from None
