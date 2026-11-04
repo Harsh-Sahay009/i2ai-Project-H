@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Stopped</h1>
+<p class="stop">{{ message }}</p>
+{% if job_id %}<p><a href="/jobs/{{ job_id }}">See the run in progress</a></p>{% endif %}
+<p><a href="/">Back to upload</a></p>
+{% endblock %}

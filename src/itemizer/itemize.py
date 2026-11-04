@@ -318,18 +318,43 @@ def _telemetry_line(result: NoteResult, usage: _Usage) -> str:
     }, sort_keys=True) + "\n"
 
 
+def notes_needing_a_call(notes: dict[str, Note], spec: ModelSpec, codes: Iterable[str], system: str, cache_dir: Path) -> int:
+    """How many notes have no stored answer, by the same key a run uses."""
+    schema = answer_schema(sorted(set(codes)))
+    folder = Path(cache_dir) / spec.name
+    return sum(_read_cache(folder / f"{_cache_key(spec, system, build_user_prompt(note), schema)}.json") is None for note in notes.values())
+
+
 def itemize_notes(notes: dict[str, Note], provider: Provider, codes: Iterable[str], system: str, cache_dir: Path,
-                  budget: Budget, concurrency: int, telemetry: Path) -> dict[str, NoteResult]:
+                  budget: Budget, concurrency: int, telemetry: Path,
+                  progress: Callable[[int, int, Decimal], None] | None = None) -> dict[str, NoteResult]:
     """One call per distinct note. Results and telemetry are sorted by fingerprint, whatever order the threads finish in.
 
     A ContractError from a call, such as a limit every note would hit, stops the run and cancels the notes not started.
+    `progress(done, total, spent)` is told after each note, and a failure inside it cannot stop the run.
     """
     if concurrency < 1:
         raise ContractError("runtime.concurrency must be at least 1")
     allowed = sorted(set(codes))
     caller = _Caller(provider, system, answer_schema(allowed), Path(cache_dir) / provider.spec.name, budget)
+    counted = threading.Lock()
+    finished_notes = 0
+
+    def work(note: Note) -> tuple[NoteResult, _Usage]:
+        nonlocal finished_notes
+        outcome = _itemize_note(note, caller, allowed)
+        with counted:
+            finished_notes += 1
+            done_so_far = finished_notes
+        if progress is not None:
+            try:
+                progress(done_so_far, len(notes), budget.spent_usd)
+            except Exception:  # only a display, so it must not be able to break a run
+                pass
+        return outcome
+
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
-        futures = [pool.submit(_itemize_note, notes[key], caller, allowed) for key in sorted(notes)]
+        futures = [pool.submit(work, notes[key]) for key in sorted(notes)]
         try:
             finished, _ = wait(futures, return_when=FIRST_EXCEPTION)
         finally:

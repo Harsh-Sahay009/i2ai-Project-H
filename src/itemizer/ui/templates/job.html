@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Running {{ job.file_name }}</h1>
+<p id="line">Starting.</p>
+<p id="message" class="stop" hidden></p>
+<p><small>The run carries on if you close this page. It will then be under Recent runs.</small></p>
+<script>
+  const line = document.getElementById("line"), message = document.getElementById("message");
+  async function poll() {
+    const reply = await fetch("/jobs/{{ job.id }}/status");
+    const job = await reply.json();
+    line.textContent = job.done + " of " + (job.total || "?") + " notes, " + job.elapsed_seconds + " seconds, $" + job.spent_usd + " so far.";
+    if (job.state === "done") { location.href = "/runs/" + job.run_id; return; }
+    if (job.state === "failed") { line.textContent = "The run stopped."; message.textContent = job.message; message.hidden = false; return; }
+    setTimeout(poll, 1000);
+  }
+  poll();
+</script>
+{% endblock %}

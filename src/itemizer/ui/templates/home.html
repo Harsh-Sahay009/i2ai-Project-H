@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Freight Invoice Itemizer</h1>
+<p>Upload the weekly Excel export. You will see what the run would do before it starts, and then get an Excel file with one line per charge.</p>
+<form action="/uploads" method="post" enctype="multipart/form-data">
+  <input type="file" name="file" accept=".xlsx" required>
+  <button class="button" type="submit">Upload</button>
+</form>
+<p><small>.xlsx only, up to {{ max_mb }} MB. This page runs on this machine only.</small></p>
+<h2>Recent runs</h2>
+{% if runs %}
+<table>
+  <tr><th>File</th><th>Set</th><th>Rows</th><th>Outcomes</th><th></th></tr>
+  {% for run in runs %}
+  <tr><td>{{ run.file }}</td><td>{{ run.set }}</td><td>{{ run.rows }}</td>
+      <td>{% for name, count in run.outcomes.items() %}{{ name }}: {{ count }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+      <td><a href="/runs/{{ run.run_id }}">Open</a></td></tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>No runs yet.</p>
+{% endif %}
+{% endblock %}

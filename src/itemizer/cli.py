@@ -486,6 +486,20 @@ def compare_command(
     typer.echo(f"Report: {report['report_path'].relative_to(Path.cwd())}")
 
 
+@app.command("ui")
+@_guard
+def ui_command(port: int = typer.Option(8000, help="The port on this machine.")) -> None:
+    """Start the local upload page. It has no login, so it serves this machine only."""
+    try:
+        import uvicorn
+
+        from .ui.app import create_app
+    except ImportError:
+        raise ContractError("the page needs the `ui` extra: uv sync --extra ui") from None
+    typer.echo(f"Open http://127.0.0.1:{port} in a browser on this machine. Press Control-C to stop.")
+    uvicorn.run(create_app(Path.cwd()), host="127.0.0.1", port=port, log_level="warning")
+
+
 @acceptance_app.command("d3")
 @_guard
 def acceptance_d3_command(run_id: str = typer.Option(None, "--run", help="The run to report. Without this, the newest on all rows.")) -> None:

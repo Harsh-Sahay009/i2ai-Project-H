@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Check before running</h1>
+<p>File: <b>{{ file_name }}</b></p>
+{% for stop in report.stops %}<p class="stop">{{ stop }}</p>{% endfor %}
+<table>
+  <tr><th>Rows</th><td>{{ report.rows }}</td></tr>
+  <tr><th>Distinct notes</th><td>{{ report.notes }}</td></tr>
+  <tr><th>Notes that need a model call</th><td>{{ report.new_calls }}{% if not report.new_calls and not report.stops %}: every answer is already stored, so this needs no internet{% endif %}</td></tr>
+  <tr><th>Estimated cost</th><td>about ${{ report.estimated_usd }}, on {{ report.model }}. The limit is ${{ report.budget_usd }}</td></tr>
+  <tr><th>What you will get</th><td>{% if report.full_kpis %}The output Excel and the full KPIs, including accuracy on the test set.{% else %}The output Excel and coverage. No accuracy, because test labels exist only for the dataset file.{% endif %}</td></tr>
+</table>
+<form action="/uploads/{{ sha256 }}/run" method="post">
+  <button class="button" type="submit"{% if report.stops %} disabled{% endif %}>Start the run</button>
+</form>
+{% endblock %}
