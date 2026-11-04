@@ -29,6 +29,10 @@ from .grammar import EVIDENCE_RULES
 
 METRIC_VERSION = "1"
 COVERED = frozenset({"verified", "discrepancy", "no_charge_stated"})
+ACCEPTED_WITHOUT_READING = frozenset({"verified", "no_charge_stated"})  # the scope's purpose: a discrepancy goes to the accountant to read
+# The scope's Table 1 defines each level by its work as well as its numbers. Level 3 needs a code list and a cost-driver summary.
+# In the code, because `gates` in config/run.yaml decides a run's identity, and this changes no answer.
+LEVELS_WITH_WORK_BUILT = ("level1", "level2")
 _Z = 1.959963984540054  # two-sided 95%
 _LABEL_STATUSES = ("provisional", "sealed")
 _PAIR_COST = {"match": 0, "category_error": 1, "amount_error": 1, "unmatched": 2}
@@ -69,11 +73,21 @@ def _usd_block(rows: list[RowResult]) -> dict:
             "negative_rows_not_covered": sum(r.disputed < 0 and r.outcome not in COVERED for r in rows)}
 
 
+def _accepted_block(rows: list[RowResult]) -> dict:
+    """What an accountant can accept without reading the note. Coverage is larger, because it also counts rows flagged to read."""
+    accepted = [r for r in rows if r.outcome in ACCEPTED_WITHOUT_READING]
+    dollars = sum((r.disputed for r in accepted), Decimal(0))
+    total = sum((r.disputed for r in rows), Decimal(0))
+    return {"rows": {"accepted": len(accepted), "total": len(rows), "share": len(accepted) / len(rows) if rows else None},
+            "usd": {"accepted": str(dollars), "total": str(total), "share": float(dollars / total) if total > 0 else None}}
+
+
 def coverage(row_results: list[RowResult]) -> dict:
     """Rows and dollars covered, and both again without repeated rows. The gates use the figures that include them."""
     kept = [r for r in row_results if not r.repeated]
     return {"rows": _rows_block(row_results), "usd": _usd_block(row_results),
-            "without_repeats": {"rows": _rows_block(kept), "usd": _usd_block(kept)}}
+            "without_repeats": {"rows": _rows_block(kept), "usd": _usd_block(kept)},
+            "accepted_without_reading": _accepted_block(row_results)}
 
 
 def _pair_kind(predicted: GoldItem, gold: GoldItem, tolerance: Decimal) -> str:
@@ -269,12 +283,20 @@ def level_gate(level: str, coverage: Mapping[str, Any], accuracy: Mapping[str, A
     violations = invariants["violations"]
     if violations:
         status, reason = "fail", "invariant_failed"
+    elif level not in LEVELS_WITH_WORK_BUILT:
+        status, reason = "work_not_built", "work_not_built"
     elif all(c["met"] for c in conditions.values()):
         status, reason = "pass", None
     else:
         status, reason = "fail", "target_not_met"
     return {"level": level, "status": status, "reason": reason, "conditions": conditions,
             "invariant_violations": violations}
+
+
+def scored_on(results: str, manifest: RunManifest) -> str:
+    """What a TEST score was measured on. A change of code alone gives the same answers from the same inputs, so no new chance to pick a score."""
+    inputs = [results, manifest.prompt_sha256, manifest.taxonomy_sha256, manifest.config_sha256]
+    return hashlib.sha256(json.dumps(inputs).encode("utf-8")).hexdigest()
 
 
 def results_digest(note_results: Mapping[str, NoteResult]) -> str:
@@ -286,14 +308,14 @@ def results_digest(note_results: Mapping[str, NoteResult]) -> str:
 _CHARGED = ("spent", "extra_spent")
 
 
-def _runs_spent(path: Path, milestone: str) -> dict[tuple[str, str], str]:
-    """What is charged to a milestone: each run with the results it was scored on, and the event that charged it. A ledger
-    it cannot read stops the evaluation, because TEST must not be peeked at while what was spent is unknown."""
+def _runs_spent(path: Path, milestone: str) -> dict[str, str]:
+    """What is charged to a milestone: what each charge was scored on, or its run with nothing recorded, and the event that
+    charged it. A ledger it cannot read stops the evaluation, because TEST must not be peeked at while what was spent is unknown."""
     if not path.exists():
         return {}
     try:
         entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-        return {(e["run_id"], e.get("results_sha256", "")): e["event"]
+        return {e.get("scored_on") or e["run_id"]: e["event"]
                 for e in entries if e["milestone"] == milestone and e["event"] in _CHARGED}
     except (ValueError, KeyError, TypeError):
         raise ContractError(f"the TEST budget ledger {path} has a line that cannot be read, "
@@ -301,14 +323,14 @@ def _runs_spent(path: Path, milestone: str) -> dict[tuple[str, str], str]:
 
 
 def spend_test_budget(path: Path, run_id: str, milestone: str, budget: int, results: str = "", extra_peek: str | None = None) -> dict:
-    """Charge a run to a milestone's TEST budget in a JSONL ledger. Re-scoring the same results is free, so labels corrected
-    by the client need no new run. Different results under one id are a new run, because they could be a better score.
+    """Charge a milestone's TEST budget in a JSONL ledger. `results` says what was scored. Scoring the same again is free, so
+    corrected labels need no new run, and a change of code alone is no new peek. Different answers are, because they could score better.
 
     `extra_peek` spends past the budget on purpose, for a reason that is logged and shown beside the result. Otherwise a
     category renamed at approval would leave no way to score the run that uses the approved list.
     """
     spent = _runs_spent(path, milestone)
-    if (run_id, results) in spent:
+    if (results or run_id) in spent:
         event = "rescored"
     elif len(spent) < budget:
         event = "spent"
@@ -316,7 +338,7 @@ def spend_test_budget(path: Path, run_id: str, milestone: str, budget: int, resu
         event = "extra_spent" if extra_peek else "refused"
     runs_spent = len(spent) + (event in _CHARGED)
     extra_peeks = sum(kind == "extra_spent" for kind in spent.values()) + (event == "extra_spent")
-    entry = {"event": event, "run_id": run_id, "results_sha256": results, "milestone": milestone, "budget": budget, "runs_spent": runs_spent,
+    entry = {"event": event, "run_id": run_id, "scored_on": results, "milestone": milestone, "budget": budget, "runs_spent": runs_spent,
              "who": getpass.getuser(), "when": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
     if event == "extra_spent":
         entry["reason"] = extra_peek
@@ -386,7 +408,7 @@ def evaluate(data_root: Path, manifest: RunManifest, milestone: str, row_results
         raise ContractError(f"{unusable} of {len(fingerprints)} TEST notes have no gold label or are not in the dataset")
     run_id = manifest.run_id
     results = results_digest(note_results)
-    charge = spend_test_budget(data_root / "kpi" / "test_budget.jsonl", run_id, milestone, budget, results, extra_peek)
+    charge = spend_test_budget(data_root / "kpi" / "test_budget.jsonl", run_id, milestone, budget, scored_on(results, manifest), extra_peek)
 
     # Final strata come from the gold items, so provisional and sealed labels are scored the same way.
     entries = [{**e, "stratum": gold_stratum(gold[e["fingerprint"]], notes[e["fingerprint"]], large_usd)}
@@ -399,6 +421,9 @@ def evaluate(data_root: Path, manifest: RunManifest, milestone: str, row_results
                                  {e["fingerprint"]: e["rows"] for e in entries}, shares, seed, resamples,
                                  tolerance=tolerance)
     checks = invariants(row_results, note_results, notes, codes, abs_tolerance=abs_tolerance)
+    checked = [fp for fp in fingerprints if gold[fp].source != "model_draft" and fp in covered_notes]
+    checked_right = sum(match_note(note_results[fp].items, gold[fp].items, tolerance)["correct"] for fp in checked)
+    checked_low, checked_high = wilson(checked_right, len(checked))
     labels = {fp: gold[fp].model_dump(mode="json") for fp in sorted(fingerprints)}
     snapshot = {
         "run_id": run_id,
@@ -418,6 +443,10 @@ def evaluate(data_root: Path, manifest: RunManifest, milestone: str, row_results
         "coverage": measured_coverage,
         "per_carrier": _per_carrier(row_results, measured_coverage),
         "accuracy": measured_accuracy,
+        # The only accuracy that is evidence while labels are drafts. Unweighted, because people check the riskiest notes first.
+        "accuracy_on_checked_labels": {"n": len(checked), "correct": checked_right, "share": checked_right / len(checked) if checked else None,
+                                       "wilson_low": checked_low, "wilson_high": checked_high},
+        "labels_changed_by_people": sum(gold[fp].source == "person_corrected" for fp in fingerprints),
         "invariants": checks,
         "levels": {level: {**level_gate(level, measured_coverage, measured_accuracy, checks, targets),
                            "labels_status": labels_status} for level, targets in sorted(gates.items())},

@@ -768,3 +768,18 @@ def test_the_debug_switch_shows_the_failure(d3, monkeypatch):
 
 def test_a_crash_never_shows_local_variables():
     assert app.pretty_exceptions_show_locals is False
+
+
+# ---- a change of code alone
+def test_a_change_of_code_alone_gives_a_new_run_and_a_free_score(d3, monkeypatch):
+    freeze(d3)
+    first = pipeline.run(d3.tmp)
+    pipeline.evaluate_run(d3.tmp, first.run_id)
+    calls = len(d3.calls)
+    monkeypatch.setattr(pipeline, "_code_identity", lambda root: ("code changed", "abc1234", False))
+    second = pipeline.run(d3.tmp)
+    assert second.run_id != first.run_id and len(d3.calls) == calls
+    snapshot = pipeline.evaluate_run(d3.tmp, second.run_id)
+    assert snapshot["test_budget"]["event"] == "rescored" and snapshot["test_budget"]["extra_peeks"] == 0
+    assert _ledger(d3) == ["spent", "rescored"]
+

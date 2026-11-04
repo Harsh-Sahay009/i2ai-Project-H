@@ -334,3 +334,30 @@ def test_negative_rows_left_uncovered_are_flagged_on_the_page(d3):
     snapshot["coverage"]["usd"]["negative_rows_not_covered"] = 1
     path.write_text(json.dumps(snapshot), encoding="utf-8")
     assert "1 row with a negative amount is not covered" in page(acceptance.d3_check(d3.tmp))
+
+
+# ---- what the page reports
+def test_the_page_shows_what_an_accountant_can_accept_beside_coverage(d3):
+    run_id = evaluated(d3)
+    summary = acceptance.d3_check(d3.tmp)
+    rows = json.loads((d3.tmp / "data" / "runs" / run_id / "row_results.json").read_text(encoding="utf-8"))
+    accepted = sum(row["outcome"] in ("verified", "no_charge_stated") for row in rows)
+    found = summary["d3"]["coverage"]["accepted_without_reading"]
+    assert found["rows"]["accepted"] == accepted and accepted < len(rows)  # repeated invoices are flagged, so it is below coverage
+    text = page(summary)
+    assert "What an accountant can accept without reading the note" in text
+    assert f"<tr><td>Rows</td><td>{found['rows']['share']:.1%}</td><td>{summary['d3']['coverage']['rows']['share']:.1%}</td></tr>" in text
+    assert f"<tr><td>Disputed dollars</td><td>{found['usd']['share']:.1%}</td><td>{summary['d3']['coverage']['usd']['share']:.1%}</td></tr>" in text
+
+
+def test_labels_people_wrote_carry_no_caveat_and_no_checked_line(d3):
+    evaluated(d3)
+    text = page(acceptance.d3_check(d3.tmp))
+    assert "Read this first" not in text and "a person has checked" not in text
+
+
+def test_level_3_is_not_reported_as_passing(d3):
+    run_id = evaluated(d3)
+    snapshot = json.loads(kpi.snapshot_path(d3.tmp / "data", run_id, "d3").read_text(encoding="utf-8"))
+    assert snapshot["levels"]["level3"]["status"] == "work_not_built" and snapshot["levels"]["level1"]["status"] == "pass"
+

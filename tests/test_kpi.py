@@ -789,8 +789,8 @@ def test_evaluate_numbers_by_hand(world):
     assert snapshot["invariants"]["violations"] == 0 and snapshot["invariants"]["items"] == 4
     # Rows 6/7 = 0.857: at least level 2's 0.85 and below level 3's 0.95.
     levels = snapshot["levels"]
-    assert [levels[name]["status"] for name in ("level1", "level2", "level3")] == ["pass", "pass", "fail"]
-    assert levels["level3"]["reason"] == "target_not_met"
+    assert [levels[name]["status"] for name in ("level1", "level2", "level3")] == ["pass", "pass", "work_not_built"]
+    assert levels["level3"]["reason"] == "work_not_built"
     assert levels["level1"]["conditions"]["cov_rows"]["target"] == 0.25
 
 
@@ -834,7 +834,7 @@ def test_corrected_labels_rescore_for_free_and_status_changes(world):
 def test_second_run_is_refused_before_anything_is_written(world):
     """Spec: a different run at a milestone whose budget of 1 is spent."""
     run_evaluate(world)
-    other = world.manifest.model_copy(update={"code_sha": "b" * 40})
+    other = world.manifest.model_copy(update={"prompt_sha256": "b" * 64})
     assert other.run_id != world.manifest.run_id
     with pytest.raises(ContractError, match="is spent"):
         run_evaluate(world, manifest=other)
@@ -946,11 +946,11 @@ def test_an_extra_peek_is_counted_logged_with_its_reason_and_needs_a_reason(tmp_
     path = tmp_path / "budget.jsonl"
     kpi.spend_test_budget(path, "run_a", "d3", 1, "r")
     with pytest.raises(ContractError, match="--extra-peek"):
-        kpi.spend_test_budget(path, "run_b", "d3", 1, "r")
-    charge = kpi.spend_test_budget(path, "run_b", "d3", 1, "r", "client renamed a category")
+        kpi.spend_test_budget(path, "run_b", "d3", 1, "other")
+    charge = kpi.spend_test_budget(path, "run_b", "d3", 1, "other", "client renamed a category")
     assert charge == {"event": "extra_spent", "budget": 1, "runs_spent": 2, "extra_peeks": 1}
     assert json.loads(path.read_text(encoding="utf-8").splitlines()[-1])["reason"] == "client renamed a category"
-    assert kpi.spend_test_budget(path, "run_b", "d3", 1, "r") == {"event": "rescored", "budget": 1, "runs_spent": 2, "extra_peeks": 1}
+    assert kpi.spend_test_budget(path, "run_b", "d3", 1, "other") == {"event": "rescored", "budget": 1, "runs_spent": 2, "extra_peeks": 1}
 
 
 def test_a_reason_is_not_used_while_budget_remains(tmp_path):
@@ -970,3 +970,89 @@ def test_negative_rows_left_uncovered_are_reported():
                          outcome_reason="adds_up" if outcome == "verified" else "model_unsure")
     block = kpi.coverage([row("700", "verified"), row("300", "review"), row("-300", "review")])["usd"]
     assert block["negative_rows_not_covered"] == 1 and block["share"] == 1.0
+
+
+# ---- a level needs its work
+def test_level_3_reports_its_work_is_not_built_whatever_its_numbers():
+    gate = kpi.level_gate("level3", gate_coverage(0.99, 0.99), gate_accuracy(0.99, 0.98, 1.0), CLEAN, LEVEL3)
+    assert all(condition["met"] for condition in gate["conditions"].values())
+    assert (gate["status"], gate["reason"]) == ("work_not_built", "work_not_built")
+
+
+def test_levels_1_and_2_still_pass_on_their_numbers():
+    for name, targets in (("level1", LEVEL1), ("level2", LEVEL2)):
+        assert kpi.level_gate(name, gate_coverage(0.99, 0.99), gate_accuracy(0.99, 0.98, 1.0), CLEAN, targets)["status"] == "pass"
+
+
+# ---- accepted without reading
+def test_accepted_without_reading_by_hand():
+    found = kpi.coverage(hand_rows())["accepted_without_reading"]
+    # R1 verified 400 and R4 no charge 100. The two discrepancies count toward coverage, and not here.
+    assert (found["rows"]["accepted"], found["rows"]["total"]) == (2, 6) and found["rows"]["share"] == approx(2 / 6)
+    assert (found["usd"]["accepted"], found["usd"]["total"]) == ("500.00", "1400.00") and found["usd"]["share"] == approx(500 / 1400)
+
+
+def test_accepted_without_reading_with_nothing_to_measure():
+    empty = kpi.coverage([])["accepted_without_reading"]
+    assert empty["rows"]["share"] is None and empty["usd"]["share"] is None
+    assert kpi.coverage([make_row("R1", "verified", "-5.00")])["accepted_without_reading"]["usd"]["share"] is None
+
+
+# ---- accuracy on labels a person has checked
+def _with_sources(world, **by_fingerprint) -> dict:
+    return {fp: label.model_copy(update={"source": by_fingerprint.get(fp, "model_draft")}) for fp, label in world.gold.items()}
+
+
+def test_accuracy_on_checked_labels_leaves_out_drafts(world):
+    gold = _with_sources(world, **{world.single.fingerprint: "person_checked"})
+    snapshot = run_evaluate(world, gold=gold)
+    assert snapshot["accuracy_on_checked_labels"]["n"] == 1 and snapshot["accuracy_on_checked_labels"]["correct"] == 1
+    assert snapshot["accuracy_on_checked_labels"]["share"] == 1.0 and snapshot["labels_changed_by_people"] == 0
+    assert snapshot["labels_sources"]["model_draft"] == 4
+
+
+def test_accuracy_on_checked_labels_counts_a_correction_the_tool_misses(world):
+    gold = _with_sources(world, **{world.single.fingerprint: "person_checked", world.multi.fingerprint: "person_corrected"})
+    wrong = gold[world.multi.fingerprint].items[0].model_copy(update={"category": "other"})
+    gold[world.multi.fingerprint] = gold[world.multi.fingerprint].model_copy(update={"items": [wrong, *gold[world.multi.fingerprint].items[1:]]})
+    snapshot = run_evaluate(world, gold=gold)
+    found = snapshot["accuracy_on_checked_labels"]
+    assert (found["n"], found["correct"], snapshot["labels_changed_by_people"]) == (2, 1, 1) and found["share"] == 0.5
+    assert found["wilson_low"] == approx(0.094531, abs=1e-4) and found["wilson_high"] == approx(0.905469, abs=1e-4)
+
+
+def test_accuracy_on_checked_labels_leaves_out_notes_in_review(world):
+    gold = _with_sources(world, **{world.unclear.fingerprint: "person_checked"})
+    found = run_evaluate(world, gold=gold)["accuracy_on_checked_labels"]
+    assert found["n"] == 0 and found["share"] is None and found["wilson_low"] is None
+
+
+def test_with_no_label_checked_there_is_no_figure(world):
+    found = run_evaluate(world, gold=_with_sources(world))["accuracy_on_checked_labels"]
+    assert found["n"] == 0 and found["share"] is None
+
+
+# ---- what a charge follows
+def test_a_change_of_code_alone_is_a_free_rescore(world):
+    run_evaluate(world)
+    other = world.manifest.model_copy(update={"code_sha": "b" * 40})
+    assert other.run_id != world.manifest.run_id
+    snapshot = run_evaluate(world, manifest=other)
+    assert snapshot["test_budget"] == {"event": "rescored", "budget": 1, "runs_spent": 1, "extra_peeks": 0}
+    assert kpi.snapshot_path(world.root, other.run_id, "d3").exists()
+
+
+@pytest.mark.parametrize("field", ["prompt_sha256", "taxonomy_sha256", "config_sha256"])
+def test_changed_inputs_are_a_new_charge(world, field):
+    run_evaluate(world)
+    with pytest.raises(ContractError, match="is spent"):
+        run_evaluate(world, manifest=world.manifest.model_copy(update={field: "z" * 64}))
+
+
+def test_different_answers_are_a_new_charge(world):
+    run_evaluate(world)
+    changed = dict(world.results)
+    changed[world.nothing.fingerprint] = changed[world.nothing.fingerprint].model_copy(update={"reason_code": "amount_unclear"})
+    with pytest.raises(ContractError, match="is spent"):
+        run_evaluate(world, note_results=changed)
+

@@ -267,8 +267,9 @@ def test_the_snapshot_and_the_page_say_the_labels_are_drafts(labels):
     summary = acceptance.d3_check(labels.tmp)
     assert summary["d2"]["written_by_model"] == 200 and summary["d2"]["checked_by_person"] == 0
     text = Path(summary["page"]).read_text(encoding="utf-8")
-    assert "200 of the 200 TEST labels behind this result were written by Claude Opus" in text
+    assert "200 of the 200 TEST labels behind these figures were written by Claude Opus" in text
     assert "shows how far the tool agrees with those labels, and not that it is right" in text
+    assert text.index("Read this first") < text.index("D1: charge category list")
     assert "200 of the labels are drafts written by Claude Opus" in text
 
 
