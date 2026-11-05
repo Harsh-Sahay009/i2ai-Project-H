@@ -507,7 +507,7 @@ def test_every_entry_in_the_real_registry_loads():
     assert models["claude-haiku-5-5"].refusal_fallback is False, "Haiku has no server-side fallback"
 
 
-def test_every_entry_in_the_real_registry_works_with_its_adapter(monkeypatch):
+def test_every_entry_in_the_real_registry_works_with_its_adapter(monkeypatch, tmp_path):
     models, _ = load_models(REAL_REGISTRY)
     for spec in models.values():
         if spec.api_key_env:
@@ -515,7 +515,12 @@ def test_every_entry_in_the_real_registry_works_with_its_adapter(monkeypatch):
     for name, spec in models.items():
         sample = ADAPTERS[spec.provider].wire_sample()
         wire = FakeWire(sample.ok)
-        assert get_provider(spec, client=wire).complete(SYSTEM, USER, SCHEMA).text == sample.expected.text, name
+        client = wire
+        if spec.base_url == "https://api.openai.com/v1":
+            from itemizer.paid import CappedOpenAITransport
+
+            client = CappedOpenAITransport(spec, tmp_path / "paid-ledger.json", "5", transport=wire)
+        assert get_provider(spec, client=client).complete(SYSTEM, USER, SCHEMA).text == sample.expected.text, name
         assert spec.model in repr(wire.calls[0])
 
 

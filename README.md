@@ -17,7 +17,7 @@ The dataset is not in this repo, because this repo is public. Put the export fil
 ## Use it
 
 ```bash
-itemizer ui
+uv run itemizer ui
 ```
 
 Open <http://127.0.0.1:8899> to upload an export, see what the run would cost, run it, download the output Excel and see the KPIs. It serves your machine only.
@@ -25,14 +25,26 @@ Open <http://127.0.0.1:8899> to upload an export, see what the run would cost, r
 The same from a terminal:
 
 ```bash
-itemizer run --export <file.xlsx>   # another export
-itemizer run --set train            # the dataset's TRAIN notes, for development
-itemizer run                        # all rows of the dataset, once TEST is frozen
-itemizer evaluate                   # score a run on all rows against TEST
-itemizer acceptance d3              # write the D1, D2 and D3 status page
+uv run itemizer run --export <file.xlsx>   # another export
+uv run itemizer run --set train            # the dataset's TRAIN notes, for development
+uv run itemizer run                        # all rows of the dataset, once TEST is frozen
+uv run itemizer evaluate                   # score a run on all rows against TEST
+uv run itemizer acceptance d3              # write the D1, D2 and D3 status page
 ```
 
 To try another model, add one entry to `config/models.yaml`, and compare it with `itemizer compare-models`. `architecture/docs/11-data-contracts.md` explains how.
+
+## Local readiness and restoring shared labels
+
+The local `codex/integrate-latest` branch combines the current `main` implementation with the readiness fixes. `itemizer doctor` validates local setup without model calls or file changes; exit 0 is setup readiness, not D3 acceptance. New splits also pin every prompt example to TRAIN. Existing locked splits are not changed.
+
+The current local checkout is `/Users/harshsahay/.codex/workspaces/i2ai-Project-H`, outside iCloud-managed Desktop storage. The prior Desktop copy is preserved; do not mix their generated experiment records.
+
+The shared `test_provisional.json` contains model-drafted labels, not human-reviewed ground truth. Keep it separate from a newly reconstructed split: those experiments have different TEST membership. Restoring the original experiment also requires its split manifest, provisional record, labeling/agreement records, and run/KPI artifacts. Do not create approval or freeze records merely to make the application run.
+
+The local `data/incoming/alejandro/` folder preserves the received file and any portable review materials. A portable review workbook can support reading and corrections now, but must not be imported into the reconstructed experiment. Preserve the original label file and import a reviewed workbook only against its matching original TEST set with the supported review command.
+
+On macOS with Python 3.14, an editable package may fail to import if its `.pth` file carries the hidden filesystem flag. Check with `ls -lO .venv/lib/python*/site-packages/*itemizer*.pth`. A local nonhidden `.pth` containing the absolute project `src` path restores discovery; this is an environment repair, not a change to extraction behavior. Recheck `uv run python -c "import itemizer"` after installation.
 
 ## Where things are
 

@@ -102,7 +102,11 @@ def _finish_label_sheet(sheet, category_rows: int) -> None:
     _dropdown(sheet, "I", '"' + ",".join(LINE_TYPES) + '"', last)
     _dropdown(sheet, "J", '"' + ",".join(DERIVATIONS) + '"', last)
     _dropdown(sheet, "K", '"Y"', last)
-    _style(sheet, {"A": 13, "B": 10, "C": 10, "D": 60, "E": 5, "F": 22, "G": 10, "H": 40, "I": 13, "J": 16, "K": 9, "L": 25})
+    _style(sheet, {"A": 14, "B": 24, "C": 19, "D": 60, "E": 6, "F": 26, "G": 12, "H": 48, "I": 16, "J": 22, "K": 21, "L": 32})
+    sheet.row_dimensions[1].height = 30
+    for cell in sheet[1]:
+        cell.alignment = Alignment(wrap_text=True, vertical="center")
+    sheet.auto_filter.ref = sheet.dimensions
 
 
 def write_pack(path: Path, set_name: str, fingerprints: list[str], notes: dict[str, Note],
