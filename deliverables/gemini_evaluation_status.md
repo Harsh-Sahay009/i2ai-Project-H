@@ -59,3 +59,7 @@ The user authorized full-export evaluation. The frozen `all` scope reused the be
 ## Requested resume: high-demand error confirmed
 
 The latest requested resume made four attempts plus one diagnostic, all HTTP 503, with no additional saved responses. Google's structured error explicitly reports high demand and status `UNAVAILABLE`. The checkpoint remains 219/729 responses, 510 remaining. This attempt was blocked by service capacity; it did not return a quota error. No model switch, paid billing or background retry was introduced.
+
+## Latest checkpoint: 223/729
+
+A subsequent user-requested resume saved four more responses, then stopped on repeated HTTP 503 errors. Current cache/result checkpoint: 223 available responses, 506 notes remaining. The run is incomplete and full-export accuracy/coverage remain unreported. No request process or automatic retry is running.

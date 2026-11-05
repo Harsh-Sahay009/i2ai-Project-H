@@ -1,6 +1,6 @@
 # Full-export Flash-Lite evaluation — 5 November 2026
 
-The same-model full-export evaluation is **incomplete because of repeated HTTP 503 service errors**. It has responses for **219 of 729 distinct notes**, including the 200-note benchmark cache; **510 notes remain**. There are 1,347 source dispute rows. The evaluator deliberately reports no full-export accuracy or coverage score while inference is incomplete.
+The same-model full-export evaluation is **incomplete because of repeated HTTP 503 service errors**. It currently has responses for **223 of 729 distinct notes**, including the 200-note benchmark cache; **506 notes remain**. There are 1,347 source dispute rows. The evaluator deliberately reports no full-export accuracy or coverage score while inference is incomplete.
 
 ## Work performed
 
@@ -36,3 +36,7 @@ The 200-note benchmark remains 196/198 exact matches (98.99%), with 196/200 stri
 ## Latest requested resume: provider cause confirmed
 
 A user-requested resume retried the first missing request four times with 15/30/60-second waits. All attempts returned HTTP 503; no additional responses were saved. A single diagnostic request then confirmed the provider's structured error: code 503, status `UNAVAILABLE`, with a message explicitly reporting high demand. The response envelope was a JSON list containing an error object, which explains why an earlier diagnostic expecting an object did not retain the provider message. This is a confirmed service-capacity failure rather than an observed quota or credential failure. The checkpoint remains 219 available responses and 510 unanswered notes. No requests are running or scheduled.
+
+## Subsequent requested resume: four more responses saved
+
+The next requested attempt recovered four additional responses before repeated HTTP 503 errors exhausted the 15/30/60-second retry sequence. The latest checkpoint has **223 responses available, 506 remaining**: 221 `ok`, two `model_unsure`, and 506 `provider_unavailable` placeholders. The attempt ended after 144.75 seconds. Earlier counts above describe previous attempts. No full-export score is reported, and no inference job or automatic retry remains running. The same resume instructions and frozen inputs apply.
