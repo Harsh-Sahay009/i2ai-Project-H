@@ -1,5 +1,7 @@
 # Full-export Flash-Lite evaluation — 5 November 2026
 
+A **separate OpenAI candidate has completed** all 729 notes and 1,347 rows; see [OpenAI evaluation results](openai_evaluation_results.md). This document tracks the still-incomplete Gemini candidate.
+
 The same-model full-export evaluation is **incomplete because of repeated HTTP 503 service errors**. It currently has responses for **223 of 729 distinct notes**, including the 200-note benchmark cache; **506 notes remain**. There are 1,347 source dispute rows. The evaluator deliberately reports no full-export accuracy or coverage score while inference is incomplete.
 
 ## Work performed
