@@ -444,4 +444,11 @@ ADAPTERS: dict[str, type] = {
 
 def get_provider(spec: ModelSpec, client: Any = None, project_root: Path | None = None) -> Provider:
     """`client` is the adapter's SDK client or HTTP transport. `project_root` is where `.env` is, by default the working folder."""
+    from urllib.parse import urlparse
+
+    if urlparse(spec.base_url or "").hostname == "api.openai.com":
+        from .paid import CappedOpenAITransport
+
+        if not isinstance(client, CappedOpenAITransport) or client.spec != spec:
+            raise ContractError("direct OpenAI inference requires the authorized independent evaluator and spending ledger")
     return ADAPTERS[spec.provider](spec, client, project_root)

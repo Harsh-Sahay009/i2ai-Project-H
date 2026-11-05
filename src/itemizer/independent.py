@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 from pathlib import Path
@@ -19,6 +20,7 @@ from .bootstrap.data import ContractError, NoteLabel, sha256_file
 from .contracts import NoteResult
 from .itemize import Budget, Policy, assign_rows, build_system_prompt, itemize_notes, load_fewshots
 from .providers import ProviderError, get_provider
+from .paid import authorized_transport
 
 
 def freeze_inputs(path: Path, payload: dict) -> None:
@@ -87,8 +89,15 @@ def main() -> int:
     parser.add_argument("--experiment", default="independent-v1")
     parser.add_argument("--interval", type=float, default=4.0)
     parser.add_argument("--minutes", type=float, default=30)
+    parser.add_argument("--max-usd", default="0.01")
     parser.add_argument("--run", action="store_true")
     args = parser.parse_args()
+    try:
+        budget = Decimal(args.max_usd)
+        if not budget.is_finite() or budget <= 0:
+            raise ValueError
+    except (ValueError, InvalidOperation):
+        raise ContractError("run budget must be a positive finite dollar amount") from None
     if not args.experiment.replace("-", "").replace("_", "").isalnum() or args.interval < 0 or args.minutes <= 0:
         raise ContractError("invalid experiment name, interval or time limit")
     root = Path.cwd()
@@ -112,6 +121,8 @@ def main() -> int:
     authorization = root / "data/evaluation/external_authorization.json"
     if urlparse(spec.base_url or "").hostname not in pipeline._THIS_MACHINE:
         require_authorization(authorization, sha256_file(project.dataset))
+    paid = (authorized_transport(root, spec, budget, sha256_file(project.dataset))
+            if urlparse(spec.base_url or "").hostname == "api.openai.com" else None)
     system = build_system_prompt(categories, fewshots, root / pipeline.PROMPT)
     folder = root / "data/evaluation" / args.experiment / args.scope
     protocol = {
@@ -125,6 +136,10 @@ def main() -> int:
         "reference_sources": dict(collections.Counter(l.source for l in gold.values())),
         "historical_run_reproduced": False,
         "authorization_sha256": sha256_file(authorization) if authorization.exists() else None,
+        "max_usd_per_run": str(budget),
+        "paid_spending_policy": paid.identity if paid else None,
+        "paid_transport_attempts": 1 if paid else None,
+        "paid_authorization_sha256": sha256_file(root / "data/evaluation/openai_spending_authorization.json") if paid else None,
     }
     freeze_inputs(folder / "protocol.json", protocol)
     chosen = project.notes if args.scope == "all" else {fp: project.notes[fp] for fp in sorted(gold)}
@@ -140,8 +155,11 @@ def main() -> int:
         if done == total or done % 10 == 0:
             print(json.dumps(payload), flush=True)
 
-    results = itemize_notes(chosen, PacedProvider(get_provider(spec, project_root=root), args.interval), codes,
-                            system, folder.parent / "cache", Budget("0.01", args.minutes), 1,
+    provider = get_provider(spec, client=paid, project_root=root)
+    if paid:
+        provider.attempts = 1  # fail promptly on provider/billing errors; every resume shares the same ledger
+    results = itemize_notes(chosen, PacedProvider(provider, args.interval), codes,
+                            system, folder.parent / "cache", Budget(budget, args.minutes), 1,
                             folder / "telemetry.jsonl", progress)
     (folder / "note_results.json").write_text(json.dumps({fp: r.model_dump(mode="json") for fp, r in results.items()},
                                                        indent=2, sort_keys=True))
@@ -149,6 +167,7 @@ def main() -> int:
         require_complete(results, set(chosen))
     except ContractError:
         incomplete = {"status": "incomplete", "accuracy": None, "scope": args.scope,
+                      "paid_spending": paid.summary() if paid else None,
                       "reasons": dict(collections.Counter(r.review_reason for r in results.values() if r.review_reason)),
                       "seconds": round(time.monotonic() - started, 2)}
         (folder / "summary.json").write_text(json.dumps(incomplete, indent=2))
@@ -178,6 +197,7 @@ def main() -> int:
         "outcomes": dict(collections.Counter(r.outcome for r in row_results)),
         "seconds": round(time.monotonic() - started, 2),
         "official_d3_acceptance": "not_assessed",
+        "paid_spending": paid.summary() if paid else None,
     }
     (folder / "row_results.json").write_text(json.dumps([r.model_dump(mode="json") for r in row_results], indent=2))
     (folder / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True))

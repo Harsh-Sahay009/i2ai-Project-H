@@ -64,3 +64,12 @@ def test_cli_does_not_print_private_validation_input(monkeypatch, capsys):
     output = capsys.readouterr()
     assert "PRIVATE_NOTE_MUST_NOT_PRINT" not in output.out + output.err
     assert "ValidationError" in output.out
+
+
+@pytest.mark.parametrize('budget',['0','-1','NaN','Infinity','not-money'])
+def test_invalid_budget_stops_before_loading_dataset(monkeypatch,budget):
+    import sys
+    monkeypatch.setattr(sys,'argv',['independent','--max-usd',budget])
+    monkeypatch.setattr(independent.pipeline,'load_project',lambda *args:pytest.fail('dataset loaded'))
+    with pytest.raises(ContractError):
+        independent.main()
