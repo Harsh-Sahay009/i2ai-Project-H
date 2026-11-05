@@ -32,3 +32,7 @@ A private, reference-derived resolution candidate is saved at `data/evaluation/g
 ## Completed benchmark remains valid within its scope
 
 The 200-note benchmark remains 196/198 exact matches (98.99%), with 196/200 strict yield (98.00%) and user-confirmed human reference review. Its row coverage is 304/307 (99.02%); dollar coverage is 77.33%. Those are benchmark measurements, not full-export figures. Official D3 acceptance remains unassessed.
+
+## Latest requested resume: provider cause confirmed
+
+A user-requested resume retried the first missing request four times with 15/30/60-second waits. All attempts returned HTTP 503; no additional responses were saved. A single diagnostic request then confirmed the provider's structured error: code 503, status `UNAVAILABLE`, with a message explicitly reporting high demand. The response envelope was a JSON list containing an error object, which explains why an earlier diagnostic expecting an object did not retain the provider message. This is a confirmed service-capacity failure rather than an observed quota or credential failure. The checkpoint remains 219 available responses and 510 unanswered notes. No requests are running or scheduled.

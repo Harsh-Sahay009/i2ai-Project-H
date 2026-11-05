@@ -55,3 +55,7 @@ Harsh confirmed he verified accuracy and clarified that he checked **all 200 ref
 ## Full-export attempt
 
 The user authorized full-export evaluation. The frozen `all` scope reused the benchmark cache and recovered 19 additional notes, for 219/729 responses available; 510 remain. Multiple passes, including 15/30/60-second transport retry waits, stopped on repeated HTTP 503 errors. Full-export accuracy and coverage are not reported. No inference job or automatic retry is running. See [full-export status and resume instructions](full_export_evaluation_status.md). A separate human-assisted candidate for the $16,000 review exposure was prepared without replacing the automated prediction.
+
+## Requested resume: high-demand error confirmed
+
+The latest requested resume made four attempts plus one diagnostic, all HTTP 503, with no additional saved responses. Google's structured error explicitly reports high demand and status `UNAVAILABLE`. The checkpoint remains 219/729 responses, 510 remaining. This attempt was blocked by service capacity; it did not return a quota error. No model switch, paid billing or background retry was introduced.
