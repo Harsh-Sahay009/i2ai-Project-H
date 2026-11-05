@@ -39,3 +39,11 @@ The fixed separate run is:
 ```
 
 Its protocol and private outputs are in `data/evaluation/gemini-lite-v1/benchmark/`, with a separate cache under that experiment. Five seconds between request starts is approximately 12 RPM, below the account's 15-RPM limit, before any transport retries. Any provider interruption still prevents a final accuracy claim. The 200-note benchmark is the first phase; full-export coverage remains a separate measurement. The results are not assumed to meet the quality target simply because the model runs.
+
+## Completed separate Flash-Lite benchmark
+
+The separate `gemini-lite-v1` benchmark finished all 200 notes: 196/198 exact draft-reference matches (98.99%), two model-unsure abstentions, and 196/200 strict yield (98.00%). There were two mismatched notes with three category differences; no amount/missing/extra errors among answered notes. Zero invariant violations. This is draft agreement, not human-verified accuracy.
+
+Benchmark row coverage is 304/307 (99.02%), but dollar coverage is only $54,577.40/$70,577.40 (77.33%) because one abstention maps to two $8,000 rows. Full-export coverage and official D3 acceptance remain unassessed. The first pass stopped after 56 responses; a diagnostic and cache-preserving resume completed the run. Observed resumed transport failures were HTTP 503.
+
+See [the full aggregate report](gemini_flash_lite_results.md). The original Flash run remains incomplete and separate.
