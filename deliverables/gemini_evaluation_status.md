@@ -47,3 +47,11 @@ The separate `gemini-lite-v1` benchmark finished all 200 notes: 196/198 exact dr
 Benchmark row coverage is 304/307 (99.02%), but dollar coverage is only $54,577.40/$70,577.40 (77.33%) because one abstention maps to two $8,000 rows. Full-export coverage and official D3 acceptance remain unassessed. The first pass stopped after 56 responses; a diagnostic and cache-preserving resume completed the run. Observed resumed transport failures were HTTP 503.
 
 See [the full aggregate report](gemini_flash_lite_results.md). The original Flash run remains incomplete and separate.
+
+## Human review confirmation — 5 November 2026
+
+Harsh confirmed he verified accuracy and clarified that he checked **all 200 reference labels**, rather than only the four flagged cases. Record the benchmark as **user-confirmed human review**: 196/198 exact matches (98.99%) and 196/200 strict yield (98.00%). Private `human_review_confirmation.json` links his chat attestation to the original reference and prediction hashes. No corrected labels or per-item adjudications were supplied; raw drafts and scores are unchanged. Earlier statements above about human review being pending describe the state before this confirmation. Full-export coverage, the $16,000 abstention exposure and official D3 acceptance remain unresolved.
+
+## Full-export attempt
+
+The user authorized full-export evaluation. The frozen `all` scope reused the benchmark cache and recovered 19 additional notes, for 219/729 responses available; 510 remain. Multiple passes, including 15/30/60-second transport retry waits, stopped on repeated HTTP 503 errors. Full-export accuracy and coverage are not reported. No inference job or automatic retry is running. See [full-export status and resume instructions](full_export_evaluation_status.md). A separate human-assisted candidate for the $16,000 review exposure was prepared without replacing the automated prediction.
