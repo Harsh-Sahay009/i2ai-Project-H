@@ -137,6 +137,23 @@ def split_command(force: bool = typer.Option(False, help="Replace an existing sp
     pinned = set(ctx.examples)
     if (ctx.root / CATEGORIES).exists():  # notes quoted as D1 examples stay in TRAIN
         pinned |= {e["fingerprint"] for c in tx.load_taxonomy(ctx.root / CATEGORIES)["categories"] for e in c["examples"]}
+    fewshots = ctx.root / "prompts/fewshot_v1.yaml"
+    if fewshots.exists():  # labelled prompt examples cannot become held-out evaluation notes
+        import yaml
+
+        try:
+            raw = yaml.safe_load(fewshots.read_text(encoding="utf-8"))
+            entries = raw["examples"]
+            by_id = {note.note_id: fp for fp, note in ctx.notes.items()}
+            if not isinstance(entries, list):
+                raise ValueError
+            for entry in entries:
+                if not isinstance(entry, dict) or not isinstance(entry.get("note_id"), str):
+                    raise ValueError
+                pinned.add(by_id[entry["note_id"]])
+        except (OSError, UnicodeError, yaml.YAMLError, KeyError, TypeError, ValueError):
+            raise ContractError("prompt examples must list note_id values from the dataset; fix prompts/fewshot_v1.yaml "
+                                "before creating a split") from None
     manifest = sp.build_split(ctx.notes, ctx.cfg, pinned, sha256_file(ctx.export), blank, never_test=seen)
     if ctx.ws.exists("split_manifest.json"):
         same = ctx.ws.read_json("split_manifest.json")["notes"] == json.loads(json.dumps(manifest["notes"], default=str))
@@ -420,6 +437,18 @@ def _show_outcome(outcome) -> None:
         "coverage_rows_on_these_rows": coverage["rows"]["share"], "coverage_usd_on_these_rows": coverage["usd"]["share"],
         "workbook": str(outcome.workbook.relative_to(root)) if outcome.workbook.is_relative_to(root) else str(outcome.workbook),
     })
+
+
+@app.command("doctor")
+@_guard
+def doctor_command() -> None:
+    """Check local setup without model calls, credentials or file changes. This does not certify D3."""
+    from .readiness import inspect_setup
+
+    report = inspect_setup(Path.cwd())
+    _show(report)
+    if not report["setup_ready"]:
+        raise typer.Exit(code=2)
 
 
 @app.command("run")

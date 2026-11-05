@@ -638,6 +638,52 @@ def test_cli_split_is_locked_once_packs_exist(project):
     assert "locked" in runner.invoke(app, ["gt", "split", "--force"]).output
 
 
+def test_prompt_example_is_pinned_to_train_when_rebuilding(project):
+    runner = CliRunner()
+    assert runner.invoke(app, ["gt", "split"]).exit_code == 0
+    path = project / "data/bootstrap/split_manifest.json"
+    before = json.loads(path.read_text())
+    held = next(e for e in before["notes"] if e["set"] == "TEST")
+    prompts = project / "prompts"
+    prompts.mkdir()
+    (prompts / "fewshot_v1.yaml").write_text(f"examples:\n- note_id: {held['note_id']}\n")
+    result = runner.invoke(app, ["gt", "split", "--force"])
+    assert result.exit_code == 0, result.output
+    after = json.loads(path.read_text())
+    assert next(e for e in after["notes"] if e["note_id"] == held["note_id"])["set"] == "TRAIN"
+    assert held["fingerprint"] in after["pinned_to_train"]
+
+
+@pytest.mark.parametrize("text", ["[", "examples: null", "examples: [42]", "examples: [{}]",
+                                        "examples:\n- note_id: n_private_unknown_reference\n"])
+def test_bad_prompt_example_stops_without_changing_the_split(project, text):
+    runner = CliRunner()
+    assert runner.invoke(app, ["gt", "split"]).exit_code == 0
+    path = project / "data/bootstrap/split_manifest.json"
+    before = path.read_bytes()
+    (project / "prompts").mkdir()
+    (project / "prompts/fewshot_v1.yaml").write_text(text)
+    result = runner.invoke(app, ["gt", "split", "--force"])
+    assert result.exit_code == 2, result.output
+    assert "prompt examples" in result.output
+    assert "private_unknown_reference" not in result.output
+    assert path.read_bytes() == before
+
+
+def test_prompt_example_cannot_repartition_a_locked_split(project):
+    runner = CliRunner()
+    assert runner.invoke(app, ["gt", "split"]).exit_code == 0
+    path = project / "data/bootstrap/split_manifest.json"
+    before = path.read_bytes()
+    held = next(e for e in json.loads(before)["notes"] if e["set"] == "TEST")
+    (project / "prompts").mkdir()
+    (project / "prompts/fewshot_v1.yaml").write_text(f"examples:\n- note_id: {held['note_id']}\n")
+    (project / "data/bootstrap/packs.json").write_text("{}")
+    result = runner.invoke(app, ["gt", "split", "--force"])
+    assert result.exit_code == 2 and "locked" in result.output
+    assert path.read_bytes() == before
+
+
 @pytest.mark.parametrize("amount", ["1e30", "NaN", "Infinity", "sNaN"])
 def test_a_typed_amount_that_is_not_money_is_a_label_error_and_not_a_crash(amount):
     assert lb._strict_amount(amount) is None
