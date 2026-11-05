@@ -25,3 +25,17 @@ From `/Users/harshsahay/.codex/workspaces/i2ai-Project-H`:
 This reuses cached answers; it does not require Alejandro's historical freeze records. Do not change the model/prompt/reference file during a fixed run. Confirm the applicable RPM and RPD in Google AI Studio before resuming; adjust execution pacing within the recorded method or create an explicit new version if configuration changes. Do not activate paid billing to bypass the user's free-only constraint.
 
 Once all 200 predictions are available, report exact agreement with model drafts, coverage and abstentions, errors by category/amount/missing/extra, confidence intervals and runtime. Benchmark-row coverage is not full-export coverage. Human reference review is still required to establish real accuracy.
+
+## Account limits confirmed and separate Flash-Lite candidate
+
+The user supplied the AI Studio rate-limit view: Gemini 3 Flash and Gemini 3.8 Flash each have 5 RPM and 20 RPD; Gemini 3.5 Flash-Lite and Gemini 3.1 Flash-Lite each have 15 RPM and 500 RPD. The supplied usage view is a 28-day peak display, so its usage numerators are not a live remaining-balance calculation. Google documents daily resets at midnight Pacific (3 a.m. New York on this date). Original Flash inference remains stopped; merely slowing requests cannot clear an exhausted daily quota. Its private recovery helper now uses a conservative 13-second interval for any future authorized resume after reset.
+
+The user explicitly selected **Evaluate Flash-Lite separately for free**. A new candidate, `gemini-3.5-flash-lite-free`, uses the same extraction prompt, schema and reference benchmark with medium effort and temperature 0. Selection was based on available free quota, not observed benchmark accuracy. No original Flash answers are mixed into this candidate's cache or results. The full-prompt development check (outside the benchmark) succeeded in 5.2 seconds with no grammar violations. Existing/new affected tests: 125 passed.
+
+The fixed separate run is:
+
+```bash
+.venv/bin/python -m itemizer.independent --model gemini-3.5-flash-lite-free --experiment gemini-lite-v1 --interval 5 --run
+```
+
+Its protocol and private outputs are in `data/evaluation/gemini-lite-v1/benchmark/`, with a separate cache under that experiment. Five seconds between request starts is approximately 12 RPM, below the account's 15-RPM limit, before any transport retries. Any provider interruption still prevents a final accuracy claim. The 200-note benchmark is the first phase; full-export coverage remains a separate measurement. The results are not assumed to meet the quality target simply because the model runs.

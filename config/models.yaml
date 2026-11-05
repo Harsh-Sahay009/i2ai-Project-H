@@ -7,6 +7,21 @@
 default: claude-opus-5-5
 
 models:
+  # Separate candidate selected for its account quota, not from benchmark scores.
+  gemini-3.5-flash-lite-free:
+    provider: openai_compatible
+    model: gemini-3.5-flash-lite
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+    api_key_env: GEMINI_API_KEY
+    effort: medium
+    max_tokens: 16000
+    temperature: 0
+    refusal_fallback: false
+    input_usd_per_mtok: "0"
+    output_usd_per_mtok: "0"
+    cache_read_usd_per_mtok: "0"
+    cache_write_usd_per_mtok: "0"
+
   gemini-3-flash-preview-free:
     provider: openai_compatible
     model: gemini-3-flash-preview
