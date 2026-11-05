@@ -7,6 +7,36 @@
 default: claude-opus-5-5
 
 models:
+  gemini-3-flash-preview-free:
+    provider: openai_compatible
+    model: gemini-3-flash-preview
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+    api_key_env: GEMINI_API_KEY
+    effort: medium
+    max_tokens: 16000
+    temperature: 0
+    refusal_fallback: false
+    input_usd_per_mtok: "0"
+    output_usd_per_mtok: "0"
+    cache_read_usd_per_mtok: "0"
+    cache_write_usd_per_mtok: "0"
+
+  # Free-tier experiment only; zero rates describe the selected free quota, not paid-tier list prices.
+  # Official pricing checked 2026-11-05: https://ai.google.dev/gemini-api/docs/pricing#gemini-3.8-flash
+  gemini-3.8-flash-free:
+    provider: openai_compatible
+    model: gemini-3.8-flash
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+    api_key_env: GEMINI_API_KEY
+    effort: medium
+    max_tokens: 16000
+    temperature: 0
+    refusal_fallback: false
+    input_usd_per_mtok: "0"
+    output_usd_per_mtok: "0"
+    cache_read_usd_per_mtok: "0"
+    cache_write_usd_per_mtok: "0"
+
   claude-opus-5-5:
     provider: anthropic
     model: claude-opus-5-5
