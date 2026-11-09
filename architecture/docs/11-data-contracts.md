@@ -14,7 +14,7 @@ The code is in `src/itemizer/bootstrap/data.py`, `contracts.py` and `grammar.py`
 | Gold label (`NoteLabel`, `GoldItem`) | People, through `gt import-labels` and `gt import-client` | KPI Calculator | `data/bootstrap/test_sealed.json` or `test_provisional.json` |
 | Answer (`Answer`) | A model | The parser | `data/cache/llm/<model>/` |
 | Note result (`NoteResult`) | Itemizer | Row outcomes, workbook, KPI Calculator | `data/runs/<run_id>/note_results.json` |
-| Row result (`RowResult`) | Row outcomes | Workbook, KPI Calculator | `data/runs/<run_id>/row_results.json` |
+| Row result (`RowResult`) | Row outcomes, with `sap_bol`, `bill_id` and `billed` | Workbook, KPI Calculator | `data/runs/<run_id>/row_results.json` |
 | Run manifest (`RunManifest`) | `itemizer run` | `evaluate`, `acceptance` | `data/runs/<run_id>/manifest.json` |
 | Workbook | `itemizer run` | Accountants | `data/runs/<run_id>/itemized.xlsx` |
 | KPI snapshot | `itemizer evaluate` | `acceptance d3` | `data/kpi/<run_id>_<milestone>.json` |
@@ -39,6 +39,13 @@ An export needs these columns, and a missing one stops the command.
 | `reason` | `Reason Code` | |
 | `note` | `Descritipion` | The source file spells it this way |
 | flags | `Invoice Dups Removed` | Gives `repeated_invoice`. `empty_note` and `non_positive_delta` come from the row itself |
+
+Two more columns are read when present, and an export without them still loads (ADR 0017).
+
+| Field | Column | Notes |
+|---|---|---|
+| `sap_bol` | `SAP BOL` | The workbook's key, with the note. Kept as text, so leading zeros stay |
+| `bill_id` | `Invoice/Bill ID` | Listed on each workbook line; not part of the key |
 
 `row_id` is `R` plus the export row number, because no ID column identifies a row. A note's `fingerprint` is the SHA-256 of its normalized text, and `note_id` is `n_` plus its first 8 characters. Rows sharing a fingerprint share one model call.
 
@@ -102,11 +109,13 @@ The totals are empty, never 0, for rows that never reached reconciliation.
 
 | Sheet | One line per | Columns |
 |---|---|---|
-| `Items` | Charge on a row | `row_id`, `item`, `category`, `amount`, `evidence`, `outcome`, `ai_reason` |
-| `Row Summary` | Row | `row_id`, `shipment`, `carrier_invoice`, `carrier`, `status`, `reason_code`, `disputed`, `items_total`, `already_paid`, `difference`, `outcome`, `outcome_reason`, `repeated`, `note` |
-| `Largest` | Shipment, largest dispute first | `rank`, `shipment`, `rows`, `largest_dispute`, `total_on_rows`, `repeated_rows`, `share_of_total`, `cumulative_share`, `outcome`, `main_category` |
+| `Items` | Charge item on a line | `charge_id`, `sap_bol`, `shipment`, `item`, `category`, `amount`, `evidence`, `outcome`, `ai_reason`, `description` |
+| `Charge Summary` | SAP BOL and description | `charge_id`, `sap_bol`, `shipment`, `bill_ids`, `carrier_invoice`, `carrier`, `status`, `reason_code`, `disputed`, `items_total`, `already_paid`, `difference`, `outcome`, `outcome_reason`, `rows`, `row_ids`, `same_amount_as`, `description` |
+| `Largest` | SAP BOL, largest dispute first | `rank`, `sap_bol`, `shipment`, `charges`, `rows`, `largest_dispute`, `total_of_charges`, `share_of_total`, `cumulative_share`, `outcome`, `main_category` |
 | `Run Info` | Setting | `key`, `value` |
 | `Categories` | Category | `code`, `name`, `definition` |
+
+The workbook has one line per SAP BOL and description (ADR 0017). Rows the export repeats collapse into one line, which lists them in `row_ids`, and nothing is allocated across shipments. A blank SAP BOL uses the shipment ID, and the same note with another disputed amount is another line. A line takes the outcome its note and amount give: `repeated_invoice` applies to row results, not to lines. `same_amount_as` names the other lines on the SAP BOL with the same billed and disputed amounts, which may be one charge described twice. Row results, KPIs and the TEST budget stay at the export's grain.
 
 Identical inputs give a byte-identical file. So `Run Info` holds only what a rerun repeats, and never a clock, a cost or a count of cached answers.
 

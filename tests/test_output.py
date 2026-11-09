@@ -13,9 +13,9 @@ from pathlib import Path
 import openpyxl
 import pytest
 
-from itemizer.bootstrap.data import ContractError, sha256_file
+from itemizer.bootstrap.data import ContractError, fingerprint, sha256_file
 from itemizer.contracts import ChargeItem, NoteResult, RowResult
-from itemizer.output import _EXCEL_CELL_LIMIT, largest_shipments, write_workbook
+from itemizer.output import _EXCEL_CELL_LIMIT, charge_lines, largest_by_sap_bol, write_workbook
 
 CATEGORIES = [
     {"code": "lumper", "name": "Lumper fee", "definition": "Paid to unload a truck."},
@@ -26,11 +26,14 @@ CATEGORIES = [
 RUN_INFO = {"run_id": "run_0123456789abcdef", "limit": 30, "code_dirty": False, "model": {"name": "fake", "max_tokens": 16000}}
 REASONS = {"verified": "adds_up", "discrepancy": "does_not_add_up", "no_charge_stated": "no_charge_in_note",
            "review": "grammar_failed"}
-ITEM_COLUMNS = ["row_id", "item", "category", "amount", "evidence", "outcome", "ai_reason"]
-SUMMARY_COLUMNS = ["row_id", "shipment", "carrier_invoice", "carrier", "status", "reason_code", "disputed", "items_total",
-                   "already_paid", "difference", "outcome", "outcome_reason", "repeated", "note"]
-LARGEST_COLUMNS = ["rank", "shipment", "rows", "largest_dispute", "total_on_rows", "repeated_rows", "share_of_total",
+ITEM_COLUMNS = ["charge_id", "sap_bol", "shipment", "item", "category", "amount", "evidence", "outcome", "ai_reason",
+                "description"]
+SUMMARY_COLUMNS = ["charge_id", "sap_bol", "shipment", "bill_ids", "carrier_invoice", "carrier", "status", "reason_code",
+                   "disputed", "items_total", "already_paid", "difference", "outcome", "outcome_reason", "rows", "row_ids",
+                   "same_amount_as", "description"]
+LARGEST_COLUMNS = ["rank", "sap_bol", "shipment", "charges", "rows", "largest_dispute", "total_of_charges", "share_of_total",
                    "cumulative_share", "outcome", "main_category"]
+SUMMARY = "Charge Summary"
 
 
 def item(category="lumper", amount="85.00", evidence="LUMPER $85.00", number=1, line_type="charge", basis="named_in_note"):
@@ -87,7 +90,9 @@ def holds_a_formula(path) -> bool:
 
 
 def a_run():
-    """Every kind of row: verified, repeated, does not add up, Review, no charge stated and blank."""
+    """Every kind of row: verified, repeated, does not add up, Review, no charge stated and blank.
+
+    R0002 and R0003 repeat one charge, so they are line C0001; the others are C0002 to C0005 in order."""
     notes = {
         "a": answered("a", item()),
         "b": answered("b", item(evidence="LUMPER $28.40", amount="28.40")),
@@ -109,7 +114,7 @@ def a_run():
 # ---- sheets
 @pytest.mark.parametrize("name, columns", [
     ("Items", ITEM_COLUMNS),
-    ("Row Summary", SUMMARY_COLUMNS),
+    (SUMMARY, SUMMARY_COLUMNS),
     ("Largest", LARGEST_COLUMNS),
     ("Run Info", ["key", "value"]),
     ("Categories", ["code", "name", "definition"]),
@@ -123,31 +128,33 @@ def test_sheet_columns_are_the_designs(tmp_path, name, columns):
 def test_five_sheets_in_order(tmp_path):
     rows, notes = a_run()
     workbook = openpyxl.load_workbook(write(tmp_path / "x.xlsx", rows, notes))
-    assert workbook.sheetnames == ["Items", "Row Summary", "Largest", "Run Info", "Categories"]
+    assert workbook.sheetnames == ["Items", SUMMARY, "Largest", "Run Info", "Categories"]
     assert workbook.active.title == "Items"
 
 
-def test_one_summary_line_per_row_and_one_item_line_per_charge_per_row(tmp_path):
+def test_a_note_with_two_charges_on_four_rows_gives_one_line_and_two_items(tmp_path):
     notes = {"a": answered("a", item(evidence="LUMPER $85.00"), item("detention", "40.00", "DET $40.00", number=2))}
-    rows = [row("R0002", fp="a", disputed="125.00"), row("R0003", fp="a", disputed="125.00")]
+    rows = [row(f"R{n:04d}", fp="a", disputed="125.00", sap_bol="0022360001", bill_id=f"B{n}") for n in range(2, 6)]
     path = write(tmp_path / "x.xlsx", rows, notes)
-    assert [line["row_id"] for line in sheet_values(path, "Row Summary")] == ["R0002", "R0003"]
-    assert [(line["row_id"], line["item"], line["evidence"]) for line in sheet_values(path, "Items")] == [
-        ("R0002", 1, "LUMPER $85.00"), ("R0002", 2, "DET $40.00"), ("R0003", 1, "LUMPER $85.00"), ("R0003", 2, "DET $40.00")]
+    (line,) = sheet_values(path, SUMMARY)
+    assert (line["charge_id"], line["rows"], line["row_ids"]) == ("C0001", 4, "R0002, R0003, R0004, R0005")
+    assert line["bill_ids"] == "B2, B3, B4, B5"
+    assert [(line["charge_id"], line["item"], line["evidence"]) for line in sheet_values(path, "Items")] == [
+        ("C0001", 1, "LUMPER $85.00"), ("C0001", 2, "DET $40.00")]
 
 
-@pytest.mark.parametrize("kept_row", ["R0006", "R0007", "R0005"], ids=["no_charge_note", "blank_note", "review"])
-def test_row_with_no_charges_is_in_the_summary_and_not_in_items(tmp_path, kept_row):
+@pytest.mark.parametrize("kept_line", ["C0004", "C0005", "C0003"], ids=["no_charge_note", "blank_note", "review"])
+def test_line_with_no_charges_is_in_the_summary_and_not_in_items(tmp_path, kept_line):
     rows, notes = a_run()
     path = write(tmp_path / "x.xlsx", rows, notes)
-    assert kept_row in [line["row_id"] for line in sheet_values(path, "Row Summary")]
-    assert kept_row not in [line["row_id"] for line in sheet_values(path, "Items")]
+    assert kept_line in [line["charge_id"] for line in sheet_values(path, SUMMARY)]
+    assert kept_line not in [line["charge_id"] for line in sheet_values(path, "Items")]
 
 
 def test_blank_note_is_an_empty_cell(tmp_path):
     rows, notes = a_run()
-    blank = next(line for line in sheet_values(write(tmp_path / "x.xlsx", rows, notes), "Row Summary") if line["row_id"] == "R0007")
-    assert blank["note"] is None and blank["outcome_reason"] == "empty_note"
+    blank = next(line for line in sheet_values(write(tmp_path / "x.xlsx", rows, notes), SUMMARY) if line["charge_id"] == "C0005")
+    assert blank["description"] is None and blank["outcome_reason"] == "empty_note" and blank["row_ids"] == "R0007"
 
 
 def test_no_rows_still_writes_every_sheet(tmp_path):
@@ -156,19 +163,94 @@ def test_no_rows_still_writes_every_sheet(tmp_path):
     assert len(sheet_values(path, "Categories")) == len(CATEGORIES)
 
 
+# ---- the grain: one line per charge per SAP BOL (ADR 0017)
+def test_a_repeated_join_of_8_bills_and_3_notes_gives_3_lines_of_8_rows(tmp_path):
+    notes = {fp: answered(fp, item(amount=amount, evidence=f"FEE ${amount}"))
+             for fp, amount in (("a", "10.00"), ("b", "20.00"), ("c", "30.00"))}
+    rows = [row(f"R{2 + 8 * n + b:04d}", "PPGTM.S77", amount, fp=fp, sap_bol="00223600000000034", bill_id=f"2026-{b}",
+                items_total=amount, difference="0.00")
+            for n, (fp, amount) in enumerate((("a", "10.00"), ("b", "20.00"), ("c", "30.00"))) for b in range(8)]
+    lines = sheet_values(write(tmp_path / "x.xlsx", rows, notes), SUMMARY)
+    assert [(line["charge_id"], line["rows"], line["disputed"]) for line in lines] == [
+        ("C0001", 8, 10), ("C0002", 8, 20), ("C0003", 8, 30)]
+    assert all(line["bill_ids"] == ", ".join(f"2026-{b}" for b in range(8)) for line in lines)
+    assert {(line["sap_bol"], line["shipment"]) for line in lines} == {("00223600000000034", "S77")}
+    assert len(sheet_values(tmp_path / "x.xlsx", "Items")) == 3
+
+
+def test_notes_that_differ_only_in_spacing_or_case_are_one_line():
+    first, second = fingerprint("LUMPER  $85.00"), fingerprint("lumper $85.00 ")
+    assert first == second
+    rows = [row("R0002", fp=first, sap_bol="B1"), row("R0003", fp=second, sap_bol="B1")]
+    assert len(charge_lines(rows)) == 1
+
+
+def test_the_same_note_on_two_sap_bols_is_two_lines():
+    rows = [row("R0002", fp="a", sap_bol="B1"), row("R0003", fp="a", sap_bol="B2")]
+    assert [line["charge_id"] for line in charge_lines(rows)] == ["C0001", "C0002"]
+
+
+def test_the_same_note_and_sap_bol_with_another_amount_is_another_line():
+    rows = [row("R0002", disputed="85.00", fp="a", sap_bol="B1"), row("R0003", disputed="90.00", fp="a", sap_bol="B1")]
+    assert len(charge_lines(rows)) == 2
+
+
+def test_a_blank_sap_bol_groups_by_shipment():
+    rows = [row("R0002", "PPGTM.S1", fp="a"), row("R0003", "PPGTM.S1", fp="a"), row("R0004", "PPGTM.S2", fp="a")]
+    assert [len(line["rows"]) for line in charge_lines(rows)] == [2, 1]
+
+
+def test_a_sap_bol_keeps_its_leading_zeros_as_text(tmp_path):
+    cell = sheet_cells(write(tmp_path / "x.xlsx", [row(sap_bol="00223600000000549")]), SUMMARY)[0]["sap_bol"]
+    assert cell.value == "00223600000000549" and cell.data_type == "s"
+
+
+def test_a_line_whose_rows_are_all_flagged_as_repeats_is_verified(tmp_path):
+    notes = {"a": answered("a", item())}
+    rows = [row(f"R{n:04d}", "PPGTM.S1", "85.00", "discrepancy", fp="a", reason="repeated_invoice", items_total="85.00",
+                difference="0.00", repeated=True, sap_bol="B1") for n in (2, 3)]
+    (line,) = sheet_values(write(tmp_path / "x.xlsx", rows, notes), SUMMARY)
+    assert (line["outcome"], line["outcome_reason"], line["rows"]) == ("verified", "adds_up", 2)
+    assert sheet_values(tmp_path / "x.xlsx", "Items")[0]["outcome"] == "verified"
+
+
+def test_a_line_that_does_not_add_up_stays_a_discrepancy(tmp_path):
+    notes = {"a": answered("a", item(evidence="LUMPER $28.40", amount="28.40"))}
+    rows = [row(f"R{n:04d}", "PPGTM.S1", "56.80", "discrepancy", fp="a", items_total="28.40", difference="28.40",
+                repeated=n > 2, sap_bol="B1") for n in (2, 3)]
+    (line,) = sheet_values(write(tmp_path / "x.xlsx", rows, notes), SUMMARY)
+    assert (line["outcome"], line["outcome_reason"], line["difference"]) == ("discrepancy", "does_not_add_up", 28.4)
+
+
+def test_two_descriptions_of_one_amount_name_each_other(tmp_path):
+    rows = [row("R0002", disputed="150.00", fp="a", sap_bol="B1", billed=Decimal("1234.56")),
+            row("R0003", disputed="150.00", fp="b", sap_bol="B1", billed=Decimal("1234.56")),
+            row("R0004", disputed="150.00", fp="c", sap_bol="B1", billed=Decimal("2400.00")),
+            row("R0005", disputed="150.00", fp="d", sap_bol="B2", billed=Decimal("1234.56"))]
+    notes = {fp: answered(fp, item(amount="150.00", evidence=f"{fp} $150.00")) for fp in "abcd"}
+    lines = sheet_values(write(tmp_path / "x.xlsx", rows, notes), SUMMARY)
+    assert [line["same_amount_as"] for line in lines] == ["C0002", "C0001", None, None]
+    assert len(lines) == 4, "both stay in the workbook"
+
+
+def test_a_run_from_before_the_sap_bol_flags_nothing():
+    rows = [row("R0002", disputed="150.00", fp="a"), row("R0003", disputed="150.00", fp="b")]
+    assert [line["same_amount_as"] for line in charge_lines(rows)] == [[], []]
+
+
+def test_lines_keep_the_order_of_their_first_row():
+    rows = [row("R0002", fp="b", sap_bol="B2"), row("R0003", fp="a", sap_bol="B1"), row("R0004", fp="b", sap_bol="B2")]
+    assert [[r.row_id for r in line["rows"]] for line in charge_lines(rows)] == [["R0002", "R0004"], ["R0003"]]
+
+
 # ---- simple ids
-def test_several_rows_on_one_shipment_keep_their_ids_and_show_one_shipment(tmp_path):
-    rows = [row(f"R{number:04d}", "PPGTM.S77") for number in range(2, 26)]
-    lines = sheet_values(write(tmp_path / "x.xlsx", rows), "Row Summary")
-    assert len(lines) == 24 and len({line["row_id"] for line in lines}) == 24
-    assert {line["shipment"] for line in lines} == {"S77"}
 
 
 def test_constant_prefix_is_dropped_only_where_it_starts(tmp_path):
     rows = [row(shipment="PPGTM.S1", status="PPGTM.OPEN", code="PPGTM.OTHER", invoice="PPGTM.INV", carrier="PPGTM.C"),
             row("R0003", shipment="X.PPGTM.S2", status="OPEN", code="OTHER")]
     path = write(tmp_path / "x.xlsx", rows)
-    first, second = sheet_values(path, "Row Summary")
+    first, second = sheet_values(path, SUMMARY)
     assert (first["shipment"], first["status"], first["reason_code"]) == ("S1", "OPEN", "OTHER")
     assert (first["carrier_invoice"], first["carrier"]) == ("PPGTM.INV", "PPGTM.C")
     assert (second["shipment"], second["status"], second["reason_code"]) == ("X.PPGTM.S2", "OPEN", "OTHER")
@@ -177,16 +259,17 @@ def test_constant_prefix_is_dropped_only_where_it_starts(tmp_path):
 
 # ---- items
 def test_item_line_shows_the_amount_and_the_exact_words(tmp_path):
-    line = sheet_values(write(tmp_path / "x.xlsx", [row(fp="a")], {"a": answered("a", item())}), "Items")[0]
-    assert line == {"row_id": "R0002", "item": 1, "category": "Lumper fee", "amount": 85, "evidence": "LUMPER $85.00",
-                    "outcome": "verified", "ai_reason": None}
+    rows = [row(fp="a", sap_bol="B1", note="LUMPER $85.00")]
+    line = sheet_values(write(tmp_path / "x.xlsx", rows, {"a": answered("a", item())}), "Items")[0]
+    assert line == {"charge_id": "C0001", "sap_bol": "B1", "shipment": "S1", "item": 1, "category": "Lumper fee", "amount": 85,
+                    "evidence": "LUMPER $85.00", "outcome": "verified", "ai_reason": None, "description": "LUMPER $85.00"}
 
 
 @pytest.mark.parametrize("text", ["  LUMPER  $85.00\tNOW ", "LUMPER\n$85.00", "DÉTENTION $85.00 – 東京", 'A<B>&"C" $85.00'])
 def test_evidence_and_note_keep_every_character(tmp_path, text):
     path = write(tmp_path / "x.xlsx", [row(fp="a", note=text)], {"a": answered("a", item(evidence=text))})
-    assert sheet_values(path, "Items")[0]["evidence"] == text
-    assert sheet_values(path, "Row Summary")[0]["note"] == text
+    assert sheet_values(path, "Items")[0]["evidence"] == sheet_values(path, "Items")[0]["description"] == text
+    assert sheet_values(path, SUMMARY)[0]["description"] == text
 
 
 @pytest.mark.parametrize("basis, sentence", [
@@ -205,7 +288,7 @@ def test_already_paid_line_is_shown_with_its_amount_unchanged(tmp_path):
     path = write(tmp_path / "x.xlsx", [row(disputed="200.00", fp="a", items_total="300.00", already_paid_total="100.00", difference="0.00")], notes)
     assert [line["amount"] for line in sheet_values(path, "Items")] == [300, 100]
     assert [line["ai_reason"] for line in sheet_values(path, "Items")] == [None, "Already paid: subtracted from the items total."]
-    summary = sheet_values(path, "Row Summary")[0]
+    summary = sheet_values(path, SUMMARY)[0]
     assert (summary["disputed"], summary["items_total"], summary["difference"], summary["outcome"]) == (200, 300, 0, "verified")
     assert summary["already_paid"] == 100
 
@@ -214,10 +297,10 @@ def test_already_paid_line_is_shown_with_its_amount_unchanged(tmp_path):
 def test_every_amount_is_a_number_with_two_decimals(tmp_path):
     rows, notes = a_run()
     path = write(tmp_path / "x.xlsx", rows, notes)
-    found = [line[column] for name, columns in (("Items", ["amount"]), ("Row Summary", ["disputed", "items_total", "difference"]),
-                                                ("Largest", ["largest_dispute", "total_on_rows"]))
+    found = [line[column] for name, columns in (("Items", ["amount"]), (SUMMARY, ["disputed", "items_total", "difference"]),
+                                                ("Largest", ["largest_dispute", "total_of_charges"]))
              for line in sheet_cells(path, name) for column in columns if line[column].value is not None]
-    assert len(found) > 15
+    assert len(found) > 12
     assert all(cell.data_type == "n" and cell.number_format == "#,##0.00" for cell in found)
 
 
@@ -226,47 +309,47 @@ def test_amounts_read_back_exactly(tmp_path, amount):
     notes = {"a": answered("a", item(amount=amount, evidence=f"LUMPER ${amount}"))}
     path = write(tmp_path / "x.xlsx", [row(disputed=amount, fp="a", items_total=amount, difference="0.00")], notes)
     assert Decimal(str(sheet_values(path, "Items")[0]["amount"])) == Decimal(amount)
-    line = sheet_values(path, "Row Summary")[0]
+    line = sheet_values(path, SUMMARY)[0]
     assert Decimal(str(line["disputed"])) == Decimal(str(line["items_total"])) == Decimal(amount)
 
 
 def test_totals_never_reached_are_empty_and_not_zero(tmp_path):
     rows, notes = a_run()
-    review = next(line for line in sheet_values(write(tmp_path / "x.xlsx", rows, notes), "Row Summary") if line["row_id"] == "R0005")
+    review = next(line for line in sheet_values(write(tmp_path / "x.xlsx", rows, notes), SUMMARY) if line["charge_id"] == "C0003")
     assert review["disputed"] == 12 and review["items_total"] is None and review["difference"] is None
 
 
 def test_negative_dispute_is_a_negative_number(tmp_path):
-    cell = sheet_cells(write(tmp_path / "x.xlsx", [row(disputed="-5.00")]), "Row Summary")[0]["disputed"]
+    cell = sheet_cells(write(tmp_path / "x.xlsx", [row(disputed="-5.00")]), SUMMARY)[0]["disputed"]
     assert cell.value == -5 and cell.data_type == "n"
 
 
 # ---- discrepancy and review visible
-def test_only_discrepancy_and_review_rows_are_highlighted(tmp_path):
+def test_only_discrepancy_and_review_lines_are_highlighted(tmp_path):
     rows, notes = a_run()
     fills = {}
-    for line in sheet_cells(write(tmp_path / "x.xlsx", rows, notes), "Row Summary"):
+    for line in sheet_cells(write(tmp_path / "x.xlsx", rows, notes), SUMMARY):
         colours = {(cell.fill.fill_type, cell.fill.fgColor.rgb) for cell in line.values()}
-        assert len(colours) == 1, "the whole row carries one fill, empty cells included"
-        fills[line["row_id"].value] = colours.pop()
-    assert fills["R0002"][0] is None and fills["R0006"][0] is None and fills["R0007"][0] is None
-    assert fills["R0003"][0] == fills["R0004"][0] == fills["R0005"][0] == "solid"
-    assert fills["R0003"] == fills["R0004"] != fills["R0005"]
+        assert len(colours) == 1, "the whole line carries one fill, empty cells included"
+        fills[line["charge_id"].value] = colours.pop()
+    assert fills["C0001"][0] is None and fills["C0004"][0] is None and fills["C0005"][0] is None
+    assert fills["C0002"][0] == fills["C0003"][0] == "solid"
+    assert fills["C0002"] != fills["C0003"]
 
 
 def test_filtering_discrepancy_shows_disputed_items_total_difference_and_reason(tmp_path):
     rows, notes = a_run()
     path = write(tmp_path / "x.xlsx", rows, notes)
-    assert openpyxl.load_workbook(path)["Row Summary"].auto_filter.ref == "A1:N7"
-    found = [line for line in sheet_values(path, "Row Summary") if line["outcome"] == "discrepancy"]
-    assert [(line["row_id"], line["outcome_reason"]) for line in found] == [("R0003", "repeated_invoice"), ("R0004", "does_not_add_up")]
-    worst = found[1]
+    assert openpyxl.load_workbook(path)[SUMMARY].auto_filter.ref == "A1:R6"
+    found = [line for line in sheet_values(path, SUMMARY) if line["outcome"] == "discrepancy"]
+    assert [(line["charge_id"], line["outcome_reason"]) for line in found] == [("C0002", "does_not_add_up")]
+    worst = found[0]
     assert (worst["disputed"], worst["items_total"], worst["difference"]) == (56.8, 28.4, 28.4)
 
 
-def test_review_row_shows_its_reason(tmp_path):
+def test_review_line_shows_its_reason(tmp_path):
     rows, notes = a_run()
-    line = next(line for line in sheet_values(write(tmp_path / "x.xlsx", rows, notes), "Row Summary") if line["outcome"] == "review")
+    line = next(line for line in sheet_values(write(tmp_path / "x.xlsx", rows, notes), SUMMARY) if line["outcome"] == "review")
     assert line["outcome_reason"] == "refused"
 
 
@@ -278,7 +361,7 @@ DANGEROUS = ["=SUM(A1:A9) LUMPER $5.00", "=1+1", "=HYPERLINK(\"http://fake.inval
 @pytest.mark.parametrize("text", DANGEROUS + ["$85.00", "57.67"])
 def test_a_note_or_evidence_is_stored_as_plain_text(tmp_path, text):
     path = write(tmp_path / "x.xlsx", [row(fp="a", note=text)], {"a": answered("a", item(evidence=text))})
-    for cell in (sheet_cells(path, "Items")[0]["evidence"], sheet_cells(path, "Row Summary")[0]["note"]):
+    for cell in (sheet_cells(path, "Items")[0]["evidence"], sheet_cells(path, SUMMARY)[0]["description"]):
         assert cell.value == text, "the words are not changed, not even with an apostrophe"
         assert cell.data_type == "s" and cell.number_format == "@"
     assert not holds_a_formula(path)
@@ -295,13 +378,15 @@ def test_formula_check_finds_a_real_formula(tmp_path):
 def test_no_text_anywhere_in_the_workbook_can_become_a_formula(tmp_path):
     categories = [{"code": "=code()", "name": "=NAME()", "definition": "-definition"}]
     notes = {"a": answered("a", item(category="=code()", evidence="=1+1"))}
-    rows = [row("=R1", shipment="=S1", invoice="+INV", carrier="@CARR", status="=OPEN", code="-OTHER", fp="a", note="=2+2")]
+    rows = [row("=R1", shipment="=S1", invoice="+INV", carrier="@CARR", status="=OPEN", code="-OTHER", fp="a", note="=2+2",
+                sap_bol="=BOL", bill_id="-BILL")]
     path = write(tmp_path / "x.xlsx", rows, notes, categories, {"=key": "=value", "model": {"name": "=fake"}})
     assert not holds_a_formula(path)
     cells = [cell for cell in all_cells(path) if cell.value is not None]
     assert all(cell.data_type != "f" for cell in cells)
     written = {cell.value for cell in cells}
-    assert {"=R1", "=S1", "+INV", "@CARR", "=OPEN", "-OTHER", "=NAME()", "-definition", "=key", "=value"} <= written
+    assert {"=R1", "=S1", "+INV", "@CARR", "=OPEN", "-OTHER", "=NAME()", "-definition", "=key", "=value", "=BOL", "-BILL",
+            "=2+2"} <= written
     assert sheet_values(path, "Largest")[0]["main_category"] == "=NAME()"
 
 
@@ -311,12 +396,12 @@ def test_text_xml_cannot_hold_is_escaped_with_nothing_lost(tmp_path, character, 
     text = f"LUMPER{character}$85.00"
     path = write(tmp_path / "x.xlsx", [row(fp="a", note=text)], {"a": answered("a", item(evidence=text))})
     assert sheet_values(path, "Items")[0]["evidence"] == f"LUMPER{shown}$85.00"
-    assert sheet_values(path, "Row Summary")[0]["note"] == f"LUMPER{shown}$85.00"
+    assert sheet_values(path, SUMMARY)[0]["description"] == f"LUMPER{shown}$85.00"
 
 
 def test_text_too_long_for_a_cell_stops_rather_than_being_cut(tmp_path):
     text = "SECRET-NOTE " * (_EXCEL_CELL_LIMIT // 12 + 1)
-    with pytest.raises(ContractError, match="Row Summary cell N2 is longer than") as caught:
+    with pytest.raises(ContractError, match="Charge Summary cell R2 is longer than") as caught:
         write(tmp_path / "x.xlsx", [row(note=text)])
     assert "SECRET-NOTE" not in str(caught.value)
     assert not (tmp_path / "x.xlsx").exists()
@@ -324,7 +409,7 @@ def test_text_too_long_for_a_cell_stops_rather_than_being_cut(tmp_path):
 
 def test_text_at_the_limit_is_whole(tmp_path):
     text = "A" * _EXCEL_CELL_LIMIT
-    assert sheet_values(write(tmp_path / "x.xlsx", [row(note=text)]), "Row Summary")[0]["note"] == text
+    assert sheet_values(write(tmp_path / "x.xlsx", [row(note=text)]), SUMMARY)[0]["description"] == text
 
 
 # ---- deterministic file
@@ -407,7 +492,7 @@ def three_shipments():
 
 
 def largest(rows, notes=None):
-    return largest_shipments(rows, notes or {}, CATEGORIES)
+    return largest_by_sap_bol(rows, notes or {}, CATEGORIES)
 
 
 def test_ranked_by_largest_dispute_with_share_and_cumulative_share():
@@ -431,15 +516,23 @@ def test_ties_rank_by_shipment_whatever_the_input_order():
     assert largest(rows) == largest(rows[::-1])
 
 
-def test_six_rows_of_two_amounts_with_five_repeated_count_once():
-    amounts = ["8400.00", "8400.00", "8400.00", "8000.00", "8000.00", "8000.00"]
-    rows = [row(f"R{n:04d}", "PPGTM.HUGE", amount, repeated=n > 0) for n, amount in enumerate(amounts)]
-    lines = largest(rows + [row("R0100", "PPGTM.OTHER", "1600.00")])
+def huge_sap_bol():
+    """Six rows on one SAP BOL: three of 8,400.00 under one note and three of 8,000.00 under another."""
+    return [row(f"R{n:04d}", "PPGTM.HUGE", "8400.00" if n < 3 else "8000.00", fp="unpaid" if n < 3 else "still_owed",
+                repeated=n > 0, sap_bol="00223600000000105") for n in range(6)]
+
+
+HUGE_NOTES = {"unpaid": answered("unpaid", item("other_unmapped", "8400.00", "LINEHAUL $8400.00")),
+              "still_owed": answered("still_owed", item("other_unmapped", "8000.00", "LINEHAUL $8000.00"))}
+
+
+def test_six_rows_of_two_notes_count_the_sap_bol_once():
+    lines = largest(huge_sap_bol() + [row("R0100", "PPGTM.OTHER", "1600.00")], HUGE_NOTES)
     huge = lines[0]
-    assert len(lines) == 2 and sum(line["shipment"] == "HUGE" for line in lines) == 1
-    assert huge["rows"] == 6 and huge["repeated_rows"] == 5
-    assert huge["largest_dispute"] == Decimal("8400.00") and huge["total_on_rows"] == Decimal("49200.00")
-    assert huge["share_of_total"] == pytest.approx(8400 / 10000), "the largest dispute counted once, not the rows' total"
+    assert len(lines) == 2 and sum(line["sap_bol"] == "00223600000000105" for line in lines) == 1
+    assert (huge["shipment"], huge["charges"], huge["rows"]) == ("HUGE", 2, 6)
+    assert huge["largest_dispute"] == Decimal("8400.00") and huge["total_of_charges"] == Decimal("16400.00")
+    assert huge["share_of_total"] == pytest.approx(8400 / 10000), "the largest dispute counted once"
     assert lines[1]["share_of_total"] == pytest.approx(1600 / 10000)
 
 
@@ -451,19 +544,19 @@ def test_six_rows_of_two_amounts_with_five_repeated_count_once():
     (["verified", "no_charge_stated"], "no_charge_stated"),
     (["verified", "verified"], "verified"),
 ])
-def test_outcome_is_the_worst_across_rows(outcomes, worst):
-    rows = [row(f"R{n}", "S1", "10.00", outcome) for n, outcome in enumerate(outcomes)]
+def test_outcome_is_the_worst_across_lines(outcomes, worst):
+    rows = [row(f"R{n}", "S1", f"{10 + n}.00", outcome) for n, outcome in enumerate(outcomes)]
     assert largest(rows)[0]["outcome"] == worst
 
 
-def test_main_category_is_the_largest_charge_in_the_largest_row():
+def test_main_category_is_the_largest_charge_in_the_largest_line():
     notes = {"small": answered("small", item("detention", "900.00", "DET $900.00")),
              "big": answered("big", item("lumper", "10.00", "LUMPER $10.00"), item("tax", "20.00", "TAX $20.00", number=2),
                              item("detention", "970.00", "DET $970.00", number=3))}
     rows = [row("R0002", "S1", "900.00", fp="small"), row("R0003", "S1", "1000.00", fp="big")]
     assert largest(rows, notes)[0]["main_category"] == "Detention"
     notes["big"] = answered("big", item("lumper", "970.00", "LUMPER $970.00"), item("detention", "30.00", "DET $30.00", number=2))
-    assert largest(rows, notes)[0]["main_category"] == "Lumper fee", "the other row's 900.00 charge does not count"
+    assert largest(rows, notes)[0]["main_category"] == "Lumper fee", "the other line's 900.00 charge does not count"
 
 
 def test_main_category_ignores_an_amount_already_paid():
@@ -477,7 +570,7 @@ def test_main_category_is_tax_when_the_row_holds_only_tax():
     assert largest([row(disputed="3.60", fp="a")], notes)[0]["main_category"] == "Tax"
 
 
-def test_main_category_on_tied_rows_comes_from_the_first_with_charges_whatever_the_order():
+def test_main_category_on_tied_lines_comes_from_the_first_with_charges_whatever_the_order():
     notes = {"a": answered("a", item("lumper")), "b": answered("b", item("detention", "85.00", "DET $85.00")),
              "c": in_review("c")}
     rows = [row("R0003", "S1", "85.00", fp="a"), row("R0002", "S1", "85.00", "review", fp="c"), row("R0004", "S1", "85.00", fp="b")]
@@ -489,27 +582,27 @@ def test_main_category_on_tied_rows_comes_from_the_first_with_charges_whatever_t
     (lambda: row(disputed="100.00", outcome="review", fp="c"), {"c": in_review("c")}),
     (lambda: row(disputed="100.00", outcome="no_charge_stated", reason="empty_note"), {}),
 ], ids=["review", "blank"])
-def test_main_category_is_empty_when_the_largest_row_has_no_charges(build, note_results):
+def test_main_category_is_empty_when_the_largest_line_has_no_charges(build, note_results):
     assert largest([build()], note_results)[0]["main_category"] is None
 
 
-def test_main_category_never_comes_from_a_smaller_row():
+def test_main_category_never_comes_from_a_smaller_line():
     notes = {"a": answered("a", item())}
     rows = [row("R0002", "S1", "85.00", fp="a"), row("R0003", "S1", "100.00", "no_charge_stated", reason="empty_note")]
     assert largest(rows, notes)[0]["main_category"] is None
 
 
 @pytest.mark.parametrize("amount", ["0.00", "-5.00"])
-def test_shipments_whose_largest_dispute_is_zero_or_less_are_left_out(amount):
+def test_sap_bols_whose_largest_dispute_is_zero_or_less_are_left_out(amount):
     rows = [row("R0002", "KEPT", "100.00"), row("R0003", "GONE", amount), row("R0004", "GONE", "-1.00")]
     lines = largest(rows)
     assert [line["shipment"] for line in lines] == ["KEPT"]
     assert lines[0]["share_of_total"] == 1.0, "what is left out does not count in the total"
 
 
-def test_a_shipment_with_a_negative_row_stays_when_its_largest_is_positive():
+def test_a_sap_bol_with_a_negative_line_stays_when_its_largest_is_positive():
     line = largest([row("R0002", "S1", "100.00"), row("R0003", "S1", "-30.00")])[0]
-    assert line["largest_dispute"] == Decimal("100.00") and line["total_on_rows"] == Decimal("70.00")
+    assert line["largest_dispute"] == Decimal("100.00") and line["total_of_charges"] == Decimal("70.00")
 
 
 def test_nothing_positive_gives_no_lines():
@@ -532,8 +625,8 @@ def test_largest_sheet_matches_the_view_and_formats_its_numbers(tmp_path):
     first = cells[0]
     assert first["largest_dispute"].number_format == "#,##0.00" and first["share_of_total"].number_format == "0.0%"
     assert first["cumulative_share"].data_type == "n" and first["share_of_total"].value == pytest.approx(view[0]["share_of_total"])
-    assert first["outcome"].value == "discrepancy" and first["main_category"].value == "Lumper fee"
-    assert first["rows"].value == 2 and first["repeated_rows"].value == 1 and first["total_on_rows"].value == 170
+    assert first["outcome"].value == "verified" and first["main_category"].value == "Lumper fee"
+    assert first["charges"].value == 1 and first["rows"].value == 2 and first["total_of_charges"].value == 85
 
 
 # ---- run info and categories
@@ -574,12 +667,10 @@ def test_missing_folder_is_created(tmp_path):
 
 # ---- the spec's cases, read back from the sheet itself
 def test_one_dispute_repeated_appears_once_on_the_largest_sheet(tmp_path):
-    amounts = ["8400.00", "8400.00", "8400.00", "8000.00", "8000.00", "8000.00"]
-    rows = [row(f"R{n:04d}", "PPGTM.HUGE", amount, repeated=n > 0) for n, amount in enumerate(amounts)]
-    lines = sheet_values(write(tmp_path / "x.xlsx", rows + [row("R0100", "PPGTM.OTHER", "1600.00")]), "Largest")
-    huge = [line for line in lines if line["shipment"] == "HUGE"]
+    lines = sheet_values(write(tmp_path / "x.xlsx", huge_sap_bol() + [row("R0100", "PPGTM.OTHER", "1600.00")], HUGE_NOTES), "Largest")
+    huge = [line for line in lines if line["sap_bol"] == "00223600000000105"]
     assert len(huge) == 1 and len(lines) == 2
-    assert (huge[0]["largest_dispute"], huge[0]["total_on_rows"], huge[0]["rows"], huge[0]["repeated_rows"]) == (8400, 49200, 6, 5)
+    assert (huge[0]["largest_dispute"], huge[0]["total_of_charges"], huge[0]["charges"], huge[0]["rows"]) == (8400, 16400, 2, 6)
     assert huge[0]["share_of_total"] == pytest.approx(8400 / 10000)
 
 
@@ -587,5 +678,5 @@ def test_filtering_discrepancy_shows_what_was_already_paid(tmp_path):
     notes = {"a": answered("a", item(evidence="BILLED $300.00", amount="300.00"),
                            item(evidence="PAID $100.00", amount="100.00", number=2, line_type="already_paid"))}
     rows = [row("R0002", "PPGTM.S1", "150.00", "discrepancy", fp="a", items_total="300.00", already_paid_total="100.00", difference="-50.00")]
-    found = [line for line in sheet_values(write(tmp_path / "x.xlsx", rows, notes), "Row Summary") if line["outcome"] == "discrepancy"][0]
+    found = [line for line in sheet_values(write(tmp_path / "x.xlsx", rows, notes), SUMMARY) if line["outcome"] == "discrepancy"][0]
     assert (found["disputed"], found["items_total"], found["already_paid"], found["difference"]) == (150, 300, 100, -50)

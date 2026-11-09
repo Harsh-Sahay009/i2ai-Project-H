@@ -16,7 +16,7 @@ C4 model as code (Structurizr DSL) plus design documentation and ADRs. Implement
 | `docs/09-data-protection-synthetic-data.md` | Client data protection; synthetic data generation and quality checks |
 | `docs/10-course-requirements.md` | Course requirements, presentation plan, rubric coverage, repo layout, references |
 | `docs/11-data-contracts.md` | Input, note, label, answer grammar, row, output and KPI contracts; how to test another model |
-| `adrs/` | Architecture decision records 0001–0016 (0002 superseded by 0007; 0007 amended by 0011–0013; 0012 amended by 0015; 0014 amended by 0016) |
+| `adrs/` | Architecture decision records 0001–0017 (0002 superseded by 0007; 0007 amended by 0011–0013; 0012 amended by 0015; 0014 amended by 0016 and 0017) |
 | `export/` | Generated Mermaid, C4-PlantUML and JSON views (regenerate after editing the DSL) |
 
 ## Render and validate
@@ -34,7 +34,7 @@ docker run --rm -v "$PWD/architecture":/w structurizr/structurizr export -w /w/w
 ## OpenSpec
 
 ```bash
-openspec list                 # 25 changes
+openspec list                 # 26 changes
 openspec validate --all --strict
 openspec show add-kpi-calculator
 ```

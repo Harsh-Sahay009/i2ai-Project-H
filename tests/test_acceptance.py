@@ -186,16 +186,16 @@ def test_a_level_not_met_keeps_d3_open_with_its_reason(d3):
 
 
 # ---- largest disputes
-def test_the_ten_largest_shipments_show_the_largest_dispute_and_the_total_side_by_side(d3):
+def test_the_ten_largest_sap_bols_show_the_largest_dispute_and_the_total_side_by_side(d3):
     evaluated(d3)
     summary = acceptance.d3_check(d3.tmp)
     lines = summary["largest_disputes"]
     assert len(lines) == 10
     tops = [Decimal(line["largest_dispute"]) for line in lines]
     assert tops == sorted(tops, reverse=True)
-    assert {"largest_dispute", "total_on_rows", "repeated_rows", "share_of_total"} <= set(lines[0])
+    assert {"sap_bol", "charges", "largest_dispute", "total_of_charges", "share_of_total"} <= set(lines[0])
     text = page(summary)
-    assert "<th>Largest dispute</th><th>Total on rows</th>" in text
+    assert "<th>Largest dispute</th><th>Total of charges</th>" in text
 
 
 # ---- no note text, and the command
@@ -247,6 +247,8 @@ def test_a_seal_that_was_not_scored_again_keeps_d3_open(d3):
 
 
 def test_a_shipment_holding_a_quarter_of_the_dollars_shows_both_figures_once(d3):
+    """The test export has no SAP BOL column, so lines group by shipment. The four rows share one note: 8,400.00 once
+    and 8,000.00 three times, so they are two charges."""
     freeze(d3)
     outcome = pipeline.run(d3.tmp)
     path = outcome.folder / "row_results.json"
@@ -258,9 +260,10 @@ def test_a_shipment_holding_a_quarter_of_the_dollars_shows_both_figures_once(d3)
     lines = summary["largest_disputes"]
     assert len(lines) == 10 and sum(line["shipment"] == "HUGE" for line in lines) == 1
     top = lines[0]
-    assert (top["shipment"], top["rows"], top["largest_dispute"], top["total_on_rows"]) == ("HUGE", 4, "8400.00", "32400.00")
+    assert (top["shipment"], top["charges"], top["rows"], top["largest_dispute"], top["total_of_charges"]) == (
+        "HUGE", 2, 4, "8400.00", "16400.00")
     text = page(summary)
-    assert text.count("HUGE") == 1 and "<td>HUGE</td><td>4</td><td>$8,400.00</td><td>$32,400.00</td>" in text
+    assert text.count("HUGE") == 1 and "<td></td><td>HUGE</td><td>2</td><td>4</td><td>$8,400.00</td><td>$16,400.00</td>" in text
 
 
 # ---- the page shows only a score that still belongs to the run

@@ -147,6 +147,35 @@ def test_row_flags_and_ids(world):
     assert sum("repeated_invoice" in r.flags for r in world.rows) == 40
 
 
+def _export_with_ids(path: Path, ids: list[tuple]) -> Path:
+    """An export with the optional SAP BOL and Invoice/Bill ID columns, one row per (sap_bol, bill_id)."""
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    header = list(COLUMNS.values()) + ["SAP BOL", "Invoice/Bill ID"]
+    sheet.append(header)
+    for n, (sap_bol, bill_id) in enumerate(ids):
+        row = {"SHIPMENT_GID": f"S{n}", "Carrier Invoice": f"I{n}", "Carrier": "C", "Event Date": 44700.5,
+               "Shipment Amount": 100.0, "Invoice Amount": 110.0, "Delta": 10.0, "Dispute Status": "OPEN",
+               "Reason Code": "OTHER", "Descritipion": "LUMPER $10.00", "Invoice Dups Removed": 110.0,
+               "SAP BOL": sap_bol, "Invoice/Bill ID": bill_id}
+        sheet.append([row[name] for name in header])
+    workbook.save(path)
+    return path
+
+
+def test_sap_bol_and_bill_id_are_read_as_text(tmp_path):
+    ids = [("00223600000000034", "2026-0018"), (223600000000034.0, 20260018.0), (None, None)]
+    rows, _ = load_export(_export_with_ids(tmp_path / "ids.xlsx", ids))
+    assert [(r.sap_bol, r.bill_id) for r in rows] == [
+        ("00223600000000034", "2026-0018"), ("223600000000034", "20260018"), ("", "")]
+
+
+def test_an_export_without_sap_bol_still_loads(tmp_path):
+    make_export(tmp_path / "export.xlsx", single=2, multi=0, large=0)
+    rows, _ = load_export(tmp_path / "export.xlsx")
+    assert rows and all(r.sap_bol == "" and r.bill_id == "" for r in rows)
+
+
 def test_missing_column_is_fatal(tmp_path):
     workbook = openpyxl.Workbook()
     workbook.active.append(["SHIPMENT_GID", "Delta"])

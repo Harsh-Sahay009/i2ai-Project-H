@@ -26,7 +26,7 @@ from .bootstrap.data import (
 from .contracts import NoteResult, RowResult, RunManifest
 from .grammar import GRAMMAR_VERSION
 from .itemize import Budget, Policy, assign_rows, build_system_prompt, itemize_notes, load_fewshots, notes_needing_a_call
-from .output import write_workbook
+from .output import charge_lines, write_workbook
 from .providers import ModelSpec, get_provider, load_models
 
 CONFIG = Path("config/bootstrap.yaml")
@@ -332,6 +332,9 @@ def run(root: Path, model_name: str | None = None, set_name: str | None = None, 
         "prompt_sha256": manifest.prompt_sha256,
         "grammar_version": manifest.grammar_version,
         "rows": len(row_results),
+        "charge_lines": len(charge_lines(row_results)),
+        "grain": "one line per SAP BOL and description" if any(r.sap_bol for r in row_results)
+                 else "one line per shipment and description: the export has no SAP BOL",
         "notes": len(note_results),
         "outcomes": outcomes,
         "coverage_rows": measured_coverage["rows"]["share"],
@@ -438,6 +441,12 @@ def evaluate_run(root: Path, run_id: str | None = None, milestone: str = "d3", e
         raise ContractError(f"{unanswered} notes in run {run_id} got no answer, because of a provider failure or a spent budget. "
                             "Run again to recover them. Nothing was charged to the TEST budget")
     rebuilt = assign_rows(project.rows, note_results, Policy.from_settings(project.settings))
+    if rebuilt != rows:
+        missing = ({"sap_bol": "", "bill_id": ""} if not any(r.sap_bol or r.bill_id for r in rows) else {}) | \
+                  ({"billed": None} if all(r.billed is None for r in rows) else {})
+        if missing and [r.model_copy(update=missing) for r in rebuilt] == rows:
+            raise ContractError(f"run {run_id} was written before rows carried the SAP BOL (ADR 0017). Run again: the "
+                                "answers come from the cache, and scoring the same answers uses no TEST budget")
     if rebuilt != rows:
         raise ContractError(f"row_results.json in run {run_id} does not follow from its note results and the dataset, so the "
                             "folder was changed. Run again")
