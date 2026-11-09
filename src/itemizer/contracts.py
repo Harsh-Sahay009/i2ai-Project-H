@@ -86,6 +86,9 @@ class RowResult(BaseModel):
     repeated: bool = False
     item_count: int = 0
     note: str = ""
+    sap_bol: str = ""  # ADR 0017: the workbook's key with the note. Empty in runs written before it
+    bill_id: str = ""
+    billed: Decimal | None = None
 
 
 # Where the code was when the run happened. Recorded, but a commit or a clean tree changes no answer, so neither is in the id.

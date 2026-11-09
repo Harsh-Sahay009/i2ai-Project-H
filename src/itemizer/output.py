@@ -1,5 +1,8 @@
 """The workbook an accountant reads. It shows what a run found and changes nothing.
 
+It has one line per charge per SAP BOL and description (ADR 0017): rows the export repeats collapse into one line, which
+lists them, and nothing is allocated across shipments.
+
 Two rules hold for every cell. An amount is a number, written as it was computed. Text is stored as text in Excel's
 Text format, so a note such as "=1+1" or "-$5.00" can never become a formula, even after someone edits the cell.
 """
@@ -49,16 +52,18 @@ _HIGHLIGHTS = {
 _WORST_FIRST = ("review", "discrepancy", "no_charge_stated", "verified")
 
 # Each sheet's columns, in order, with the number format of its numeric columns.
-_ITEMS = {"row_id": None, "item": None, "category": None, "amount": _MONEY, "evidence": None, "outcome": None,
-          "ai_reason": None}
-_ROW_SUMMARY = {"row_id": None, "shipment": None, "carrier_invoice": None, "carrier": None, "status": None,
-                "reason_code": None, "disputed": _MONEY, "items_total": _MONEY, "already_paid": _MONEY, "difference": _MONEY, "outcome": None,
-                "outcome_reason": None, "repeated": None, "note": None}
-_LARGEST = {"rank": None, "shipment": None, "rows": None, "largest_dispute": _MONEY, "total_on_rows": _MONEY,
-            "repeated_rows": None, "share_of_total": _SHARE, "cumulative_share": _SHARE, "outcome": None,
+_ITEMS = {"charge_id": None, "sap_bol": None, "shipment": None, "item": None, "category": None, "amount": _MONEY,
+          "evidence": None, "outcome": None, "ai_reason": None, "description": None}
+_CHARGE_SUMMARY = {"charge_id": None, "sap_bol": None, "shipment": None, "bill_ids": None, "carrier_invoice": None,
+                   "carrier": None, "status": None, "reason_code": None, "disputed": _MONEY, "items_total": _MONEY,
+                   "already_paid": _MONEY, "difference": _MONEY, "outcome": None, "outcome_reason": None, "rows": None,
+                   "row_ids": None, "same_amount_as": None, "description": None}
+_LARGEST = {"rank": None, "sap_bol": None, "shipment": None, "charges": None, "rows": None, "largest_dispute": _MONEY,
+            "total_of_charges": _MONEY, "share_of_total": _SHARE, "cumulative_share": _SHARE, "outcome": None,
             "main_category": None}
 _RUN_INFO = {"key": None, "value": None}
 _CATEGORIES = {"code": None, "name": None, "definition": None}
+_SHIPMENT_KEY = "shipment "  # a line's group when its SAP BOL is blank
 
 
 def _simple_id(value: str) -> str:
@@ -84,46 +89,92 @@ def _category_name(item: ChargeItem, row: RowResult, names: dict[str, str]) -> s
     return names[item.category]
 
 
-def _main_category(top_rows: list[RowResult], note_results: dict[str, NoteResult], names: dict[str, str]) -> str | None:
-    """The largest charge in the largest row. Rows can tie, so the first by row_id that has charges decides."""
-    for row in sorted(top_rows, key=lambda r: r.row_id):
-        charges = [item for item in _row_items(row, note_results) if item.line_type != "already_paid"]
+def _group(row: RowResult) -> str:
+    """The SAP BOL a row belongs to, or its shipment when the SAP BOL is blank (ADR 0017)."""
+    return row.sap_bol or _SHIPMENT_KEY + row.shipment
+
+
+def _distinct(values: Iterable[str]) -> str:
+    """Distinct non-empty values in first-seen order, so a line never hides a value its rows disagree on."""
+    return ", ".join(dict.fromkeys(value for value in values if value))
+
+
+def _line_outcome(row: RowResult) -> tuple[str, str]:
+    """A line is its rows with the repeats collapsed, so the repeat flag does not apply to it. A row is flagged
+    `repeated_invoice` only after it adds up, so without the flag it is verified."""
+    if row.outcome_reason == "repeated_invoice":
+        return "verified", "adds_up"
+    return row.outcome, row.outcome_reason
+
+
+def charge_lines(row_results: list[RowResult]) -> list[dict]:
+    """One line per SAP BOL and description, in the order of each line's first row (ADR 0017).
+
+    Rows with the same SAP BOL and note but another disputed amount are not repeats of one charge, so the amount is part
+    of the key. Each line keeps its rows, and names the other lines on its SAP BOL with the same billed and disputed
+    amounts, which may be one charge described twice.
+    """
+    grouped: dict[tuple, list[RowResult]] = {}
+    for row in row_results:
+        grouped.setdefault((_group(row), row.fingerprint or "", row.disputed), []).append(row)
+    lines = []
+    for number, rows in enumerate(grouped.values(), start=1):
+        outcome, reason = _line_outcome(rows[0])
+        lines.append({"charge_id": f"C{number:04d}", "group": _group(rows[0]), "rows": rows, "row": rows[0],
+                      "outcome": outcome, "outcome_reason": reason, "same_amount_as": []})
+    same: dict[tuple, list[dict]] = collections.defaultdict(list)
+    for line in lines:
+        row = line["row"]
+        if row.fingerprint is not None and row.billed is not None:  # runs from before ADR 0017 have no billed amount
+            same[(line["group"], row.billed, row.disputed)].append(line)
+    for matching in same.values():
+        for line in matching:
+            line["same_amount_as"] = [other["charge_id"] for other in matching if other is not line]
+    return lines
+
+
+def _main_category(top_lines: list[dict], note_results: dict[str, NoteResult], names: dict[str, str]) -> str | None:
+    """The largest charge in the largest line. Lines can tie, so the first by row id that has charges decides."""
+    for line in sorted(top_lines, key=lambda line: min(row.row_id for row in line["rows"])):
+        charges = [item for item in _row_items(line["row"], note_results) if item.line_type != "already_paid"]
         if charges:
-            return _category_name(max(charges, key=lambda item: item.amount), row, names)
+            return _category_name(max(charges, key=lambda item: item.amount), line["row"], names)
     return None
 
 
-def largest_shipments(row_results: list[RowResult], note_results: dict[str, NoteResult],
-                      categories: list[dict]) -> list[dict]:
-    """One line per shipment, largest dispute first, keyed by the `Largest` column names. It holds no note text.
+def largest_by_sap_bol(row_results: list[RowResult], note_results: dict[str, NoteResult],
+                       categories: list[dict]) -> list[dict]:
+    """One line per SAP BOL, largest dispute first, keyed by the `Largest` column names. It holds no note text.
 
-    A repeated dispute is one dispute, so shares use each shipment's largest dispute, counted once.
+    Two lines on one SAP BOL can be one dispute described twice, so the share uses each SAP BOL's largest dispute,
+    counted once, and the total of its distinct charges is shown beside it.
     """
     names = _names(categories)
-    shipments: dict[str, list[RowResult]] = collections.defaultdict(list)
-    for row in row_results:
-        shipments[row.shipment].append(row)
-    largest = {shipment: max(row.disputed for row in rows) for shipment, rows in shipments.items()}
-    kept = sorted((shipment for shipment, top in largest.items() if top > 0), key=lambda s: (-largest[s], s))
-    total = sum((largest[shipment] for shipment in kept), Decimal(0))
-    lines = []
+    groups: dict[str, list[dict]] = collections.defaultdict(list)
+    for line in charge_lines(row_results):
+        groups[line["group"]].append(line)
+    largest = {group: max(line["row"].disputed for line in lines) for group, lines in groups.items()}
+    kept = sorted((group for group, top in largest.items() if top > 0), key=lambda g: (-largest[g], g))
+    total = sum((largest[group] for group in kept), Decimal(0))
+    result = []
     running = Decimal(0)
-    for rank, shipment in enumerate(kept, start=1):
-        rows, top = shipments[shipment], largest[shipment]
+    for rank, group in enumerate(kept, start=1):
+        lines, top = groups[group], largest[group]
         running += top
-        lines.append({
+        result.append({
             "rank": rank,
-            "shipment": _simple_id(shipment),
-            "rows": len(rows),
+            "sap_bol": lines[0]["row"].sap_bol,
+            "shipment": _distinct(_simple_id(line["row"].shipment) for line in lines),
+            "charges": len(lines),
+            "rows": sum(len(line["rows"]) for line in lines),
             "largest_dispute": top,
-            "total_on_rows": sum((row.disputed for row in rows), Decimal(0)),
-            "repeated_rows": sum(row.repeated for row in rows),
+            "total_of_charges": sum((line["row"].disputed for line in lines), Decimal(0)),
             "share_of_total": float(top / total),
             "cumulative_share": float(running / total),  # from exact sums, so the last line is exactly 1
-            "outcome": min((row.outcome for row in rows), key=_WORST_FIRST.index),
-            "main_category": _main_category([row for row in rows if row.disputed == top], note_results, names),
+            "outcome": min((line["outcome"] for line in lines), key=_WORST_FIRST.index),
+            "main_category": _main_category([line for line in lines if line["row"].disputed == top], note_results, names),
         })
-    return lines
+    return result
 
 
 def _put(cell: Cell, value: Any, number_format: str | None) -> None:
@@ -194,33 +245,39 @@ def write_workbook(path: Path, row_results: list[RowResult], note_results: dict[
     names = _names(categories)
     workbook = openpyxl.Workbook()
 
+    lines = charge_lines(row_results)
     items = workbook.active
     items.title = "Items"
     _table(items, _ITEMS, [
-        [row.row_id, item.item, _category_name(item, row, names), item.amount, item.evidence_text, row.outcome,
-         ALREADY_PAID_REASON if item.line_type == "already_paid" else AI_REASONS[item.basis]]
-        for row in row_results for item in _row_items(row, note_results)])
-    _wrap(items, "E")
-    _filterable(items, {"A": 9, "B": 6, "C": 28, "D": 12, "E": 50, "F": 16, "G": 42})
+        [line["charge_id"], line["row"].sap_bol, _simple_id(line["row"].shipment), item.item,
+         _category_name(item, line["row"], names), item.amount, item.evidence_text, line["outcome"],
+         ALREADY_PAID_REASON if item.line_type == "already_paid" else AI_REASONS[item.basis], line["row"].note]
+        for line in lines for item in _row_items(line["row"], note_results)])
+    _wrap(items, "G")
+    _filterable(items, {"A": 9, "B": 20, "C": 16, "D": 6, "E": 28, "F": 12, "G": 50, "H": 16, "I": 42, "J": 50})
 
-    summary = workbook.create_sheet("Row Summary")
-    _table(summary, _ROW_SUMMARY, [
-        [row.row_id, _simple_id(row.shipment), row.invoice, row.carrier, _simple_id(row.status), _simple_id(row.reason),
-         row.disputed, row.items_total, row.already_paid_total, row.difference, row.outcome, row.outcome_reason,
-         row.repeated, row.note]
-        for row in row_results])
-    for row, cells in zip(row_results, summary.iter_rows(min_row=2), strict=True):
-        if row.outcome in _HIGHLIGHTS:
+    summary = workbook.create_sheet("Charge Summary")
+    _table(summary, _CHARGE_SUMMARY, [
+        [line["charge_id"], line["row"].sap_bol, _distinct(_simple_id(r.shipment) for r in line["rows"]),
+         _distinct(r.bill_id for r in line["rows"]), _distinct(r.invoice for r in line["rows"]),
+         _distinct(r.carrier for r in line["rows"]), _distinct(_simple_id(r.status) for r in line["rows"]),
+         _distinct(_simple_id(r.reason) for r in line["rows"]), line["row"].disputed, line["row"].items_total,
+         line["row"].already_paid_total, line["row"].difference, line["outcome"], line["outcome_reason"],
+         len(line["rows"]), ", ".join(r.row_id for r in line["rows"]), ", ".join(line["same_amount_as"]),
+         line["row"].note]
+        for line in lines])
+    for line, cells in zip(lines, summary.iter_rows(min_row=2), strict=True):
+        if line["outcome"] in _HIGHLIGHTS:
             for cell in cells:
-                cell.fill = _HIGHLIGHTS[row.outcome]
-    _wrap(summary, "N")
-    _filterable(summary, {"A": 9, "B": 16, "C": 16, "D": 10, "E": 12, "F": 12, "G": 12, "H": 12, "I": 12, "J": 12, "K": 16,
-                          "L": 20, "M": 10, "N": 60})
+                cell.fill = _HIGHLIGHTS[line["outcome"]]
+    _wrap(summary, "R")
+    _filterable(summary, {"A": 9, "B": 20, "C": 16, "D": 18, "E": 16, "F": 10, "G": 12, "H": 12, "I": 12, "J": 12, "K": 12,
+                          "L": 12, "M": 16, "N": 20, "O": 6, "P": 20, "Q": 14, "R": 60})
 
     largest = workbook.create_sheet("Largest")
     _table(largest, _LARGEST, [[line[column] for column in _LARGEST]
-                               for line in largest_shipments(row_results, note_results, categories)])
-    _filterable(largest, {"A": 6, "B": 16, "C": 6, "D": 15, "E": 14, "F": 13, "G": 14, "H": 16, "I": 16, "J": 28})
+                               for line in largest_by_sap_bol(row_results, note_results, categories)])
+    _filterable(largest, {"A": 6, "B": 20, "C": 16, "D": 8, "E": 6, "F": 15, "G": 15, "H": 14, "I": 16, "J": 16, "K": 28})
 
     info = workbook.create_sheet("Run Info")
     _table(info, _RUN_INFO, [[key, _info_value(run_info[key])] for key in sorted(run_info)])

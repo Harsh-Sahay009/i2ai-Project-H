@@ -34,6 +34,11 @@ COLUMNS = {
     "note": "Descritipion",
     "repeat_marker": "Invoice Dups Removed",
 }
+# Read when present (ADR 0017). Without SAP BOL, the workbook groups by shipment.
+OPTIONAL_COLUMNS = {
+    "sap_bol": "SAP BOL",
+    "bill_id": "Invoice/Bill ID",
+}
 
 
 class ContractError(Exception):
@@ -97,6 +102,8 @@ class DisputeRow(BaseModel):
     reason: str
     note: str
     flags: list[str] = []
+    sap_bol: str = ""
+    bill_id: str = ""
 
 
 class Note(BaseModel):
@@ -186,6 +193,15 @@ def repeat_band(rows: int) -> str:
     return "5+" if rows >= 5 else ("2-4" if rows >= 2 else "1")
 
 
+def _id_text(value: Any) -> str:
+    """An ID cell as text. Excel can store an all-digit ID as a number, which must not gain a ".0"."""
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
 def _event_date(value: Any) -> str:
     if isinstance(value, dt.datetime):
         return value.date().isoformat()
@@ -210,6 +226,7 @@ def load_export(path: Path, examples_sheet: str = "Sheet1") -> tuple[list[Disput
         if missing:
             raise ContractError(f"missing columns: {', '.join(missing)}")
         at = {key: header.index(name) for key, name in COLUMNS.items()}
+        at.update({key: header.index(name) for key, name in OPTIONAL_COLUMNS.items() if name in header})
         rows: list[DisputeRow] = []
         for number, raw in enumerate(rows_iter, start=2):
             if all(cell is None for cell in raw):
@@ -240,6 +257,8 @@ def load_export(path: Path, examples_sheet: str = "Sheet1") -> tuple[list[Disput
                 reason=str(raw[at["reason"]]),
                 note=note,
                 flags=flags,
+                sap_bol=_id_text(raw[at["sap_bol"]]) if "sap_bol" in at else "",
+                bill_id=_id_text(raw[at["bill_id"]]) if "bill_id" in at else "",
             ))
         examples: set[str] = set()
         if examples_sheet in workbook.sheetnames:

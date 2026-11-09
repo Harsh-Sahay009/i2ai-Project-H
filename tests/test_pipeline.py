@@ -130,7 +130,7 @@ def hash_of(path: Path) -> str:
 
 
 def run_lines(path: Path) -> list[dict]:
-    sheet = openpyxl.load_workbook(path)["Row Summary"]
+    sheet = openpyxl.load_workbook(path)["Charge Summary"]
     head = [cell.value for cell in sheet[1]]
     return [dict(zip(head, line, strict=True)) for line in sheet.iter_rows(min_row=2, values_only=True)]
 
@@ -264,7 +264,7 @@ def test_notes_excluded_after_the_scan_are_not_sent_and_go_to_review(d3):
     freeze(d3)
     outcome = pipeline.run(d3.tmp)
     assert not any("JOHN.DOE" in call.user for call in d3.calls)
-    flagged = next(line for line in run_lines(outcome.workbook) if line["note"] == EMAIL_NOTE)
+    flagged = next(line for line in run_lines(outcome.workbook) if line["description"] == EMAIL_NOTE)
     assert flagged["outcome"] == "review"
 
 
@@ -358,6 +358,57 @@ def test_commands_print_no_note_text(d3):
 
 
 # ---- evaluate
+def _with_sap_bols(monkeypatch):
+    """The dataset as if its export had a SAP BOL column: one per shipment."""
+    real = pipeline.load_export
+
+    def load(path, examples_sheet="Sheet1"):
+        rows, examples = real(path, examples_sheet)
+        return [r.model_copy(update={"sap_bol": "0022" + r.shipment, "bill_id": "B" + r.row_id}) for r in rows], examples
+
+    monkeypatch.setattr(pipeline, "load_export", load)
+
+
+def run_info(path: Path) -> dict:
+    sheet = openpyxl.load_workbook(path)["Run Info"]
+    return {key: value for key, value in sheet.iter_rows(min_row=2, values_only=True)}
+
+
+def test_run_info_records_the_grain_and_the_charge_lines(d3, monkeypatch):
+    freeze(d3)
+    info = run_info(pipeline.run(d3.tmp).workbook)
+    assert info["grain"] == "one line per shipment and description: the export has no SAP BOL"
+    assert info["charge_lines"] == len(d3.rows)
+    _with_sap_bols(monkeypatch)
+    workbook = pipeline.run(d3.tmp, set_name="train", limit=3).workbook
+    assert run_info(workbook)["grain"] == "one line per SAP BOL and description"
+    lines = run_lines(workbook)
+    assert lines and all(line["sap_bol"].startswith("0022S") and line["bill_ids"].startswith("BR") for line in lines)
+
+
+def test_a_run_from_before_the_sap_bol_gets_a_plain_message_and_spends_nothing(d3, monkeypatch):
+    freeze(d3)
+    outcome = pipeline.run(d3.tmp)
+    _with_sap_bols(monkeypatch)
+    ledger = d3.tmp / "data" / "kpi" / "test_budget.jsonl"
+    with pytest.raises(ContractError, match="written before rows carried the SAP BOL") as caught:
+        pipeline.evaluate_run(d3.tmp, outcome.run_id)
+    assert "folder was changed" not in str(caught.value)
+    assert not ledger.exists() or "spent" not in ledger.read_text(encoding="utf-8")
+
+
+def test_a_changed_row_in_a_run_with_sap_bols_is_still_refused(d3, monkeypatch):
+    freeze(d3)
+    _with_sap_bols(monkeypatch)
+    outcome = pipeline.run(d3.tmp)
+    path = outcome.folder / "row_results.json"
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    rows[0]["disputed"] = "999.99"
+    path.write_text(json.dumps(rows), encoding="utf-8")
+    with pytest.raises(ContractError, match="folder was changed"):
+        pipeline.evaluate_run(d3.tmp, outcome.run_id)
+
+
 def test_evaluate_scores_all_rows_on_test_and_says_the_labels_are_provisional(d3):
     freeze(d3)
     outcome = pipeline.run(d3.tmp)

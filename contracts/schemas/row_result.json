@@ -14,6 +14,23 @@
       "default": null,
       "title": "Already Paid Total"
     },
+    "bill_id": {
+      "default": "",
+      "title": "Bill Id",
+      "type": "string"
+    },
+    "billed": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Billed"
+    },
     "carrier": {
       "title": "Carrier",
       "type": "string"
@@ -122,6 +139,11 @@
     },
     "row_id": {
       "title": "Row Id",
+      "type": "string"
+    },
+    "sap_bol": {
+      "default": "",
+      "title": "Sap Bol",
       "type": "string"
     },
     "shipment": {

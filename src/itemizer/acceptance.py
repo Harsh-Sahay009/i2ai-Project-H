@@ -11,7 +11,7 @@ from .bootstrap import labels as lb
 from .bootstrap import split as sp
 from .bootstrap import taxonomy as tx
 from .bootstrap.data import ContractError, sha256_file
-from .output import largest_shipments
+from .output import largest_by_sap_bol
 from .pipeline import APPROVAL, CATEGORIES, Project, latest_full_run, load_project, load_run, out_of_date
 
 REVIEW_RECORD = "reports/client_review_d3.json"
@@ -92,7 +92,7 @@ def _d3(project: Project, run_id: str | None) -> tuple[dict, list[dict]]:
     if changed:  # the run does not show what the current inputs would give, so none of its numbers are shown
         return {**result, "status": "open", "reason": "run_out_of_date", "changed": changed}, []
     categories = project.categories()
-    shipments = largest_shipments(rows, notes, categories)[:10]
+    shipments = largest_by_sap_bol(rows, notes, categories)[:10]
     snapshot_path = kpi.snapshot_path(project.data_root, run_id, "d3")
     if not snapshot_path.exists():
         return {**result, "status": "open", "reason": "not_evaluated"}, shipments
@@ -219,12 +219,13 @@ def _page(summary: dict, shipments: list[dict]) -> str:
     review = d3.get("client_review")
     parts.append(f"<p>Client review: {html.escape(review['date']) if review else 'not recorded yet'}.</p>")
     if shipments:
-        parts.append("<h2>Largest disputes, each shipment counted once</h2>"
-                     "<table><tr><th>Rank</th><th>Shipment</th><th>Rows</th><th>Largest dispute</th><th>Total on rows</th>"
-                     "<th>Repeated rows</th><th>Share</th><th>Outcome</th><th>Main category</th></tr>")
+        parts.append("<h2>Largest disputes, each SAP BOL counted once</h2>"
+                     "<table><tr><th>Rank</th><th>SAP BOL</th><th>Shipment</th><th>Charges</th><th>Rows</th><th>Largest dispute</th>"
+                     "<th>Total of charges</th><th>Share</th><th>Outcome</th><th>Main category</th></tr>")
         for line in shipments:
-            parts.append(f"<tr><td>{line['rank']}</td><td>{html.escape(str(line['shipment']))}</td><td>{line['rows']}</td>"
-                         f"<td>{_money(line['largest_dispute'])}</td><td>{_money(line['total_on_rows'])}</td><td>{line['repeated_rows']}</td>"
+            parts.append(f"<tr><td>{line['rank']}</td><td>{html.escape(str(line['sap_bol']))}</td><td>{html.escape(str(line['shipment']))}</td>"
+                         f"<td>{line['charges']}</td><td>{line['rows']}</td>"
+                         f"<td>{_money(line['largest_dispute'])}</td><td>{_money(line['total_of_charges'])}</td>"
                          f"<td>{_percent(line['share_of_total'])}</td><td>{html.escape(str(line['outcome']))}</td>"
                          f"<td>{html.escape(str(line['main_category'] or ''))}</td></tr>")
         parts.append("</table>")
@@ -237,7 +238,7 @@ def d3_check(root: Path, run_id: str | None = None) -> dict:
     project = load_project(root)
     d3, shipments = _d3(project, run_id)
     summary = {"d1": _d1(project), "d2": _d2(project), "d3": d3,
-               "largest_disputes": [{**line, "largest_dispute": str(line["largest_dispute"]), "total_on_rows": str(line["total_on_rows"])}
+               "largest_disputes": [{**line, "largest_dispute": str(line["largest_dispute"]), "total_of_charges": str(line["total_of_charges"])}
                                     for line in shipments]}
     folder = project.data_root / "reports"
     folder.mkdir(parents=True, exist_ok=True)

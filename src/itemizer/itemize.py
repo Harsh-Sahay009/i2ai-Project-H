@@ -393,7 +393,8 @@ class Policy(BaseModel):
 def _assign_row(row: DisputeRow, note_results: dict[str, NoteResult], policy: Policy) -> RowResult:
     repeated = "repeated_invoice" in row.flags
     common: dict[str, Any] = dict(row_id=row.row_id, shipment=row.shipment, invoice=row.invoice, carrier=row.carrier,
-                                  status=row.status, reason=row.reason, disputed=row.disputed, repeated=repeated, note=row.note)
+                                  status=row.status, reason=row.reason, disputed=row.disputed, repeated=repeated, note=row.note,
+                                  sap_bol=row.sap_bol, bill_id=row.bill_id, billed=row.billed)
     if not row.note.strip():
         return RowResult(**common, outcome="no_charge_stated", outcome_reason="empty_note")
     result = note_results.get(fingerprint(row.note))
