@@ -14,5 +14,5 @@
 
 ## 3. Check
 
-- [ ] 3.1 Test the branch from a clean export of its commit
-- [ ] 3.2 Run all rows of the dataset file from the cache, and check the line count, the dollars and the flagged lines
+- [x] 3.1 Test the branch from a clean export of its commit
+- [x] 3.2 Run all rows of the dataset file from the cache, and check the line count, the dollars and the flagged lines
