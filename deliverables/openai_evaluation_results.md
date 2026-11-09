@@ -1,5 +1,10 @@
 # Separate OpenAI evaluation — 5 November 2026
 
+> Current closeout: see [final report](final_methodology_report.md). The evaluation
+> code/results documentation below was merged through PR #7; historical statements
+> about an unpushed branch describe that checkpoint. Later review proposals and
+> assisted labels are separate from these unchanged benchmark measurements.
+
 A separate GPT-5.4 Mini benchmark completed on all 200 received reference notes. The user authorized **$5 total** across development, benchmark, full corpus and resumptions. The same-model full-corpus run has now completed all 729 distinct notes and 1,347 dispute rows.
 
 | Completed benchmark measure | Result |

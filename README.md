@@ -2,7 +2,9 @@
 
 PPG pays carriers against an estimated freight charge. When a carrier bills more, a clerk explains the difference in a free-text note, and accountants read each note by hand. This tool turns those notes into itemized charges, each with a category, an amount and the exact words it came from. A row that does not add up is flagged, and the tool never edits an amount to make it add up. It does not decide whether a charge should be paid.
 
-**Status:** the D3 prototype runs on the sample export. The labels behind its accuracy figure were drafted by Claude Opus and have not yet been checked by people (ADR 0015), so that figure shows agreement with those drafts and not correctness. See `openspec/changes/add-d3-thin-path/live-check.md`.
+**Current-data closeout (November 9, 2026):** the prototype, separate OpenAI evaluation, shipment-level export and assisted review are complete for the supplied export. The 200-note benchmark has 95.94% answered-note agreement and 94.5% strict yield against the existing reference, not independently double-labeled accuracy on all data. Review exclusions and the outstanding human/client/new-export acceptance requirements are explicit. Start with the [final methodology report](deliverables/final_methodology_report.md) and [rerun guide](deliverables/final_rerun_guide.md). Historical prototype results remain in `openspec/changes/add-d3-thin-path/live-check.md`.
+
+The eight-page [final report PDF](output/pdf/Freight_Analytics_Final_Report.pdf) contains aggregate results and limitations; confidential review workbooks and source data remain private.
 
 ## Install
 
