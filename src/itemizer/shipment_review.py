@@ -23,6 +23,39 @@ _BALANCE_AMOUNT = re.compile(
     r"\s*[:=-]?\s*\$?\s*(\d[\d, ]*(?:\.\d{1,2})?)", re.IGNORECASE)
 
 
+def balance_role(item: dict, description: str) -> str | None:
+    """Use evidence occurrences, not equal amounts alone, to identify context."""
+    if item["category"] != "other_unmapped" or item.get("amount") is None:
+        return None
+    matches = [m for m in _BALANCE_AMOUNT.finditer(description)
+               if Decimal(m.group(1).replace(",", "").replace(" ", "")) == Decimal(str(item["amount"]))]
+    if not matches:
+        return None
+    quote = item.get("evidence_text")
+    start, end = item.get("evidence_start"), item.get("evidence_end")
+    if quote and isinstance(start, int) and isinstance(end, int) and description[start:end] == quote:
+        spans = [(start, end)]
+    elif quote:
+        pattern = r"\s+".join(re.escape(part) for part in quote.split())
+        spans = [(m.start(), m.end()) for m in re.finditer(pattern, description)]
+    else:
+        spans = [(0, len(description))]
+    roles = set()
+    for start, end in spans:
+        overlap = [m for m in matches if max(start, m.start()) < min(end, m.end())]
+        if not overlap:
+            roles.add("expense")
+        elif any(start >= m.start() and end <= m.end() for m in overlap):
+            roles.add("balance")
+        else:
+            outside = description[start:end]
+            for match in reversed(overlap):
+                left, right = max(start, match.start())-start, min(end, match.end())-start
+                outside = outside[:left] + outside[right:]
+            roles.add("ambiguous" if re.search(r"[A-Za-z]", outside) else "balance")
+    return roles.pop() if len(roles) == 1 else "ambiguous"
+
+
 def build_review(rows: list[dict], predictions: dict, overlay: dict | None = None) -> dict:
     overlay = overlay or {}
     if len({r["row_id"] for r in rows}) != len(rows):
@@ -80,13 +113,10 @@ def build_review(rows: list[dict], predictions: dict, overlay: dict | None = Non
             output.update(group_id=gid, sap_bol=bol, item=ordinal,
                           provenance="human_overlay" if effective is decision else "saved_model",
                           decision_file=group["decision_file"])
-            # Evidence may quote only the amount. Compare explicitly named
-            # balance amounts in the description, without swallowing a different
-            # unmapped fee merely because a balance also occurs in that note.
-            generic_balance = item["category"] == "other_unmapped" and any(
-                Decimal(match.replace(",", "").replace(" ", "")) == Decimal(str(item["amount"]))
-                for match in _BALANCE_AMOUNT.findall(group["description"])
-            ) if item.get("amount") is not None else False
+            role = balance_role(item, group["description"])
+            generic_balance = role == "balance"
+            if role == "ambiguous":
+                flags.append("ambiguous_fee_and_balance_evidence")
             if generic_balance:
                 flags.append("unmapped_balance_context")
             destination = context if (item["category"] == "short_paid"

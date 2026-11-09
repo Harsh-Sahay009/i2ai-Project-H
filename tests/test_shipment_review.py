@@ -132,6 +132,35 @@ def test_unrelated_unmapped_fee_is_not_swallowed_by_a_different_balance():
     assert out["balance_context"] == []
 
 
+def test_equal_amount_named_fee_is_not_swallowed_by_a_balance():
+    note = "DOCUMENT FEE $75.00; BALANCE DUE $75.00"
+    pred = predictions(note, [dict(item=1, category="other_unmapped", amount="75.00",
+                                 line_type="charge", evidence_text="DOCUMENT FEE $75.00")])
+    out = build_review([row("R1", note=note)], pred)
+    assert len(out["charges"]) == 1
+    assert out["balance_context"] == []
+
+
+def test_ambiguous_equal_amount_quote_is_flagged_instead_of_removed():
+    note = "DOCUMENT FEE $75.00; BALANCE DUE $75.00"
+    pred = predictions(note, [dict(item=1, category="other_unmapped", amount="75.00",
+                                 line_type="charge", evidence_text="$75.00")])
+    out = build_review([row("R1", note=note)], pred)
+    assert len(out["charges"]) == 1
+    assert "ambiguous_fee_and_balance_evidence" in out["groups"][0]["flags"]
+
+
+def test_precise_balance_span_distinguishes_equal_amount_occurrences():
+    note = "DOCUMENT FEE $75.00; BALANCE DUE $75.00"
+    start = note.rindex("$75.00")
+    pred = predictions(note, [dict(item=1, category="other_unmapped", amount="75.00",
+                                 line_type="charge", evidence_text="$75.00",
+                                 evidence_start=start, evidence_end=start+6)])
+    out = build_review([row("R1", note=note)], pred)
+    assert out["charges"] == []
+    assert len(out["balance_context"]) == 1
+
+
 def test_stale_or_unbound_overlay_is_rejected():
     for decision in [dict(decision_file="case.json", items=[]),
                      dict(decision_file="case.json", items=[], expected_fingerprint=fingerprint("OTHER NOTE"), expected_sap_bol="000123"),
