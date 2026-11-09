@@ -1,5 +1,20 @@
 # D3 readiness — 4 November 2026
 
+> **9 November update:** [AI source review](ai_review_2026-11-09.md) records the
+> completed review of all flagged groups plus related source claims: 244 groups,
+> 208 extraction reviews complete and 36 requiring external evidence. This is
+> explicitly an AI review, with a separate private proposal and preserved originals.
+
+> **8 November update:** the historical checkpoints below are superseded for
+> current status by [shipment review handoff](shipment_review_handoff.md) and
+> [progress update](progress_update_2026-11-08.md). The November 5 client demo
+> occurred; its transcript requests SAP BOL + description grouping, unique
+> shipment charges and no invoice allocation. A complete independent OpenAI run
+> and an offline shipment-level review export now exist privately. Formal
+> acceptance, independent reference-label requirements and new-export validation
+> remain open. Historical statements below about missing runs or a future demo
+> describe the earlier checkpoint, not today's state.
+
 > **5 November update:** this document preserves the November 4 checkpoint below. Latest `main` (`5720718`) now includes the local upload UI, Kimi comparison, and updated KPI reporting. It has been integrated with the local readiness fixes on `codex/integrate-latest`. Alejandro also supplied `test_provisional.json` with 200 model-drafted labels and 279 items. Only 77 notes overlap the reconstructed TEST set, so the file is preserved separately under ignored `data/incoming/alejandro/`. A portable workbook supports review of those original labels without fabricating freeze records or changing the local reconstruction. Original split/freeze/run artifacts are still missing; human review remains pending. See `deliverables/integration_2026-11-05.md` for current verification.
 
 The team selected prototype and D3 readiness first. This record accompanies the local `codex/d3-readiness` branch, based on implementation commit `63f440d`. It does not record a client approval or declare D3 complete.
