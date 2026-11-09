@@ -1,5 +1,10 @@
 # D3 readiness — 4 November 2026
 
+> **9 November update:** [AI source review](ai_review_2026-11-09.md) records the
+> completed review of all flagged groups plus related source claims: 244 groups,
+> 208 extraction reviews complete and 36 requiring external evidence. This is
+> explicitly an AI review, with a separate private proposal and preserved originals.
+
 > **8 November update:** the historical checkpoints below are superseded for
 > current status by [shipment review handoff](shipment_review_handoff.md) and
 > [progress update](progress_update_2026-11-08.md). The November 5 client demo
