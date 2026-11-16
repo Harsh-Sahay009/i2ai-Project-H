@@ -6,6 +6,8 @@ PPG pays carriers against an estimated freight charge. When a carrier bills more
 
 The eight-page [final report PDF](output/pdf/Freight_Analytics_Final_Report.pdf) contains aggregate results and limitations; confidential review workbooks and source data remain private.
 
+**November 15 update:** [Harsh's TP2 review addendum](deliverables/tp2_harsh_review_2026-11-15.md) records Jake's Phase 3 approval and newer amount-field/USD guidance, verification of hazmat/GST handling, and assisted review of the actual 200-note reference. It supersedes older assumptions; human/client label acceptance remains open.
+
 ## Install
 
 You need Python 3.12 and [uv](https://docs.astral.sh/uv/).

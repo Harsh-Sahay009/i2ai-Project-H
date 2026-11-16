@@ -111,6 +111,37 @@ def a_run():
     return rows, notes
 
 
+def test_hazmat_output_keeps_charge_separate_from_bol_weight(tmp_path):
+    text = "HAZMAT $150.00; BOL WEIGHT 12 345 LBS"
+    notes = {"haz": answered("haz", item("hazmat", "150.00", "HAZMAT $150.00"))}
+    rows = [row(fp="haz", note=text, disputed="150.00", items_total="150.00", sap_bol="000BOL1")]
+    categories = CATEGORIES + [{"code": "hazmat", "name": "Hazmat", "definition": "Hazardous-material fee."}]
+    path = write(tmp_path / "hazmat.xlsx", rows, notes, categories)
+    values = sheet_values(path, "Items")
+    assert len(values) == 1
+    assert values[0]["amount"] == 150
+    assert values[0]["evidence"] == "HAZMAT $150.00"
+    assert values[0]["description"] == text
+
+
+def test_joined_lumper_tax_output_does_not_add_the_gross_total_again(tmp_path):
+    text = "SORTATION $60.00 + GST $3.00 = $63.00"
+    notes = {"gst": answered("gst", item("lumper", "60.00", "SORTATION $60.00"),
+                              item("tax", "3.00", "GST $3.00", number=2, line_type="tax"))}
+    rows = [row(rid, fp="gst", note=text, disputed="126.00", items_total="63.00", difference="63.00",
+                outcome="discrepancy", sap_bol="000BOL2", bill_id=bill)
+            for rid, bill in [("R0002", "ORDER1"), ("R0003", "ORDER2")]]
+    path = write(tmp_path / "gst.xlsx", rows, notes)
+    items = sheet_values(path, "Items")
+    summary = sheet_values(path, SUMMARY)
+    assert sorted(i["amount"] for i in items) == [3, 60]
+    assert len(summary) == 1
+    assert summary[0]["items_total"] == 63
+    assert summary[0]["rows"] == 2
+    assert summary[0]["row_ids"] == "R0002, R0003"
+    assert summary[0]["outcome"] == "discrepancy"  # Legacy Delta is diagnostic, not a reason to invent a fee.
+
+
 # ---- sheets
 @pytest.mark.parametrize("name, columns", [
     ("Items", ITEM_COLUMNS),
